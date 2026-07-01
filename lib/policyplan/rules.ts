@@ -22,7 +22,13 @@ export type SuitabilityFlag = {
 
 // -----------------------------------------------------------------------------
 // Helper: does the chosen coverage duration reach or exceed lifetime?
-// Covers both scale-point selections and age-mode entries beyond 100.
+// Covers scale-point selections for age_100 / beyond_age_100 and age-mode
+// entries at or beyond 100.
+//
+// life_expectancy is intentionally excluded: life expectancy varies by insured
+// and must not be treated as automatically reaching lifetime.  If a rule needs
+// to handle life_expectancy, add it as a separate, explicitly-named condition
+// in that rule rather than routing it through this helper.
 // -----------------------------------------------------------------------------
 export function durationReachesLifetime(
   duration: PolicySpecs["death_benefit_duration"]
@@ -31,8 +37,7 @@ export function durationReachesLifetime(
   if (duration.mode === "scale") {
     return (
       duration.scale_point === "age_100" ||
-      duration.scale_point === "beyond_age_100" ||
-      duration.scale_point === "life_expectancy"
+      duration.scale_point === "beyond_age_100"
     );
   }
   // age mode: treat ≥ 100 as lifetime
@@ -133,6 +138,9 @@ function ruleGuaranteeCostDurationTension(
         ? `attained age ${dbDuration.age}`
         : "beyond age 100";
 
+    // Boundary note: fires on beyond_age_100 (scale) and age > 100 (age mode).
+    // age_100 / exactly age 100 deliberately excluded — a standard GUL guarantee
+    // to 100 is not the more aggressive beyond-100 commitment this rule targets.
     flags.push({
       code: "GUARANTEE_COST_DURATION_TENSION",
       description: buildTensionBody(
@@ -140,8 +148,8 @@ function ruleGuaranteeCostDurationTension(
         emphasis.drivers.cost_sensitivity,
         durationLabel
       ),
-      severity: "warning",
-      requirement: "NY Reg 187 §224.4(g) — financial ability to meet policy commitments",
+      severity: "material",
+      requirement: "224.4(g)",
     });
   }
 }
