@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, LogIn, ExternalLink } from "lucide-react";
 
-const CALENDLY_URL = "[PLACEHOLDER: Calendly link]";
-const CONTACT_EMAIL = "[PLACEHOLDER: contact email]";
+const CALENDLY_URL = "https://calendly.com/financialplanner-ai-support/30min";
+const CONTACT_EMAIL = "rpc@financialplanner-ai.com";
 
 export function CTABand() {
   return (

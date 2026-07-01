@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 
-const FPAI_URL = "[PLACEHOLDER: link]";
+const FPAI_URL = "https://financialplanner-ai.com";
 
 const quickLinks = [
   { label: "Home", href: "/" },

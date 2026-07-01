@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, ShieldCheck, Users, Building2, Briefcase, LayoutGrid, ExternalLink } from "lucide-react";
 
-const CALENDLY_URL = "[PLACEHOLDER: Calendly link]";
+const CALENDLY_URL = "https://calendly.com/financialplanner-ai-support/30min";
 
 export function LandingHero() {
   return (

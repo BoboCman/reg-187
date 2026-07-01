@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
+const CALENDLY_URL = "https://calendly.com/financialplanner-ai-support/30min";
+
 export function LandingNav() {
   return (
     <>
