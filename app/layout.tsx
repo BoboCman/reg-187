@@ -11,7 +11,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "PolicyPlan — Best-Interest Life Insurance Intake",
   description:
-    "Seven-step best-interest life insurance intake for advisors. Needs-first order per Reg 187, NAIC Model 275, and CFP Board. Design emphasis inferred from the client profile.",
+    "PolicyPlan is a 7-step best-interest life insurance intake that captures every Reg 187, NAIC Model 275, and CFP Board suitability signal — and infers design emphasis automatically from the client profile.",
 };
 
 export const viewport: Viewport = {
@@ -26,8 +26,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} bg-[var(--color-background)]`}>
-      <body className="font-sans">{children}</body>
+    <html lang="en" className={`${inter.variable} h-full antialiased bg-white`}>
+      <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>
   );
 }
