@@ -7,9 +7,10 @@ interface StepFooterProps {
   onContinue: () => void;
   continueDisabled?: boolean;
   isLastStep?: boolean;
+  continueLabel?: string;
 }
 
-export function PPStepFooter({ onContinue, continueDisabled, isLastStep }: StepFooterProps) {
+export function PPStepFooter({ onContinue, continueDisabled, isLastStep, continueLabel }: StepFooterProps) {
   const { step, goBack } = usePPWizard();
   const last = isLastStep ?? step === PP_STEP_COUNT;
 
@@ -42,7 +43,7 @@ export function PPStepFooter({ onContinue, continueDisabled, isLastStep }: StepF
             continueDisabled && "opacity-40 cursor-not-allowed pointer-events-none"
           )}
         >
-          {last ? "Review and submit" : "Continue"}
+          {continueLabel ?? (last ? "Review and submit" : "Continue")}
         </button>
       </div>
     </div>

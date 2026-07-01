@@ -40,6 +40,7 @@ const EMPTY_POLICY = {
   policy_loan_balance: undefined,
   cash_surrender_value: undefined,
   premium_amount: undefined,
+  remaining_premium_years: undefined,
   policy_type: undefined,
   under_replacement_consideration: undefined as "yes" | "no" | undefined,
 };
@@ -188,6 +189,15 @@ export function PPStep4ExistingCoverage() {
                       render={({ field }) => (
                         <MoneyInput value={field.value} onChange={field.onChange} />
                       )}
+                    />
+                  </FormField>
+                  <FormField label="Remaining premium years" hint="0 if paid-up; leave blank if unknown">
+                    <TextInput
+                      {...register(`policies.${idx}.remaining_premium_years`, { valueAsNumber: true })}
+                      type="number"
+                      placeholder="e.g. 10"
+                      min={0}
+                      max={100}
                     />
                   </FormField>
                   <FormField label="Purpose of policy">
