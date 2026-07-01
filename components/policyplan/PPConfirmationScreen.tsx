@@ -7,6 +7,7 @@ import {
   type PolicyPlanIntake,
   type EmphasisLevel,
 } from "@/lib/policyplan/schema";
+import { detectSuitabilityTensions } from "@/lib/policyplan/rules";
 import { usePPWizard } from "@/lib/policyplan/wizard-context";
 import { cn } from "@/lib/utils";
 
@@ -92,68 +93,8 @@ export function PPConfirmationScreen({ intake }: { intake: PolicyPlanIntake }) {
       ? PREMIUM_SCALE_LABELS[premDuration.scale_point] ?? premDuration.scale_point
       : "—";
 
-  // Suitability tension detector
-  const hasTension =
-    emphasis.guarantee_protection === "high" &&
-    emphasis.cost_sensitivity === "high" &&
-    dbDuration?.mode === "scale" &&
-    dbDuration.scale_point === "beyond_age_100";
-
-  // Driver-derived phrase maps — narrate from what actually fired
-  const GUARANTEE_DRIVER_PHRASES: Record<string, string> = {
-    "guarantee_vs_upside=strongly_prefer_guarantees":
-      "a strong stated preference for guaranteed outcomes over non-guaranteed upside",
-    "guarantee_vs_upside=lean_guarantees":
-      "a stated lean toward guaranteed outcomes",
-    "nonguaranteed_elements=prefer_to_avoid":
-      "a preference to avoid non-guaranteed policy elements such as variable premiums, credited rates, or non-guaranteed fees",
-    "nonguaranteed_elements=accept_with_limits":
-      "a willingness to accept non-guaranteed elements only with limits",
-    "value_variability_tolerance=prefer_stability":
-      "a preference for stable policy values over year-to-year variability",
-  };
-
-  const COST_DRIVER_PHRASES: Record<string, string> = {
-    "premium_funding_commitment=unable_or_unwilling":
-      "an inability or unwillingness to fund a higher premium if the policy requires it to remain in force",
-    // Forward-compatible: if a second cost input is added later, map it here
-  };
-
-  function buildTensionMessage(
-    guaranteeDrivers: string[],
-    costDrivers: string[]
-  ): string {
-    const guarPhrases = guaranteeDrivers
-      .map((d) => GUARANTEE_DRIVER_PHRASES[d])
-      .filter(Boolean);
-    const costPhrases = costDrivers
-      .map((d) => COST_DRIVER_PHRASES[d])
-      .filter(Boolean);
-
-    const guarText =
-      guarPhrases.length > 0
-        ? guarPhrases.join("; ")
-        : "a preference for coverage guarantees";
-
-    const costText =
-      costPhrases.length > 0
-        ? costPhrases.join("; ")
-        : "limited premium funding flexibility";
-
-    return (
-      `The client's profile reflects ${guarText}. ` +
-      `At the same time, the profile records ${costText}. ` +
-      `The target coverage duration extends beyond age 100, which typically requires a permanent policy with a higher and longer-term premium commitment. ` +
-      `Review whether the funding expectations and the coverage duration are consistent before proceeding.`
-    );
-  }
-
-  const tensionMessage = hasTension
-    ? buildTensionMessage(
-        emphasis.drivers.guarantee_protection,
-        emphasis.drivers.cost_sensitivity
-      )
-    : null;
+  // Suitability tension flags — delegated to shared rule module (lib/policyplan/rules.ts)
+  const suitabilityFlags = detectSuitabilityTensions(intake, emphasis);
 
   return (
     <div className="min-h-screen bg-[var(--color-background)]">
@@ -185,16 +126,24 @@ export function PPConfirmationScreen({ intake }: { intake: PolicyPlanIntake }) {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-5">
         {/* Suitability tension callout */}
-        {tensionMessage && (
-          <div className="rounded-lg border border-amber-300 bg-[var(--color-warning-light)] px-5 py-4">
+        {suitabilityFlags.map((flag) => (
+          <div
+            key={flag.code}
+            className="rounded-lg border border-amber-300 bg-[var(--color-warning-light)] px-5 py-4"
+          >
             <p className="text-sm font-semibold text-[var(--color-warning)] mb-1">
               Advisor review required — design tension detected
             </p>
             <p className="text-sm text-[var(--color-text-secondary)]">
-              {tensionMessage}
+              {flag.description}
             </p>
+            {flag.requirement && (
+              <p className="text-xs text-[var(--color-text-muted)] mt-2">
+                {flag.requirement}
+              </p>
+            )}
           </div>
-        )}
+        ))}
 
         {/* Insured & owner */}
         <SectionCard title="Insured and owner">
