@@ -9,9 +9,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "LIDQ — Life Insurance Design Questionnaire",
+  title: "PolicyPlan — Best-Interest Life Insurance Intake",
   description:
-    "Valmark Life Insurance Design Questionnaire digital intake — collect insured information, financial profile, objectives, and Reg 187 attestation in a structured 8-step wizard.",
+    "Seven-step best-interest life insurance intake for advisors. Needs-first order per Reg 187, NAIC Model 275, and CFP Board. Design emphasis inferred from the client profile.",
 };
 
 export const viewport: Viewport = {
