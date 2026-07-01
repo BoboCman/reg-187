@@ -12,7 +12,7 @@ export function LandingHero() {
           {/* Eyebrow badge */}
           <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-sm font-medium mb-10 border border-blue-100">
             <ShieldCheck className="w-4 h-4" />
-            New York Reg 187
+            New York Reg 187 · Best-interest documentation
           </div>
 
           {/* H1 */}
@@ -23,12 +23,12 @@ export function LandingHero() {
 
           {/* Subhead */}
           <p className="text-xl text-slate-500 max-w-2xl leading-relaxed mb-4">
-            PolicyPlan is a structured workspace for intake, recommendation rationale, advisor approval, carrier-ready documentation, and versioned case records, built around the New York Reg 187 best-interest process.
+            A structured workspace for intake, recommendation rationale, advisor approval, client-ready summaries, carrier-ready documentation, and versioned case records — built around the New York Reg 187 best-interest process.
           </p>
 
           {/* Supporting line */}
           <p className="text-base text-slate-400 max-w-2xl leading-relaxed mb-12">
-            Move from scattered notes, static PDFs, and hand-written narratives to a consistent recommendation file. It&apos;s not another form. It&apos;s the case record for the recommendation.
+            PolicyPlan moves advisors and firms from scattered notes, static PDFs, carrier-specific forms, and hand-written narratives to a consistent recommendation file. Advisors get more than a record for the file — they get a clear client-facing summary that explains why the recommendation fits.
           </p>
 
           {/* Audience chips */}
@@ -51,20 +51,20 @@ export function LandingHero() {
             </span>
           </div>
 
-          {/* Dual CTA — primary: Book a Walkthrough, secondary: View Sample Report */}
+          {/* Dual CTA — primary: Schedule Demo, secondary: View Sample Client Summary */}
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <Link
               href="/app"
               className="inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold text-base border-2 border-blue-700 text-blue-700 hover:bg-blue-50 transition-all gap-2"
             >
               <ExternalLink className="w-4 h-4" />
-              View Sample Report
+              View Sample Output
             </Link>
             <a
               href={CALENDLY_URL}
               className="group inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold text-base bg-blue-700 hover:bg-blue-800 text-white transition-all"
             >
-              Book a Walkthrough
+              Schedule Demo
               <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
             </a>
           </div>

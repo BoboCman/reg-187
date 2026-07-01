@@ -3,15 +3,27 @@ import { ChevronDown } from "lucide-react";
 const faqs = [
   {
     q: "What is PolicyPlan?",
-    a: "A web-based best-interest documentation workspace for life insurance recommendations. It helps advisors and firms capture client context, develop a recommendation rationale, prepare carrier-ready output, and maintain a versioned case record.",
+    a: "A web-based best-interest documentation workspace for life insurance recommendations. It helps advisors and firms capture client context, develop a recommendation rationale, create a client-ready summary, prepare carrier-ready output, and maintain a versioned case record.",
+  },
+  {
+    q: "Does PolicyPlan create a client-facing recommendation summary?",
+    a: "Yes. PolicyPlan can generate a client-ready summary that explains the basis for the recommendation in clear professional language. The summary can include the client objective, relevant facts, recommended approach, favorable considerations, tradeoffs, assumptions, and items that may change before placement. The advisor reviews, edits, and approves the summary before use.",
   },
   {
     q: "Is PolicyPlan a Reg 187 form?",
-    a: "No. It is not a single static form. It is a structured workflow that supports the New York Reg 187 best-interest process, including intake, rationale drafting, advisor approval, client disclosure, and a case-level audit trail.",
+    a: "No. It is not a single static form. It is a structured workflow that supports the New York Reg 187 best-interest process, including intake, rationale drafting, advisor approval, client summary generation, carrier documentation, and a case-level audit trail.",
   },
   {
     q: "Does PolicyPlan make recommendations?",
-    a: "No. PolicyPlan drafts and organizes the recommendation rationale from advisor-entered information. The advisor reviews, edits, approves, and owns the final recommendation.",
+    a: "No. PolicyPlan drafts and organizes recommendation rationale from advisor-entered information. The advisor reviews, edits, approves, and owns the final recommendation and any client-facing summary.",
+  },
+  {
+    q: "Is the client summary required?",
+    a: "PolicyPlan does not determine what any specific firm, carrier, or regulator requires in a particular case. The client summary is designed to help advisors communicate the basis for the recommendation and preserve a clearer record of the recommendation process. Firm and carrier procedures still control.",
+  },
+  {
+    q: "Can the client summary be customized?",
+    a: "Yes. Firms can configure summary format, required sections, disclosures, approval steps, and output language to align with internal procedures and carrier submission expectations.",
   },
   {
     q: "Who is PolicyPlan for?",
@@ -32,10 +44,6 @@ const faqs = [
   {
     q: "Where does it fit in the sales process?",
     a: "It is used before application, when the advisor is developing and documenting the recommendation. It also supports revised documentation if underwriting, pricing, product design, or client facts change before placement.",
-  },
-  {
-    q: "Does it create a client-facing report?",
-    a: "Yes. PolicyPlan produces a professional recommendation summary that explains the basis for the recommendation in clear language, plus a firm-facing or carrier-facing documentation packet.",
   },
   {
     q: "Can firms white-label PolicyPlan?",

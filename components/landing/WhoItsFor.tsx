@@ -4,22 +4,22 @@ const audiences = [
   {
     icon: Users,
     title: "Advisors & producers",
-    body: "Move from case notes and illustration commentary to a clear, documented recommendation rationale. Less manual writing, more consistent client conversations, and a better record of why the recommendation was made.",
+    body: "Move from case notes, illustration commentary, and manual write-ups to a clear, documented recommendation rationale. PolicyPlan helps advisors create a professional client-ready summary that explains why the recommendation fits, while preserving the case record behind it.",
   },
   {
     icon: Briefcase,
     title: "BGAs & IMOs",
-    body: "Support complex permanent life cases with a repeatable best-interest workflow. Under New York Reg 187, when a case designer or specialist is compensated for helping tailor a recommendation, that role can become part of the recommendation process. PolicyPlan records the participation, rationale, and approvals behind every case you support.",
+    body: "Support complex permanent life cases with a repeatable best-interest workflow. For BGAs and IMOs, the issue is not just convenience. When case designers or specialists help tailor recommendations for a specific consumer, that support should be documented clearly. PolicyPlan helps record the facts, rationale, participants, approvals, client summary, and case changes behind the recommendation.",
   },
   {
     icon: Building2,
     title: "Insurance firms & broker-dealers",
-    body: "Create a consistent framework for recommendation documentation, supervisory review, advisor attestation, and case-level audit trails, without forcing every advisor into a static PDF process.",
+    body: "Create a consistent framework for recommendation documentation, supervisory review, advisor attestation, client-facing summaries, and case-level audit trails — without forcing every advisor into a static PDF process.",
   },
   {
     icon: LayoutGrid,
     title: "Carrier distribution teams",
-    body: "Receive more complete case documentation from distribution partners. PolicyPlan organizes the facts, rationale, tradeoffs, and approvals that support the recommendation process.",
+    body: "Receive more complete case documentation from distribution partners. PolicyPlan organizes the facts, rationale, tradeoffs, approvals, client summary, and supporting documentation behind the recommendation process.",
   },
 ];
 

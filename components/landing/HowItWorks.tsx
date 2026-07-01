@@ -4,17 +4,17 @@ const steps = [
   {
     icon: ClipboardList,
     title: "Intake",
-    body: "Capture the client's insurance need, financial profile, ownership structure, existing coverage, funding source, risk tolerance, and product objectives in a structured web experience designed around the New York Reg 187 best-interest process.",
+    body: "Capture the client's insurance need, financial profile, ownership structure, existing coverage, funding source, risk tolerance, product objectives, and case context in a structured web experience designed around the New York Reg 187 best-interest process.",
   },
   {
     icon: BrainCircuit,
     title: "Recommend",
-    body: "PolicyPlan turns the advisor's answers and case details into a draft recommendation rationale, with favorable considerations, tradeoffs, assumptions, and items to review. It also derives the client's design emphasis from the profile, so you never ask clients to rank what they cannot meaningfully evaluate.",
+    body: "PolicyPlan turns advisor-entered answers and case details into a draft recommendation rationale, including favorable considerations, tradeoffs, assumptions, and items to review. Design emphasis is derived from the client profile, so product priorities are connected to facts, objectives, and tradeoffs.",
   },
   {
     icon: FileCheck,
     title: "Document",
-    body: "The advisor reviews, edits, approves, and exports a client-ready recommendation summary, a carrier-ready packet, and a versioned case record.",
+    body: "The advisor reviews, edits, approves, and exports a client-ready recommendation summary, a carrier-ready support packet, and a versioned case record.",
   },
 ];
 
@@ -27,7 +27,7 @@ export function HowItWorks() {
             From intake to recommendation file
           </h2>
           <p className="text-slate-600 text-lg mb-2">
-            One guided workflow for the life insurance recommendation process, from client context to advisor-approved documentation.
+            One guided workflow for the life insurance recommendation process — from client context to advisor-approved rationale, client-ready summary, carrier output, and case record.
           </p>
           <p className="text-slate-400 text-sm">
             Three stages. Web-based. Advisor-controlled.
