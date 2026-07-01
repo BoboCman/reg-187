@@ -39,17 +39,20 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Redirect unauthenticated visitors away from gated routes.
-  const isGated = pathname.startsWith("/app");
+  const isGated =
+    pathname.startsWith("/app") ||
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/cases");
   if (isGated && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  // Redirect already-authenticated visitors away from /login.
+  // Redirect already-authenticated visitors away from /login → dashboard.
   if (pathname === "/login" && user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/app";
+    url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 
