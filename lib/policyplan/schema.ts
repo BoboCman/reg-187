@@ -531,6 +531,7 @@ export type PolicySpecs = z.infer<typeof policySpecsSchema>;
 export type Attestation = z.infer<typeof attestationSchema>;
 export type Objective = z.infer<typeof objectiveEnum>;
 export type RecommendationOutput = z.infer<typeof recommendationOutputSchema>;
+export type SuitabilityFlagRecord = z.infer<typeof suitabilityFlagSchema>;
 
 /* ----------------------------------------------------------------------------
  * Client-facing labels (copy layer)
