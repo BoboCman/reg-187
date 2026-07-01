@@ -57,6 +57,8 @@ interface PPWizardCtx {
   markComplete: (step: number) => void;
   submittedIntake: PolicyPlanIntake | null;
   setSubmittedIntake: (v: PolicyPlanIntake | null) => void;
+  submittedIntakeId: string | null;
+  setSubmittedIntakeId: (id: string | null) => void;
 }
 
 const Ctx = createContext<PPWizardCtx | null>(null);
@@ -66,6 +68,7 @@ export function PPWizardProvider({ children }: { children: ReactNode }) {
   const [formData, setFormData] = useState<PPFormData>({});
   const [completed, setCompleted] = useState<Set<number>>(new Set());
   const [submittedIntake, setSubmittedIntake] = useState<PolicyPlanIntake | null>(null);
+  const [submittedIntakeId, setSubmittedIntakeId] = useState<string | null>(null);
 
   const setStep = useCallback((n: number) => setStepRaw(n), []);
   const goNext = useCallback(() => setStepRaw((s) => Math.min(s + 1, PP_STEP_COUNT)), []);
@@ -107,6 +110,8 @@ export function PPWizardProvider({ children }: { children: ReactNode }) {
         markComplete,
         submittedIntake,
         setSubmittedIntake,
+        submittedIntakeId,
+        setSubmittedIntakeId,
       }}
     >
       {children}

@@ -1,7 +1,7 @@
 "use client";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   attestationSchema,
   ATTESTATION_TEXT,
@@ -11,6 +11,7 @@ import {
   type PolicySpecs,
 } from "@/lib/policyplan/schema";
 import { usePPWizard } from "@/lib/policyplan/wizard-context";
+import { createClient } from "@/lib/supabase/client";
 import { PPStepFooter, PPSectionCard } from "@/components/policyplan/PPStepWrapper";
 import { FormField } from "@/components/ui/FormField";
 import { TextInput, TextArea } from "@/components/ui/inputs";
@@ -24,7 +25,10 @@ type AttestationDefaults = {
 };
 
 export function PPStep7Attestation() {
-  const { formData, patch, markComplete, setSubmittedIntake } = usePPWizard();
+  const { formData, patch, markComplete, setSubmittedIntake, setSubmittedIntakeId } = usePPWizard();
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [pendingPayload, setPendingPayload] = useState<PolicyPlanIntake | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const ownershipType = formData.insured_owner?.ownership_type;
   const showSignerTitle = ownershipType === "trust" || ownershipType === "business";
 
@@ -50,6 +54,40 @@ export function PPStep7Attestation() {
   const signature = watch("owner_signature");
   const canSubmit = confirmed === true && !!signature?.trim();
 
+  async function persistIntake(validatedIntake: PolicyPlanIntake) {
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No authenticated session. Please sign in and try again.");
+
+      const { data, error } = await supabase
+        .from("policyplan_intakes")
+        .insert({
+          advisor_id: user.id,
+          schema_version: validatedIntake.schema_version,
+          primary_objective: validatedIntake.objectives.primary,
+          ownership_type: validatedIntake.insured_owner.ownership_type,
+          payload: validatedIntake,
+        })
+        .select("id")
+        .single();
+
+      if (error) throw new Error(error.message);
+
+      setSubmittedIntakeId(data.id);
+      markComplete(7);
+      setSubmittedIntake(validatedIntake);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setSaveError(message);
+      setPendingPayload(validatedIntake);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   const onValid = (attestationData: Attestation) => {
     const fullPayload: Partial<PolicyPlanIntake> = {
       insured_owner: formData.insured_owner as PolicyPlanIntake["insured_owner"],
@@ -65,10 +103,8 @@ export function PPStep7Attestation() {
     const result = policyPlanIntakeSchema.safeParse(fullPayload);
 
     if (result.success) {
-      console.log("[PolicyPlan] Validated intake:", result.data);
       patch({ attestation: attestationData, notes: formData.notes });
-      markComplete(7);
-      setSubmittedIntake(result.data);
+      persistIntake(result.data);
     } else {
       console.error("[PolicyPlan] Validation errors:", result.error.errors);
       alert(
@@ -82,6 +118,24 @@ export function PPStep7Attestation() {
 
   return (
     <form onSubmit={handleSubmit(onValid)} noValidate>
+      {saveError && (
+        <div className="mb-5 rounded-lg border border-red-300 bg-red-50 px-5 py-4">
+          <p className="text-sm font-semibold text-red-700 mb-1">
+            Save failed — your intake has not been recorded
+          </p>
+          <p className="text-sm text-red-600 mb-3">{saveError}</p>
+          {pendingPayload && (
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={() => persistIntake(pendingPayload)}
+              className="inline-flex items-center px-4 py-2 rounded-md bg-red-700 hover:bg-red-800 text-white text-sm font-medium disabled:opacity-50 transition-colors"
+            >
+              {isSaving ? "Retrying…" : "Retry save"}
+            </button>
+          )}
+        </div>
+      )}
       <div className="space-y-5">
         {/* Notes */}
         <PPSectionCard title="Additional notes">
@@ -167,8 +221,9 @@ export function PPStep7Attestation() {
 
       <PPStepFooter
         onContinue={handleSubmit(onValid)}
-        continueDisabled={!canSubmit}
+        continueDisabled={!canSubmit || isSaving}
         isLastStep
+        continueLabel={isSaving ? "Saving…" : undefined}
       />
     </form>
   );

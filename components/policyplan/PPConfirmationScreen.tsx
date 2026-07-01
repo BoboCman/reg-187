@@ -64,7 +64,7 @@ function SectionCard({ title, children }: { title: string; children: React.React
 }
 
 export function PPConfirmationScreen({ intake }: { intake: PolicyPlanIntake }) {
-  const { setSubmittedIntake, setStep } = usePPWizard();
+  const { setSubmittedIntake, setStep, submittedIntakeId } = usePPWizard();
 
   const emphasis = inferDesignEmphasis({
     objectives: intake.objectives,
@@ -111,6 +111,11 @@ export function PPConfirmationScreen({ intake }: { intake: PolicyPlanIntake }) {
             <p className="text-lg font-semibold text-[var(--color-text-primary)]">
               PolicyPlan — Intake submitted
             </p>
+            {submittedIntakeId && (
+              <p className="text-xs text-[var(--color-text-muted)] mt-0.5 font-mono">
+                Case ID: {submittedIntakeId}
+              </p>
+            )}
           </div>
           <button
             type="button"
