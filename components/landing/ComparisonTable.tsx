@@ -10,6 +10,11 @@ const rows = [
     after: "AI-assisted draft reviewed and approved by the advisor",
   },
   {
+    aspect: "Client explanation",
+    before: "Verbal explanation, email summary, or no consistent deliverable",
+    after: "Client-ready recommendation summary explaining the \u201cwhy\u201d",
+  },
+  {
     aspect: "Sales timing",
     before: "Documentation completed after the case is already moving",
     after: "Recommendation summary prepared before application",
@@ -27,17 +32,17 @@ const rows = [
   {
     aspect: "Supervision",
     before: "Hard to reconstruct who said what and when",
-    after: "Versioned record with approvals and timestamps",
+    after: "Versioned record with approvals, timestamps, and summary history",
   },
   {
     aspect: "Underwriting changes",
     before: "Original rationale often not updated",
-    after: "Revised recommendation versions can be documented",
+    after: "Revised recommendation versions and client summaries can be documented",
   },
   {
     aspect: "Advisor experience",
     before: "Compliance burden",
-    after: "Case design and documentation support",
+    after: "Case design, client communication, and documentation support",
   },
 ];
 

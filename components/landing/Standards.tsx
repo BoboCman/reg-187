@@ -15,6 +15,11 @@ const standards = [
       "The advisor remains responsible for the recommendation. PolicyPlan drafts and organizes the rationale, but the advisor reviews, edits, approves, and attests before final output.",
   },
   {
+    label: "Client-ready summary",
+    value:
+      "PolicyPlan helps advisors create a plain-English summary that explains the basis for the recommendation, including the client objective, relevant facts, product rationale, favorable considerations, tradeoffs, and assumptions. The advisor reviews and approves the summary before use.",
+  },
+  {
     label: "Carrier and firm procedures",
     value:
       "Carrier requirements still control. PolicyPlan helps organize and export the recommendation record in formats that can be configured to support carrier-specific workflows. It does not replace carrier, broker-dealer, BGA, or firm-specific procedures.",
@@ -22,7 +27,7 @@ const standards = [
   {
     label: "Scope and limitations",
     value:
-      "PolicyPlan is not a carrier illustration, a legal or tax opinion, an underwriting decision, or a replacement analysis. It is a documentation and workflow platform that supports professional review. PolicyPlan supports the best-interest process; it does not by itself satisfy any regulatory obligation.",
+      "PolicyPlan is not a carrier illustration, legal or tax opinion, underwriting decision, replacement analysis, or licensed producer recommendation. It is a documentation and workflow platform that supports professional review. PolicyPlan supports the best-interest documentation process; it does not by itself satisfy any regulatory obligation.",
   },
 ];
 

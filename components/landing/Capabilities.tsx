@@ -26,6 +26,7 @@ const capabilities = [
       "Drafts the \u201cwhy\u201d behind the recommendation",
       "Summarizes favorable and unfavorable considerations",
       "Connects product design to the client\u2019s stated objectives",
+      "Converts case facts into advisor-reviewable client summary language",
     ],
   },
   {
@@ -54,9 +55,10 @@ const capabilities = [
     label: "Carrier output",
     title: "Submission ready",
     bullets: [
-      "Configurable, carrier-ready documentation",
-      "Best-interest summary and support packet",
-      "Built to reduce back-and-forth and incomplete files",
+      "Configurable documentation output",
+      "Client summary and carrier support packet",
+      "Built to reduce back-and-forth, missing rationale, and incomplete files",
+      "Carrier and firm requirements still control",
     ],
   },
   {
@@ -67,6 +69,7 @@ const capabilities = [
       "Intake history",
       "Recommendation versions",
       "Advisor approvals",
+      "Client summary versions and delivery status",
       "Client disclosure timing",
       "Underwriting change notes",
     ],

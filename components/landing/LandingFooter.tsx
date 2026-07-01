@@ -28,7 +28,7 @@ export function LandingFooter() {
                 <span className="font-light">Policy</span><span className="font-bold">Plan</span>
               </p>
               <p className="text-xs text-slate-400 mb-1">Built by Financial Planner AI</p>
-              <p className="text-xs text-slate-400 mb-4">Best-interest documentation for life insurance recommendations. New York Reg 187.</p>
+              <p className="text-xs text-slate-400 mb-4">Best-interest documentation and client-ready recommendation summaries for New York life insurance cases.</p>
               <a
                 href={FPAI_URL}
                 target="_blank"
@@ -83,7 +83,7 @@ export function LandingFooter() {
           {/* Bottom bar */}
           <div className="border-t border-slate-200 pt-8 text-center">
             <p className="text-sm text-slate-500 max-w-3xl mx-auto">
-              &copy; {new Date().getFullYear()} Financial Planner AI, LLC. All rights reserved. PolicyPlan supports the best-interest documentation process. It is not an insurance product, carrier illustration, legal or tax opinion, underwriting decision, or licensed producer recommendation.
+              &copy; {new Date().getFullYear()} Financial Planner AI, LLC. All rights reserved. PolicyPlan supports the best-interest documentation process. It is not an insurance product, carrier illustration, legal or tax opinion, underwriting decision, replacement analysis, or licensed producer recommendation.
             </p>
           </div>
 

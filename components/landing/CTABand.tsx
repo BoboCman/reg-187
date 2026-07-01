@@ -11,26 +11,26 @@ export function CTABand() {
         <div className="max-w-3xl mx-auto text-center">
 
           <h2 className="text-3xl md:text-4xl font-bold text-blue-600 mb-4">
-            See the life insurance recommendation workflow in action
+            See the recommendation workflow in action
           </h2>
           <p className="text-slate-500 text-lg leading-relaxed max-w-2xl mx-auto mb-10">
-            A short walkthrough with real case flow, sample recommendation summaries, and carrier-ready output.
+            A short walkthrough of the case flow, advisor approval process, client-ready recommendation summary, versioned record, and carrier support packet.
           </p>
 
-          {/* Dual CTA matching TOLI hero pattern */}
+          {/* Dual CTA */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
             <Link
               href="/app"
               className="inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold text-base border-2 border-blue-700 text-blue-700 hover:bg-blue-50 transition-all gap-2"
             >
               <ExternalLink className="w-4 h-4" />
-              View Sample Report
+              View Sample Client Summary
             </Link>
             <a
               href={CALENDLY_URL}
               className="group inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold text-base bg-blue-700 hover:bg-blue-800 text-white transition-all"
             >
-              Book a Walkthrough
+              Schedule Demo
               <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
             </a>
           </div>

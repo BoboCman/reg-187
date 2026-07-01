@@ -10,7 +10,7 @@ export function LandingNav() {
       {/* Announcement bar */}
       <div className="bg-blue-50 border-b border-blue-100 py-2.5 px-4 text-center">
         <p className="text-sm font-medium text-blue-700">
-          Best-interest documentation for life insurance recommendations. Built for New York Reg 187.
+          Best-interest documentation and client-ready recommendation summaries for New York life insurance cases.
         </p>
       </div>
 

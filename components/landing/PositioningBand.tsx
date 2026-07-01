@@ -7,10 +7,10 @@ export function PositioningBand() {
             AI-assisted. Advisor-approved. Documentation-first.
           </h2>
           <p className="text-slate-500 text-base leading-relaxed mb-8">
-            PolicyPlan does not make the licensed recommendation for the advisor. It organizes the recommendation process. The advisor controls the case, reviews the rationale, edits the language, approves the final output, and remains responsible for the client recommendation.
+            PolicyPlan does not make the licensed recommendation for the advisor. It organizes the recommendation process, drafts rationale from advisor-entered case information, and helps produce a client-ready summary and professional case packet. The advisor controls the case, reviews the rationale, edits the language, approves the final output, and remains responsible for the client recommendation.
           </p>
           <div className="inline-flex items-center gap-3 bg-blue-50 border border-blue-100 text-blue-700 rounded-full px-6 py-3 text-sm font-semibold tracking-wide">
-            AI drafts. Advisor decides. Case file documents.
+            AI drafts. Advisor decides. Client understands. Case file documents.
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { LandingNav } from "@/components/landing/LandingNav";
 import { LandingHero } from "@/components/landing/LandingHero";
 import { TrustBand } from "@/components/landing/TrustBand";
+import { ValueBand } from "@/components/landing/ValueBand";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { Capabilities } from "@/components/landing/Capabilities";
 import { Deliverables } from "@/components/landing/Deliverables";
@@ -19,6 +20,7 @@ export default function LandingPage() {
       <main>
         <LandingHero />
         <TrustBand />
+        <ValueBand />
         <HowItWorks />
         <Capabilities />
         <Deliverables />
