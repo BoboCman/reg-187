@@ -1,9 +1,6 @@
 "use client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "lucide-react";
-
-const CALENDLY_URL = "[PLACEHOLDER: Calendly link]";
 
 export function LandingNav() {
   return (
@@ -46,14 +43,8 @@ export function LandingNav() {
 
           {/* Right CTAs */}
           <div className="flex items-center gap-3 flex-shrink-0">
-            <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex text-slate-600 hover:text-slate-900">
-              <Link href="/app">Sign In</Link>
-            </Button>
             <Button size="sm" asChild className="bg-blue-700 hover:bg-blue-800 text-white rounded-lg px-4">
-              <a href={CALENDLY_URL} className="flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5" />
-                Book a Walkthrough
-              </a>
+              <Link href="/app">Sign In</Link>
             </Button>
           </div>
 
