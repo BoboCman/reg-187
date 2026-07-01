@@ -1,10 +1,9 @@
 "use client";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { LogOut } from "lucide-react";
 import { PP_STEP_META, PP_STEP_COUNT, usePPWizard } from "@/lib/policyplan/wizard-context";
+
 import { PPProgressRail } from "@/components/policyplan/PPProgressRail";
 import { PPConfirmationScreen } from "@/components/policyplan/PPConfirmationScreen";
+import { AppNav } from "@/components/AppNav";
 
 import { PPStep1InsuredOwner } from "@/components/policyplan/steps/PPStep1InsuredOwner";
 import { PPStep2Objectives } from "@/components/policyplan/steps/PPStep2Objectives";
@@ -26,14 +25,6 @@ const STEPS = [
 
 export function PPWizardShell() {
   const { step, submittedIntake } = usePPWizard();
-  const router = useRouter();
-
-  async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }
 
   if (submittedIntake) {
     return <PPConfirmationScreen intake={submittedIntake} />;
@@ -44,37 +35,21 @@ export function PPWizardShell() {
 
   return (
     <div className="min-h-screen bg-[var(--color-background)]">
-      {/* Header */}
-      <header className="bg-[var(--color-surface)] border-b border-[var(--color-border)] sticky top-0 z-20">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between gap-4 mb-1">
-            <div>
-              <p className="text-[10px] font-semibold tracking-widest uppercase text-[var(--color-text-muted)]">
-                Insurance Planner AI Professional
-              </p>
-              <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                PolicyPlan
-              </p>
-            </div>
-            <div className="flex items-center gap-4 shrink-0">
-              <span className="text-xs text-[var(--color-text-muted)]">
-                Step {step} of {PP_STEP_COUNT}
-              </span>
-              <button
-                onClick={handleSignOut}
-                className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-                title="Sign out"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Sign out</span>
-              </button>
-            </div>
-          </div>
-          <div className="mt-4">
-            <PPProgressRail />
-          </div>
+      <AppNav
+        hideNewIntake
+        rightSlot={
+          <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
+            Step {step} of {PP_STEP_COUNT}
+          </span>
+        }
+      />
+
+      {/* Progress rail — second sticky strip below the nav */}
+      <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] sticky top-14 z-20 px-4 sm:px-6 py-4">
+        <div className="max-w-5xl mx-auto">
+          <PPProgressRail />
         </div>
-      </header>
+      </div>
 
       {/* Step content */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
