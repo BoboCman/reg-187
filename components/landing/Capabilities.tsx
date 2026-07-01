@@ -1,72 +1,75 @@
 import { Card, CardContent } from "@/components/ui/card";
 import {
   UserCheck,
-  Target,
-  BarChart3,
-  Shield,
-  SlidersHorizontal,
-  Sparkles,
+  BrainCircuit,
+  AlertTriangle,
+  UserCog,
+  FileOutput,
+  FolderOpen,
 } from "lucide-react";
 
 const capabilities = [
   {
     icon: UserCheck,
-    title: "Insured & ownership capture",
+    label: "Client context / Intake",
+    title: "Structured client intake",
     bullets: [
-      "1–2 insureds with DOB, gender, nicotine status",
-      "Individual, business entity, or trust ownership",
-      "Conditional trust fields: irrevocable / revocable, grantor, GST exempt",
-      "Business entity type for key-person and buy-sell cases",
+      "Plain-language advisor workflow",
+      "Captures goals, ownership, funding, and financial profile",
+      "Identifies the consumer, insured, owner, trust, or business context",
     ],
   },
   {
-    icon: Target,
-    title: "Needs-first objective ranking",
+    icon: BrainCircuit,
+    label: "Recommendation basis / AI-assisted rationale",
+    title: "AI-assisted recommendation rationale",
     bullets: [
-      "14 objectives across 4 groups: protection, accumulation, estate, business",
-      "Star-tap primary selection from selected objectives only",
-      "Zod validates: primary must be in selected set",
-      "Drives narrative framing in Phase 2 recommendation",
+      "Drafts the \u201cwhy\u201d behind the recommendation",
+      "Summarizes favorable and unfavorable considerations",
+      "Connects product design to the client\u2019s stated objectives",
     ],
   },
   {
-    icon: BarChart3,
-    title: "Full financial profile",
+    icon: AlertTriangle,
+    label: "Case design fit / Review flags",
+    title: "Case design fit and review flags",
     bullets: [
-      "Per-client columns: liquid assets, other assets, liabilities",
-      "Live derived totals: net worth and liquid net worth",
-      "Liquid net worth isolated as the Reg 187 funding-capacity metric",
-      "Premium source field for documentation",
+      "Premium fit against funding source",
+      "Death benefit duration against the stated need horizon",
+      "Guarantees, riders, and non-guaranteed elements",
+      "Existing policy and replacement considerations",
     ],
   },
   {
-    icon: Shield,
-    title: "Existing coverage with Reg 187 flags",
+    icon: UserCog,
+    label: "Advisor approval / Human controlled",
+    title: "Advisor approval — human controlled",
     bullets: [
-      "Repeater for up to 3 in-force policies",
-      "Per-policy replacement consideration flag (Reg 187 §224.4)",
-      "Policy type, face amount, CSV, loan balance, annual premium",
-      "Gated behind has-existing-coverage toggle",
+      "The advisor reviews and edits every rationale",
+      "Attestation before final output",
+      "No black-box recommendation and no automatic sign-off",
     ],
   },
   {
-    icon: SlidersHorizontal,
-    title: "Risk & preferences — 7 questions",
+    icon: FileOutput,
+    label: "Carrier output / Submission ready",
+    title: "Carrier-ready output",
     bullets: [
-      "Investment experience, variability tolerance",
-      "Guarantee vs. upside preference",
-      "Willingness to accept non-guaranteed elements (Reg 187 §224.3(g))",
-      "Premium funding commitment, cash access horizon, complexity comfort",
+      "Configurable, carrier-ready documentation",
+      "Best-interest summary and support packet",
+      "Built to reduce back-and-forth and incomplete files",
     ],
   },
   {
-    icon: Sparkles,
-    title: "Inferred design emphasis",
+    icon: FolderOpen,
+    label: "Audit trail / Versioned record",
+    title: "Versioned case record and audit trail",
     bullets: [
-      "Four signals: guarantee protection, growth orientation, cash access, cost sensitivity",
-      "Derived algorithmically — clients never rank what they cannot evaluate",
-      "Each signal records its driver array for the audit trail",
-      "Drives favorable / unfavorable consideration generation in Phase 2",
+      "Intake history",
+      "Recommendation versions",
+      "Advisor approvals",
+      "Client disclosure timing",
+      "Underwriting change notes",
     ],
   },
 ];
@@ -78,10 +81,10 @@ export function Capabilities() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold text-blue-700 mb-4">
-              Every suitability signal, captured
+              Built around the actual life insurance sales process
             </h2>
             <p className="text-slate-600 text-xl max-w-3xl mx-auto leading-relaxed">
-              PolicyPlan covers every dimension of the Reg 187 suitability profile — financial, behavioral, and product-specific — in one structured intake session.
+              Every case moves through a structured best-interest workflow that supports recommendation quality, documentation consistency, and supervisory review.
             </p>
           </div>
 
@@ -98,7 +101,10 @@ export function Capabilities() {
                       <div className="bg-blue-50 text-blue-700 rounded-lg p-2 flex-shrink-0 group-hover:bg-blue-700 group-hover:text-white transition-all">
                         <Icon className="w-5 h-5" />
                       </div>
-                      <h3 className="text-base font-bold text-slate-900 leading-tight">{cap.title}</h3>
+                      <div>
+                        <p className="text-[11px] font-bold text-blue-600 uppercase tracking-wider mb-1">{cap.label}</p>
+                        <h3 className="text-base font-bold text-slate-900 leading-tight">{cap.title}</h3>
+                      </div>
                     </div>
                     <ul className="space-y-2">
                       {cap.bullets.map((b, j) => (
