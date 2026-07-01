@@ -171,10 +171,8 @@ export const financialColumnSchema = z.object({
   residence: money,
   other_assets: money,
   mortgage_amount: money,
-  mortgage_duration_years: years,
   revolving_debt: money,
   other_liability_amount: money,
-  other_liability_duration_years: years,
 });
 
 export const financialSchema = z.object({
@@ -258,10 +256,8 @@ export const existingPolicySchema = z.object({
   policy_loan_balance: money,
   cash_surrender_value: money,
   premium_amount: money,
-  next_premium_due_date: z.string().date().optional(),
   policy_type: policyTypeEnum.optional(),
   purpose_of_policy: z.string().optional(),
-  premium_source: z.string().optional(),
   remaining_premium_years: years,
   // Reg 187 replacement consideration
   under_replacement_consideration: yesNo.optional(),
