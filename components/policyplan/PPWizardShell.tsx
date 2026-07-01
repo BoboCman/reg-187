@@ -1,4 +1,7 @@
 "use client";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { LogOut } from "lucide-react";
 import { PP_STEP_META, PP_STEP_COUNT, usePPWizard } from "@/lib/policyplan/wizard-context";
 import { PPProgressRail } from "@/components/policyplan/PPProgressRail";
 import { PPConfirmationScreen } from "@/components/policyplan/PPConfirmationScreen";
@@ -23,6 +26,14 @@ const STEPS = [
 
 export function PPWizardShell() {
   const { step, submittedIntake } = usePPWizard();
+  const router = useRouter();
+
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   if (submittedIntake) {
     return <PPConfirmationScreen intake={submittedIntake} />;
@@ -45,9 +56,19 @@ export function PPWizardShell() {
                 PolicyPlan
               </p>
             </div>
-            <span className="text-xs text-[var(--color-text-muted)] shrink-0">
-              Step {step} of {PP_STEP_COUNT}
-            </span>
+            <div className="flex items-center gap-4 shrink-0">
+              <span className="text-xs text-[var(--color-text-muted)]">
+                Step {step} of {PP_STEP_COUNT}
+              </span>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+                title="Sign out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Sign out</span>
+              </button>
+            </div>
           </div>
           <div className="mt-4">
             <PPProgressRail />

@@ -9,7 +9,7 @@ const audiences = [
   {
     icon: Briefcase,
     title: "BGAs & IMOs",
-    body: "Support complex permanent life cases with a repeatable best-interest workflow. And there\u2019s a reason beyond convenience. Under New York Reg 187, when case designers, specialists, or other producers are compensated for helping tailor a recommendation for a specific consumer, their role can become part of the recommendation process. PolicyPlan documents the facts, rationale, participants, and approvals behind each case you support, so that role is recorded clearly.",
+    body: "Support complex permanent life cases with a repeatable best-interest workflow. Under New York Reg 187, when a case designer or specialist is compensated for helping tailor a recommendation, that role can become part of the recommendation process. PolicyPlan records the participation, rationale, and approvals behind every case you support.",
   },
   {
     icon: Building2,
@@ -37,7 +37,7 @@ export function WhoItsFor() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-5">
+          <div className="grid md:grid-cols-2 gap-5">
             {audiences.map((a, i) => {
               const Icon = a.icon;
               return (

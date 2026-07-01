@@ -9,6 +9,7 @@ const quickLinks = [
   { label: "How It Works", href: "#how-it-works" },
   { label: "Who It's For", href: "#who-its-for" },
   { label: "Before & After", href: "#comparison" },
+  { label: "Standards", href: "#standards" },
   { label: "Sign In", href: "/app" },
 ];
 
@@ -26,7 +27,8 @@ export function LandingFooter() {
               <p className="text-xl font-normal tracking-tight text-slate-900 mb-1">
                 <span className="font-light">Policy</span><span className="font-bold">Plan</span>
               </p>
-              <p className="text-sm text-slate-500 mb-4">Built by Financial Planner AI</p>
+              <p className="text-xs text-slate-400 mb-1">Built by Financial Planner AI</p>
+              <p className="text-xs text-slate-400 mb-4">Best-interest documentation for life insurance recommendations. New York Reg 187.</p>
               <a
                 href={FPAI_URL}
                 target="_blank"
@@ -80,8 +82,8 @@ export function LandingFooter() {
 
           {/* Bottom bar */}
           <div className="border-t border-slate-200 pt-8 text-center">
-            <p className="text-sm text-slate-500">
-              &copy; {new Date().getFullYear()} Financial Planner AI, LLC. All rights reserved.
+            <p className="text-sm text-slate-500 max-w-3xl mx-auto">
+              &copy; {new Date().getFullYear()} Financial Planner AI, LLC. All rights reserved. PolicyPlan supports the best-interest documentation process. It is not an insurance product, carrier illustration, legal or tax opinion, underwriting decision, or licensed producer recommendation.
             </p>
           </div>
 

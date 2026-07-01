@@ -30,7 +30,7 @@ export function CTABand() {
               href={CALENDLY_URL}
               className="group inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold text-base bg-blue-700 hover:bg-blue-800 text-white transition-all"
             >
-              Schedule Demo
+              Book a Walkthrough
               <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
             </a>
           </div>
