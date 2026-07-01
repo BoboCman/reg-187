@@ -1,5 +1,5 @@
 "use client";
-import { useForm, useWatch, Controller } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import {
@@ -116,6 +116,15 @@ export function PPStep6PolicySpecs() {
   }, [formData.policy_specs]);
 
   const onValid = (data: PolicySpecs) => {
+    // Strip empty optional sub-objects so they stay undefined in the payload
+    const cva = data.desired_cash_value_accumulation;
+    if (cva && cva.amount == null && cva.at_age == null && cva.year == null) {
+      data = { ...data, desired_cash_value_accumulation: undefined };
+    }
+    const dad = data.desired_annual_distribution;
+    if (dad && dad.amount == null && dad.start_age == null && dad.end_age == null) {
+      data = { ...data, desired_annual_distribution: undefined };
+    }
     patch({ policy_specs: data });
     markComplete(6);
     goNext();
@@ -183,6 +192,7 @@ export function PPStep6PolicySpecs() {
         {/* Optional targets */}
         <PPSectionCard title="Optional targets">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Cash value accumulation */}
             <FormField label="Cash value accumulation target" hint="Target amount">
               <Controller
                 control={control}
@@ -193,14 +203,26 @@ export function PPStep6PolicySpecs() {
               />
             </FormField>
             <FormField label="At age (for accumulation target)">
-              <TextInput
-                {...(control.register("desired_cash_value_accumulation.at_age") as object)}
-                type="number"
-                min={0}
-                max={120}
-                placeholder="e.g. 65"
+              <Controller
+                control={control}
+                name="desired_cash_value_accumulation.at_age"
+                render={({ field }) => (
+                  <TextInput
+                    type="number"
+                    min={0}
+                    max={120}
+                    placeholder="e.g. 65"
+                    value={field.value ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      field.onChange(raw === "" ? undefined : parseInt(raw, 10));
+                    }}
+                  />
+                )}
               />
             </FormField>
+
+            {/* Annual distribution */}
             <FormField label="Annual distribution target">
               <Controller
                 control={control}
@@ -212,21 +234,41 @@ export function PPStep6PolicySpecs() {
             </FormField>
             <div className="grid grid-cols-2 gap-2">
               <FormField label="From age">
-                <TextInput
-                  {...(control.register("desired_annual_distribution.start_age") as object)}
-                  type="number"
-                  min={0}
-                  max={120}
-                  placeholder="e.g. 65"
+                <Controller
+                  control={control}
+                  name="desired_annual_distribution.start_age"
+                  render={({ field }) => (
+                    <TextInput
+                      type="number"
+                      min={0}
+                      max={120}
+                      placeholder="e.g. 65"
+                      value={field.value ?? ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        field.onChange(raw === "" ? undefined : parseInt(raw, 10));
+                      }}
+                    />
+                  )}
                 />
               </FormField>
               <FormField label="To age">
-                <TextInput
-                  {...(control.register("desired_annual_distribution.end_age") as object)}
-                  type="number"
-                  min={0}
-                  max={120}
-                  placeholder="e.g. 85"
+                <Controller
+                  control={control}
+                  name="desired_annual_distribution.end_age"
+                  render={({ field }) => (
+                    <TextInput
+                      type="number"
+                      min={0}
+                      max={120}
+                      placeholder="e.g. 85"
+                      value={field.value ?? ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        field.onChange(raw === "" ? undefined : parseInt(raw, 10));
+                      }}
+                    />
+                  )}
                 />
               </FormField>
             </div>
