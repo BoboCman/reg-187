@@ -1,17 +1,15 @@
 "use client";
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { OBJECTIVE_LABELS, type PolicyPlanIntake } from "@/lib/policyplan/schema";
+import { OBJECTIVE_LABELS } from "@/lib/policyplan/schema";
 import type { SuitabilityFlag } from "@/lib/policyplan/rules";
+import { AppNav } from "@/components/AppNav";
 import {
   Search,
   ArrowUpDown,
   ArrowDown,
   ArrowUp,
   FilePlus,
-  LogOut,
   AlertTriangle,
   CheckCircle2,
 } from "lucide-react";
@@ -69,17 +67,9 @@ function TensionIndicator({ flags }: { flags: SuitabilityFlag[] }) {
 // DashboardClient
 // ---------------------------------------------------------------------------
 export function DashboardClient({ cases }: { cases: CaseRow[] }) {
-  const router = useRouter();
   const [query, setQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-
-  async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }
 
   function toggleSort(field: SortField) {
     if (sortField === field) {
@@ -129,36 +119,7 @@ export function DashboardClient({ cases }: { cases: CaseRow[] }) {
 
   return (
     <div className="min-h-screen bg-[var(--color-background)]">
-      {/* Header */}
-      <header className="bg-[var(--color-surface)] border-b border-[var(--color-border)] sticky top-0 z-20">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-semibold tracking-widest uppercase text-[var(--color-text-muted)]">
-              Insurance Planner AI Professional
-            </p>
-            <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-              PolicyPlan
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/app"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-sm font-semibold transition-colors"
-            >
-              <FilePlus className="w-4 h-4" />
-              New intake
-            </Link>
-            <button
-              onClick={handleSignOut}
-              className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors px-2 py-2"
-              title="Sign out"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Sign out</span>
-            </button>
-          </div>
-        </div>
-      </header>
+      <AppNav />
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {/* Page title + controls */}
