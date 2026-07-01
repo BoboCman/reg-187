@@ -5,7 +5,6 @@ import { HowItWorks } from "@/components/landing/HowItWorks";
 import { Capabilities } from "@/components/landing/Capabilities";
 import { Deliverables } from "@/components/landing/Deliverables";
 import { WhoItsFor } from "@/components/landing/WhoItsFor";
-import { ForFirms } from "@/components/landing/ForFirms";
 import { ComparisonTable } from "@/components/landing/ComparisonTable";
 import { Standards } from "@/components/landing/Standards";
 import { PositioningBand } from "@/components/landing/PositioningBand";
@@ -24,7 +23,6 @@ export default function LandingPage() {
         <Capabilities />
         <Deliverables />
         <WhoItsFor />
-        <ForFirms />
         <ComparisonTable />
         <Standards />
         <PositioningBand />
