@@ -26,6 +26,20 @@ export function Step8Attestation() {
 
   const [submitErrors, setSubmitErrors] = useState<string[]>([]);
 
+  type AttestationDefaults = {
+    confirmed?: true;
+    owner_signature?: string;
+    signed_date?: string;
+    signer_title?: string;
+  };
+
+  const emptyDefaults: AttestationDefaults = {
+    confirmed: undefined,
+    owner_signature: "",
+    signed_date: today(),
+    signer_title: "",
+  };
+
   const {
     register,
     control,
@@ -35,20 +49,12 @@ export function Step8Attestation() {
     formState: { errors },
   } = useForm<Attestation>({
     resolver: zodResolver(attestationSchema),
-    defaultValues: formData.attestation ?? {
-      confirmed: undefined as any,
-      owner_signature: "",
-      signed_date: today(),
-      signer_title: "",
-    },
+    defaultValues: (formData.attestation as AttestationDefaults | undefined) ?? emptyDefaults,
   });
 
   useEffect(() => {
     if (formData.attestation) {
-      reset({
-        ...formData.attestation,
-        confirmed: formData.attestation.confirmed === true ? true : undefined as any,
-      });
+      reset(formData.attestation as AttestationDefaults);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.attestation]);
