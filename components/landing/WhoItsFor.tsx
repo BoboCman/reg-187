@@ -25,33 +25,31 @@ const audiences = [
 
 export function WhoItsFor() {
   return (
-    <section id="who-its-for" className="py-24 bg-gradient-to-b from-slate-50 to-white">
+    <section id="who-its-for" className="py-24 bg-slate-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-bold text-blue-700 mb-4">
+            <h2 className="text-3xl md:text-5xl font-bold text-blue-600 mb-4">
               Built for life insurance distribution
             </h2>
-            <p className="text-slate-600 text-xl max-w-3xl mx-auto leading-relaxed">
+            <p className="text-slate-500 text-xl max-w-3xl mx-auto leading-relaxed">
               Designed for the professionals who make, support, review, and submit life insurance recommendations.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid md:grid-cols-3 gap-5">
             {audiences.map((a, i) => {
               const Icon = a.icon;
               return (
                 <div
                   key={i}
-                  className="bg-white border border-slate-200 hover:border-blue-200 hover:shadow-md rounded-2xl p-8 transition-all group"
+                  className="bg-white border border-slate-200 rounded-2xl p-8 hover:shadow-sm transition-shadow"
                 >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="bg-blue-50 text-blue-700 rounded-lg p-2.5 flex-shrink-0 group-hover:bg-blue-700 group-hover:text-white transition-all">
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-900">{a.title}</h3>
+                  <div className="bg-blue-50 text-blue-600 rounded-full p-4 w-fit mb-5">
+                    <Icon className="w-6 h-6" />
                   </div>
-                  <p className="text-slate-600 leading-relaxed text-sm">{a.body}</p>
+                  <h3 className="text-lg font-bold text-slate-800 mb-3">{a.title}</h3>
+                  <p className="text-slate-500 leading-relaxed text-sm">{a.body}</p>
                 </div>
               );
             })}

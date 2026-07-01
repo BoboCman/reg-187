@@ -45,30 +45,30 @@ const faqs = [
 
 export function FAQ() {
   return (
-    <section className="py-24 bg-gradient-to-b from-slate-50 to-white">
+    <section className="py-24 bg-slate-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-bold text-blue-700 mb-4">
-              Frequently asked questions
+            <h2 className="text-3xl md:text-5xl font-bold text-blue-600 mb-4">
+              Frequently Asked Questions About PolicyPlan
             </h2>
-            <p className="text-slate-600 text-xl max-w-2xl mx-auto leading-relaxed">
+            <p className="text-slate-500 text-xl max-w-2xl mx-auto leading-relaxed">
               Common questions about PolicyPlan and the New York Reg 187 best-interest process.
             </p>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {faqs.map((faq, i) => (
               <details
                 key={i}
-                className="group border border-slate-200 rounded-xl bg-white hover:border-blue-200 transition-colors"
+                className="group border border-slate-200 rounded-xl bg-white"
               >
-                <summary className="flex items-center justify-between cursor-pointer p-5 text-left list-none">
-                  <span className="font-semibold text-slate-900 pr-4 text-sm">{faq.q}</span>
-                  <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform flex-shrink-0" />
+                <summary className="flex items-center justify-between cursor-pointer p-5 text-left list-none select-none">
+                  <span className="font-semibold text-slate-800 pr-4 text-sm">{faq.q}</span>
+                  <ChevronDown className="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform flex-shrink-0" />
                 </summary>
-                <div className="px-5 pb-5 pt-0">
-                  <p className="text-slate-600 leading-relaxed text-sm">{faq.a}</p>
+                <div className="px-5 pb-5 pt-0 border-t border-slate-100">
+                  <p className="text-slate-500 leading-relaxed text-sm pt-4">{faq.a}</p>
                 </div>
               </details>
             ))}

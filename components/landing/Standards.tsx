@@ -1,5 +1,3 @@
-import { Card, CardContent } from "@/components/ui/card";
-
 const standards = [
   {
     label: "New York Reg 187",
@@ -34,36 +32,34 @@ export function Standards() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-bold text-blue-700 mb-4">
-              Built to support the New York Reg 187 best-interest process
+            <h2 className="text-3xl md:text-5xl font-bold text-blue-600 mb-4">
+              Regulatory Standards Reference
             </h2>
-            <p className="text-slate-600 text-xl max-w-3xl mx-auto leading-relaxed">
+            <p className="text-slate-500 text-xl max-w-3xl mx-auto leading-relaxed">
               PolicyPlan helps firms organize the facts, analysis, rationale, disclosures, and approvals that support a life insurance best-interest recommendation in New York.
             </p>
           </div>
 
           <div className="max-w-3xl mx-auto">
-            <Card className="border-2 border-slate-100 shadow-lg">
-              <CardContent className="p-0">
-                <table className="w-full text-base">
-                  <tbody>
-                    {standards.map((s, i) => (
-                      <tr
-                        key={i}
-                        className={i < standards.length - 1 ? "border-b border-slate-100" : ""}
-                      >
-                        <td className="py-5 px-6 font-bold text-blue-700 w-1/3 align-top text-sm">
-                          {s.label}
-                        </td>
-                        <td className="py-5 px-6 text-slate-600 text-sm leading-relaxed">
-                          {s.value}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
+            <div className="rounded-2xl border border-slate-200 shadow-sm overflow-hidden bg-white">
+              <table className="w-full text-base">
+                <tbody>
+                  {standards.map((s, i) => (
+                    <tr
+                      key={i}
+                      className={i < standards.length - 1 ? "border-b border-slate-100" : ""}
+                    >
+                      <td className="py-5 px-6 font-semibold text-blue-600 w-1/3 align-top text-sm">
+                        {s.label}
+                      </td>
+                      <td className="py-5 px-6 text-slate-500 text-sm leading-relaxed">
+                        {s.value}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
