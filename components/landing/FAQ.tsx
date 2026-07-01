@@ -50,7 +50,7 @@ export function FAQ() {
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold text-blue-600 mb-4">
-              Frequently Asked Questions About PolicyPlan
+              Frequently asked questions
             </h2>
             <p className="text-slate-500 text-xl max-w-2xl mx-auto leading-relaxed">
               Common questions about PolicyPlan and the New York Reg 187 best-interest process.

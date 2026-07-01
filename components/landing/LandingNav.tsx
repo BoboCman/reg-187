@@ -7,15 +7,11 @@ const CALENDLY_URL = "https://calendly.com/financialplanner-ai-support/30min";
 export function LandingNav() {
   return (
     <>
-      {/* Announcement bar — light blue like TOLIReview */}
+      {/* Announcement bar */}
       <div className="bg-blue-50 border-b border-blue-100 py-2.5 px-4 text-center">
-        <a
-          href={CALENDLY_URL}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-800 transition-colors"
-        >
-          Built by Financial Planner AI
-          <span className="text-blue-400">&rsaquo;</span>
-        </a>
+        <p className="text-sm font-medium text-blue-700">
+          Best-interest documentation for life insurance recommendations. Built for New York Reg 187.
+        </p>
       </div>
 
       {/* Sticky nav */}
@@ -41,12 +37,16 @@ export function LandingNav() {
             <a href="#how-it-works" className="hover:text-slate-900 transition-colors">How It Works</a>
             <a href="#who-its-for" className="hover:text-slate-900 transition-colors">Who It&apos;s For</a>
             <a href="#comparison" className="hover:text-slate-900 transition-colors">Before &amp; After</a>
+            <a href="#standards" className="hover:text-slate-900 transition-colors">Standards</a>
           </div>
 
           {/* Right CTAs */}
           <div className="flex items-center gap-3 flex-shrink-0">
-            <Button size="sm" asChild className="bg-blue-700 hover:bg-blue-800 text-white rounded-lg px-4">
+            <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex text-slate-600 hover:text-slate-900">
               <Link href="/app">Sign In</Link>
+            </Button>
+            <Button size="sm" asChild className="bg-blue-700 hover:bg-blue-800 text-white rounded-lg px-4">
+              <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer">Book a Walkthrough</a>
             </Button>
           </div>
 

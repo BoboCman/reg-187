@@ -12,18 +12,23 @@ export function LandingHero() {
           {/* Eyebrow badge */}
           <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-sm font-medium mb-10 border border-blue-100">
             <ShieldCheck className="w-4 h-4" />
-            Best-interest documentation for life insurance recommendations
+            New York Reg 187
           </div>
 
-          {/* H1 — navy + blue accent like TOLI */}
+          {/* H1 */}
           <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-slate-900 tracking-tight leading-[1.05] mb-6 text-balance">
-            Life Insurance Recommendations,{" "}
-            <span className="text-blue-600">Documented Against Standard</span>
+            Best-interest documentation for{" "}
+            <span className="text-blue-600">life insurance recommendations</span>
           </h1>
 
           {/* Subhead */}
-          <p className="text-xl text-slate-500 max-w-2xl leading-relaxed mb-12">
-            A structured workspace for intake, recommendation rationale, advisor approval, and carrier-ready documentation — built around the New York Reg 187 best-interest process.
+          <p className="text-xl text-slate-500 max-w-2xl leading-relaxed mb-4">
+            PolicyPlan is a structured workspace for intake, recommendation rationale, advisor approval, carrier-ready documentation, and versioned case records, built around the New York Reg 187 best-interest process.
+          </p>
+
+          {/* Supporting line */}
+          <p className="text-base text-slate-400 max-w-2xl leading-relaxed mb-12">
+            Move from scattered notes, static PDFs, and hand-written narratives to a consistent recommendation file. It&apos;s not another form. It&apos;s the case record for the recommendation.
           </p>
 
           {/* Audience chips */}
@@ -46,7 +51,7 @@ export function LandingHero() {
             </span>
           </div>
 
-          {/* Dual CTA — TOLI style: outline left, solid right */}
+          {/* Dual CTA — primary: Book a Walkthrough, secondary: View Sample Report */}
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <Link
               href="/app"
@@ -59,7 +64,7 @@ export function LandingHero() {
               href={CALENDLY_URL}
               className="group inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold text-base bg-blue-700 hover:bg-blue-800 text-white transition-all"
             >
-              Schedule Demo
+              Book a Walkthrough
               <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
             </a>
           </div>

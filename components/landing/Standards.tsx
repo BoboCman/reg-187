@@ -33,7 +33,7 @@ export function Standards() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold text-blue-600 mb-4">
-              Regulatory Standards Reference
+              Built to support the New York Reg 187 best-interest process
             </h2>
             <p className="text-slate-500 text-xl max-w-3xl mx-auto leading-relaxed">
               PolicyPlan helps firms organize the facts, analysis, rationale, disclosures, and approvals that support a life insurance best-interest recommendation in New York.

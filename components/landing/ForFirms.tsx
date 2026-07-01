@@ -87,7 +87,7 @@ export function ForFirms() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-3xl md:text-5xl font-bold text-blue-600 mb-4">
-              For Firms Serving Advisors at Scale
+              Turn best-interest documentation into scalable case support
             </h2>
             <p className="text-slate-500 text-xl max-w-3xl mx-auto leading-relaxed">
               PolicyPlan can be offered by BGAs, IMOs, carriers, RIAs, broker-dealers, and enterprise insurance teams as a branded workflow for advisor-supported life insurance sales.

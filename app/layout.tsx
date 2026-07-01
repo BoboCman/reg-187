@@ -9,9 +9,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "PolicyPlan — Best-Interest Life Insurance Intake",
+  title: "PolicyPlan — Best-interest documentation for life insurance recommendations",
   description:
-    "PolicyPlan is a 7-step best-interest life insurance intake that captures every Reg 187, NAIC Model 275, and CFP Board suitability signal — and infers design emphasis automatically from the client profile.",
+    "PolicyPlan is a structured workspace for life insurance intake, recommendation rationale, advisor approval, and carrier-ready documentation, built around the New York Reg 187 best-interest process.",
 };
 
 export const viewport: Viewport = {
