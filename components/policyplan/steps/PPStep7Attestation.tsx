@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   attestationSchema,
   ATTESTATION_TEXT,
+  deriveFundingCapacity,
   inferDesignEmphasis,
   policyPlanIntakeSchema,
   type Attestation,
@@ -73,6 +74,17 @@ export function PPStep7Attestation() {
       });
       const suitability_flags = detectSuitabilityTensions(validatedIntake, emphasis);
 
+      // Frozen liquid net worth — matches householdLiquidNetWorth in rules.ts:
+      // sum primary_capacity across all present financial columns.
+      const cols = validatedIntake.financial?.columns;
+      const presentCols = [cols?.client_1, cols?.client_2, cols?.joint].filter(
+        (c): c is NonNullable<typeof c> => c != null
+      );
+      const liquid_net_worth = presentCols.reduce(
+        (sum, c) => sum + deriveFundingCapacity(c).primary_capacity,
+        0
+      );
+
       const { data, error } = await supabase
         .from("policyplan_intakes")
         .insert({
@@ -84,6 +96,7 @@ export function PPStep7Attestation() {
           payload: validatedIntake,
           emphasis,
           suitability_flags,
+          liquid_net_worth,
         })
         .select("id")
         .single();

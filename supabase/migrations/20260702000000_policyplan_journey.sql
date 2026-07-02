@@ -12,7 +12,8 @@
 alter table public.policyplan_intakes
   add column if not exists emphasis jsonb,
   add column if not exists suitability_flags jsonb,
-  add column if not exists flag_resolutions jsonb;
+  add column if not exists flag_resolutions jsonb,
+  add column if not exists liquid_net_worth numeric;
 
 -- Versioned resubmit lineage
 alter table public.policyplan_intakes
