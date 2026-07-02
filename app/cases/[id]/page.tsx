@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { policyPlanIntakeSchema } from "@/lib/policyplan/schema";
 import { PPCaseReview } from "@/components/policyplan/PPCaseReview";
+import { GenerateDocuments } from "@/components/policyplan/GenerateDocuments";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -51,6 +52,17 @@ export default async function CaseDetailPage({ params }: Props) {
     );
   }
 
+  // Fetch the most recent output row for this case (RLS scopes to owner).
+  const { data: outputRow } = await supabase
+    .from("policyplan_outputs")
+    .select(
+      "id, status, advisor_letter, client_summary, suitability_flags, completed_at, meta"
+    )
+    .eq("intake_id", id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return (
     <div className="min-h-screen bg-[var(--color-background)]">
       {/* Header */}
@@ -80,7 +92,14 @@ export default async function CaseDetailPage({ params }: Props) {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-5">
+        {/* Best-interest document generation */}
+        <GenerateDocuments
+          intakeId={row.id}
+          initialOutput={outputRow ?? null}
+        />
+
+        {/* Case profile review */}
         <PPCaseReview intake={parsed.data} caseId={row.id} />
       </main>
     </div>
