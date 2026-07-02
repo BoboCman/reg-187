@@ -12,6 +12,7 @@
  */
 
 import type { PolicyPlanIntake, PolicySpecs } from "./schema";
+import { deriveFundingCapacity } from "./schema";
 
 export type SuitabilityFlag = {
   code: string;
@@ -155,6 +156,176 @@ function ruleGuaranteeCostDurationTension(
 }
 
 // -----------------------------------------------------------------------------
+// Helper: sum household liquid net worth across all present financial columns.
+// Sums client_1, client_2, and joint so joint cases are not understated.
+// Returns null when no financial columns are present (prevents false negatives).
+// -----------------------------------------------------------------------------
+function householdLiquidNetWorth(intake: PolicyPlanIntake): number | null {
+  const cols = intake.financial?.columns;
+  if (!cols) return null;
+  const present = [cols.client_1, cols.client_2, cols.joint].filter(
+    (c): c is NonNullable<typeof c> => c != null
+  );
+  if (present.length === 0) return null;
+  return present.reduce(
+    (sum, c) => sum + deriveFundingCapacity(c).primary_capacity,
+    0
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Rule: GUARANTEE_VS_NONGUARANTEED_RELIANCE
+// Fires when the client leans toward guarantees / prefers to avoid
+// non-guaranteed elements, yet has set a cash-value or income target that
+// depends on non-guaranteed policy performance.
+// -----------------------------------------------------------------------------
+function ruleGuaranteeVsNonguaranteedReliance(
+  intake: PolicyPlanIntake,
+  _emphasis: unknown,
+  flags: SuitabilityFlag[]
+) {
+  const rp = intake.risk_preferences;
+  const specs = intake.policy_specs;
+
+  const guaranteeSignal =
+    rp.guarantee_vs_upside === "strongly_prefer_guarantees" ||
+    rp.guarantee_vs_upside === "lean_guarantees" ||
+    rp.nonguaranteed_elements === "prefer_to_avoid";
+
+  const hasTarget =
+    specs?.desired_cash_value_accumulation != null ||
+    specs?.desired_annual_distribution != null;
+
+  if (!guaranteeSignal || !hasTarget) return;
+
+  // Derive the exact preference phrase from what actually fired
+  const prefPhrases: string[] = [];
+  if (rp.nonguaranteed_elements === "prefer_to_avoid") {
+    prefPhrases.push("a stated preference to avoid non-guaranteed policy elements");
+  }
+  if (rp.guarantee_vs_upside === "strongly_prefer_guarantees") {
+    prefPhrases.push("a strong stated preference for guaranteed outcomes");
+  } else if (rp.guarantee_vs_upside === "lean_guarantees") {
+    prefPhrases.push("a stated lean toward guaranteed outcomes");
+  }
+
+  // Derive the exact target phrase from what was set
+  const targetPhrases: string[] = [];
+  if (specs?.desired_cash_value_accumulation != null) {
+    targetPhrases.push("a cash value accumulation target");
+  }
+  if (specs?.desired_annual_distribution != null) {
+    targetPhrases.push("an annual distribution target");
+  }
+
+  const prefText = prefPhrases.join("; ");
+  const targetText = targetPhrases.join(" and ");
+
+  const severity =
+    rp.nonguaranteed_elements === "prefer_to_avoid" ? "material" : "warning";
+
+  flags.push({
+    code: "GUARANTEE_VS_NONGUARANTEED_RELIANCE",
+    description:
+      `The client's answers indicate ${prefText}, yet the file also sets ${targetText}, ` +
+      `which generally depends on non-guaranteed policy performance. ` +
+      `The producer should reconcile these positions and document that the client understands ` +
+      `these target values are not guaranteed and may vary.`,
+    severity,
+    requirement: "224.3(g) / 224.4(b)(3)(i)",
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Rule: SIMPLICITY_VS_COMPLEXITY
+// Fires when the client prefers straightforward products yet is oriented toward
+// non-guaranteed upside — a coherence/disclosure tension between two stated answers.
+// -----------------------------------------------------------------------------
+function ruleSimplicityVsComplexity(
+  intake: PolicyPlanIntake,
+  emphasis: {
+    growth_orientation: "high" | "moderate" | "low";
+    [key: string]: unknown;
+  },
+  flags: SuitabilityFlag[]
+) {
+  const rp = intake.risk_preferences;
+
+  if (rp.complexity_tolerance !== "prefer_simple") return;
+
+  const upsideLean =
+    rp.guarantee_vs_upside === "lean_upside" ||
+    rp.guarantee_vs_upside === "strongly_prefer_upside";
+  const growthHigh = emphasis.growth_orientation === "high";
+
+  if (!upsideLean && !growthHigh) return;
+
+  // Derive the upside phrase from what actually fired
+  let upsidePhrase: string;
+  if (rp.guarantee_vs_upside === "strongly_prefer_upside") {
+    upsidePhrase = "a strong stated preference for non-guaranteed upside potential";
+  } else if (rp.guarantee_vs_upside === "lean_upside") {
+    upsidePhrase = "a stated lean toward non-guaranteed upside potential";
+  } else {
+    upsidePhrase = "a growth-oriented profile";
+  }
+
+  flags.push({
+    code: "SIMPLICITY_VS_COMPLEXITY",
+    description:
+      `The client stated a preference for straightforward products while also indicating ` +
+      `${upsidePhrase}. Upside-oriented designs generally involve greater complexity — ` +
+      `indexed crediting strategies, participation rates, caps, or other non-transparent ` +
+      `elements. The producer should document that the client understands the complexity of ` +
+      `any upside-oriented design under consideration, notwithstanding the stated preference ` +
+      `for simplicity.`,
+    severity: "warning",
+    requirement: "224.4(b)(3)(i)",
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Rule: AFFORDABILITY_FLOOR
+// Fires when the desired annual premium meets or exceeds the client's reported
+// household liquid net worth, or when liquid net worth is zero or negative.
+// Silent when either value is absent — no false negatives, no noise.
+// -----------------------------------------------------------------------------
+function ruleAffordabilityFloor(
+  intake: PolicyPlanIntake,
+  _emphasis: unknown,
+  flags: SuitabilityFlag[]
+) {
+  const premium = intake.policy_specs?.desired_premium;
+  const lnw = householdLiquidNetWorth(intake);
+
+  // Silent when either input is missing
+  if (lnw == null || premium == null) return;
+
+  // Only fire when the numbers on their face do not support the premium
+  if (lnw > 0 && premium < lnw) return;
+
+  const fmt = (n: number) =>
+    n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
+  const lnwPhrase =
+    lnw <= 0
+      ? `the client's reported household liquid net worth is ${fmt(lnw)} (zero or negative)`
+      : `the desired annual premium of ${fmt(premium)} meets or exceeds the client's reported ` +
+        `household liquid net worth of ${fmt(lnw)}`;
+
+  flags.push({
+    code: "AFFORDABILITY_FLOOR",
+    description:
+      `${lnwPhrase.charAt(0).toUpperCase() + lnwPhrase.slice(1)}. ` +
+      `On the information provided, the premium does not appear supportable from liquid ` +
+      `resources. The producer should confirm and document the funding source for the premium ` +
+      `and whether it is durable (for example, recurring income versus a one-time source).`,
+    severity: "material",
+    requirement: "224.4(g)",
+  });
+}
+
+// -----------------------------------------------------------------------------
 // Main export: detectSuitabilityTensions
 // Pass the validated intake and the already-computed emphasis object.
 // Returns a SuitabilityFlag[] ready for the output contract's suitability_flags
@@ -164,12 +335,15 @@ export function detectSuitabilityTensions(
   intake: PolicyPlanIntake,
   emphasis: {
     guarantee_protection: "high" | "moderate" | "low";
+    growth_orientation: "high" | "moderate" | "low";
     cost_sensitivity: "high" | "moderate" | "low";
     drivers: Record<string, string[]>;
   }
 ): SuitabilityFlag[] {
   const flags: SuitabilityFlag[] = [];
   ruleGuaranteeCostDurationTension(intake, emphasis, flags);
-  // Additional rules: add calls here
+  ruleGuaranteeVsNonguaranteedReliance(intake, emphasis, flags);
+  ruleSimplicityVsComplexity(intake, emphasis, flags);
+  ruleAffordabilityFloor(intake, emphasis, flags);
   return flags;
 }
