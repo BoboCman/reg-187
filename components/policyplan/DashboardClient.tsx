@@ -4,6 +4,7 @@ import Link from "next/link";
 import { OBJECTIVE_LABELS } from "@/lib/policyplan/schema";
 import type { SuitabilityFlag } from "@/lib/policyplan/rules";
 import { AppNav } from "@/components/AppNav";
+import { cn } from "@/lib/utils";
 import {
   Search,
   ArrowUpDown,
@@ -25,9 +26,10 @@ export type CaseRow = {
   // Computed on the server before passing down
   insured_display: string;
   flags: SuitabilityFlag[];
+  status: string;
 };
 
-type SortField = "created_at" | "insured" | "objective";
+type SortField = "created_at" | "insured" | "objective" | "status";
 type SortDir = "asc" | "desc";
 
 // ---------------------------------------------------------------------------
@@ -39,6 +41,33 @@ function formatDate(iso: string): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  submitted: "Submitted",
+  in_review: "In review",
+  resolved: "Resolved",
+  adopted: "Adopted",
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const label = STATUS_LABELS[status] ?? status;
+  const isAdopted = status === "adopted";
+  const isResolved = status === "resolved";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border whitespace-nowrap",
+        isAdopted
+          ? "border-[var(--color-success)] text-[var(--color-success)] bg-[var(--color-success-light)]"
+          : isResolved
+          ? "border-[var(--color-accent)] text-[var(--color-accent)] bg-[var(--color-accent-light)]"
+          : "border-[var(--color-border)] text-[var(--color-text-muted)] bg-[var(--color-readonly-bg)]"
+      )}
+    >
+      {label}
+    </span>
+  );
 }
 
 function TensionIndicator({ flags }: { flags: SuitabilityFlag[] }) {
@@ -110,6 +139,8 @@ export function DashboardClient({ cases }: { cases: CaseRow[] }) {
         cmp = a.insured_display.localeCompare(b.insured_display);
       } else if (sortField === "objective") {
         cmp = a.primary_objective.localeCompare(b.primary_objective);
+      } else if (sortField === "status") {
+        cmp = a.status.localeCompare(b.status);
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -187,7 +218,7 @@ export function DashboardClient({ cases }: { cases: CaseRow[] }) {
         {filtered.length > 0 && (
           <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] overflow-hidden">
             {/* Table header */}
-            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-5 py-3 border-b border-[var(--color-border)] bg-[var(--color-readonly-bg)]">
+            <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-5 py-3 border-b border-[var(--color-border)] bg-[var(--color-readonly-bg)]">
               <button
                 onClick={() => toggleSort("insured")}
                 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors text-left"
@@ -203,6 +234,12 @@ export function DashboardClient({ cases }: { cases: CaseRow[] }) {
               <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
                 Ownership
               </span>
+              <button
+                onClick={() => toggleSort("status")}
+                className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors text-left"
+              >
+                Status <SortIcon field="status" />
+              </button>
               <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
                 Tensions
               </span>
@@ -220,7 +257,7 @@ export function DashboardClient({ cases }: { cases: CaseRow[] }) {
                 <Link
                   key={c.id}
                   href={`/cases/${c.id}`}
-                  className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-5 py-4 hover:bg-[var(--color-readonly-bg)] transition-colors items-center group"
+                  className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-5 py-4 hover:bg-[var(--color-readonly-bg)] transition-colors items-center group"
                 >
                   {/* Insured name + case ID */}
                   <div className="min-w-0">
@@ -243,6 +280,9 @@ export function DashboardClient({ cases }: { cases: CaseRow[] }) {
                   <span className="text-sm text-[var(--color-text-secondary)] capitalize whitespace-nowrap">
                     {c.ownership_type}
                   </span>
+
+                  {/* Status */}
+                  <StatusBadge status={c.status} />
 
                   {/* Tension indicator */}
                   <TensionIndicator flags={c.flags} />

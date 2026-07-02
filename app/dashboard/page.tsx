@@ -27,7 +27,8 @@ export default async function DashboardPage() {
   // Query the advisor's own rows (RLS: advisor_id = auth.uid()).
   const { data: rows, error } = await supabase
     .from("policyplan_intakes")
-    .select("id, created_at, primary_objective, ownership_type, payload")
+    .select("id, created_at, primary_objective, ownership_type, payload, status, emphasis, suitability_flags")
+    .neq("status", "superseded")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -41,15 +42,12 @@ export default async function DashboardPage() {
     );
   }
 
-  // Parse each payload and compute flags on read.
-  // detectSuitabilityTensions and inferDesignEmphasis are imported from the
-  // shared modules — no duplication of logic here.
+  // Parse each payload. Prefer stored suitability_flags (frozen at submit);
+  // fall back to live computation for legacy rows that predate the Step 1 migration.
   const cases: CaseRow[] = (rows ?? []).map((row) => {
-    // Parse the stored jsonb payload through the Zod schema.
     const parsed = policyPlanIntakeSchema.safeParse(row.payload);
 
     if (!parsed.success) {
-      // Row has an unparseable payload — still show it, just without flags.
       const insuredDisplay =
         typeof row.payload?.insured_owner?.insureds?.[0]?.name === "string"
           ? (row.payload.insured_owner.insureds as Array<{ name: string }>)
@@ -65,23 +63,27 @@ export default async function DashboardPage() {
         ownership_type: row.ownership_type ?? "",
         insured_display: insuredDisplay,
         flags: [],
+        status: row.status ?? "submitted",
       };
     }
 
     const intake = parsed.data;
-
-    const emphasis = inferDesignEmphasis({
-      objectives: intake.objectives,
-      risk_preferences: intake.risk_preferences,
-      policy_specs: intake.policy_specs,
-    });
-
-    const flags = detectSuitabilityTensions(intake, emphasis);
-
     const insuredDisplay = intake.insured_owner.insureds
       .map((i) => i.name)
       .filter(Boolean)
       .join(" & ");
+
+    // Use stored frozen snapshot when available; compute live for legacy rows.
+    const flags = Array.isArray(row.suitability_flags) && row.suitability_flags.length >= 0
+      ? row.suitability_flags
+      : (() => {
+          const emphasis = inferDesignEmphasis({
+            objectives: intake.objectives,
+            risk_preferences: intake.risk_preferences,
+            policy_specs: intake.policy_specs,
+          });
+          return detectSuitabilityTensions(intake, emphasis);
+        })();
 
     return {
       id: row.id,
@@ -90,6 +92,7 @@ export default async function DashboardPage() {
       ownership_type: intake.insured_owner.ownership_type,
       insured_display: insuredDisplay,
       flags,
+      status: row.status ?? "submitted",
     };
   });
 

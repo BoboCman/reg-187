@@ -5,11 +5,13 @@ import { useEffect, useState } from "react";
 import {
   attestationSchema,
   ATTESTATION_TEXT,
+  inferDesignEmphasis,
   policyPlanIntakeSchema,
   type Attestation,
   type PolicyPlanIntake,
   type PolicySpecs,
 } from "@/lib/policyplan/schema";
+import { detectSuitabilityTensions } from "@/lib/policyplan/rules";
 import { usePPWizard } from "@/lib/policyplan/wizard-context";
 import { createClient } from "@/lib/supabase/client";
 import { PPStepFooter, PPSectionCard } from "@/components/policyplan/PPStepWrapper";
@@ -62,6 +64,15 @@ export function PPStep7Attestation() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No authenticated session. Please sign in and try again.");
 
+      // Compute the frozen snapshot once — all downstream stages read these
+      // stored values; no recomputation ever happens after this point.
+      const emphasis = inferDesignEmphasis({
+        objectives: validatedIntake.objectives,
+        risk_preferences: validatedIntake.risk_preferences,
+        policy_specs: validatedIntake.policy_specs,
+      });
+      const suitability_flags = detectSuitabilityTensions(validatedIntake, emphasis);
+
       const { data, error } = await supabase
         .from("policyplan_intakes")
         .insert({
@@ -69,7 +80,10 @@ export function PPStep7Attestation() {
           schema_version: validatedIntake.schema_version,
           primary_objective: validatedIntake.objectives.primary,
           ownership_type: validatedIntake.insured_owner.ownership_type,
+          status: "submitted",
           payload: validatedIntake,
+          emphasis,
+          suitability_flags,
         })
         .select("id")
         .single();
