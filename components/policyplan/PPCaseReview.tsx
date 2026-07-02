@@ -7,8 +7,17 @@ import {
   type PolicyPlanIntake,
   type EmphasisLevel,
 } from "@/lib/policyplan/schema";
-import { detectSuitabilityTensions } from "@/lib/policyplan/rules";
+import { detectSuitabilityTensions, type SuitabilityFlag } from "@/lib/policyplan/rules";
 import { cn } from "@/lib/utils";
+
+// Inline shape matching inferDesignEmphasis return value (minus drivers).
+type DesignEmphasisSnapshot = {
+  guarantee_protection: EmphasisLevel;
+  growth_orientation: EmphasisLevel;
+  cash_access: EmphasisLevel;
+  cost_sensitivity: EmphasisLevel;
+  [key: string]: EmphasisLevel | unknown;
+};
 
 // ---------------------------------------------------------------------------
 // Shared constants
@@ -102,23 +111,20 @@ export function PPCaseReview({
 }: {
   intake: PolicyPlanIntake;
   caseId?: string | null;
-  storedEmphasis?: Record<string, "high" | "moderate" | "low"> | null;
+  storedEmphasis?: DesignEmphasisSnapshot | null;
   storedFlags?: SuitabilityFlag[] | null;
 }) {
   // Use stored snapshot if present; compute live only for legacy rows.
-  const emphasis = (storedEmphasis as Parameters<typeof inferDesignEmphasis>[0] & {
-    guarantee_protection: "high" | "moderate" | "low";
-    growth_orientation: "high" | "moderate" | "low";
-    cash_access: "high" | "moderate" | "low";
-    cost_sensitivity: "high" | "moderate" | "low";
-  }) ?? inferDesignEmphasis({
-    objectives: intake.objectives,
-    risk_preferences: intake.risk_preferences,
-    policy_specs: intake.policy_specs,
-  });
+  const emphasis: DesignEmphasisSnapshot =
+    storedEmphasis ??
+    inferDesignEmphasis({
+      objectives: intake.objectives,
+      risk_preferences: intake.risk_preferences,
+      policy_specs: intake.policy_specs,
+    });
 
   const suitabilityFlags: SuitabilityFlag[] =
-    storedFlags ?? detectSuitabilityTensions(intake, emphasis);
+    storedFlags ?? detectSuitabilityTensions(intake, emphasis as unknown as Parameters<typeof detectSuitabilityTensions>[1]);
 
   const col1 = intake.financial?.columns?.client_1;
   const totals = col1 ? deriveFinancialTotals(col1) : null;
@@ -320,7 +326,7 @@ export function PPCaseReview({
               <span className="text-sm text-[var(--color-text-secondary)]">
                 {label}
               </span>
-              <EmphasisBadge level={(emphasis as Record<string, EmphasisLevel>)[key]} />
+              <EmphasisBadge level={(emphasis[key] as EmphasisLevel) ?? "low"} />
             </div>
           ))}
         </div>

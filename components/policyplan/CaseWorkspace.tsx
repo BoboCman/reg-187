@@ -16,7 +16,7 @@ import { GenerateDocuments } from "@/components/policyplan/GenerateDocuments";
 type IntakeStatus = "in_review" | "resolved" | "adopted" | string;
 type OutputStatus = "pending" | "draft" | "final" | "error" | string;
 
-interface OutputRow {
+export interface OutputRow {
   id: string;
   status: OutputStatus;
   advisor_letter: string | null;
@@ -28,6 +28,7 @@ interface OutputRow {
   adoption_confirmation: string | null;
   completed_at: string | null;
   meta: Record<string, unknown> | null;
+  [key: string]: unknown;
 }
 
 export interface FlagResolution {
@@ -41,7 +42,7 @@ interface Props {
   intakeId: string;
   intake: PolicyPlanIntake;
   intakeStatus: IntakeStatus;
-  storedEmphasis: Record<string, "high" | "moderate" | "low"> | null;
+  storedEmphasis: ({ [key: string]: "high" | "moderate" | "low" | unknown }) | null;
   storedFlags: SuitabilityFlag[] | null;
   storedResolutions: FlagResolution[] | null;
   intakeVersion: number;
@@ -358,7 +359,7 @@ export function CaseWorkspace({
     setCurrentPanel(4); // jump to Generate
   }
 
-  // When adoption completes
+  // When adoption completes — OutputRow is shared, no cast needed.
   function handleAdopted(updatedOutput: OutputRow) {
     setOutputRow(updatedOutput);
     setLocalIntakeStatus("adopted");
@@ -416,7 +417,7 @@ export function CaseWorkspace({
               <PPCaseReview
                 intake={intake}
                 caseId={intakeId}
-                storedEmphasis={storedEmphasis}
+                storedEmphasis={storedEmphasis as Parameters<typeof PPCaseReview>[0]["storedEmphasis"]}
                 storedFlags={flags}
               />
             </div>
@@ -511,7 +512,7 @@ export function CaseWorkspace({
                 intakeId={intakeId}
                 initialOutput={outputRow}
                 onOutputUpdate={(updated) => {
-                  setOutputRow(updated as OutputRow);
+                  setOutputRow(updated);
                   if (updated?.status === "draft") setCurrentPanel(5);
                 }}
                 showDocumentsInline={false}

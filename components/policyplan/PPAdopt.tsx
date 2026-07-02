@@ -1,24 +1,9 @@
 "use client";
 import React, { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { FlagResolution } from "@/components/policyplan/CaseWorkspace";
+import type { OutputRow, FlagResolution } from "@/components/policyplan/CaseWorkspace";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface OutputRow {
-  id: string;
-  status: string;
-  advisor_letter: string | null;
-  client_summary: string | null;
-  suitability_flags: unknown[] | null;
-  flag_resolutions: FlagResolution[] | null;
-  adopted_by: string | null;
-  adopted_at: string | null;
-  adoption_confirmation: string | null;
-  completed_at: string | null;
-  meta: Record<string, unknown> | null;
-  [key: string]: unknown;
-}
 
 interface Props {
   intakeId: string;

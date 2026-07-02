@@ -1,26 +1,12 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { SuitabilityFlag } from "@/lib/policyplan/rules";
+import type { OutputRow } from "@/components/policyplan/CaseWorkspace";
 import { FileText, RefreshCw, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ── Types ─────────────────────────────────────────────────────────────────
-
 // Normalized status vocabulary: pending → draft → final, plus error.
 // Legacy 'complete' rows are normalized to 'draft' by the migration.
-type OutputStatus = "pending" | "draft" | "final" | "error" | string;
-
-interface OutputRow {
-  id: string;
-  status: OutputStatus;
-  advisor_letter: string | null;
-  client_summary: string | null;
-  suitability_flags: SuitabilityFlag[] | null;
-  completed_at: string | null;
-  meta: Record<string, unknown> | null;
-  [key: string]: unknown;
-}
 
 interface Props {
   intakeId: string;
@@ -158,6 +144,10 @@ export function GenerateDocuments({
         advisor_letter: null,
         client_summary: null,
         suitability_flags: null,
+        flag_resolutions: null,
+        adopted_by: null,
+        adopted_at: null,
+        adoption_confirmation: null,
         completed_at: null,
         meta: null,
       };
