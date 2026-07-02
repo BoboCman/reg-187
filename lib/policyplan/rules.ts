@@ -192,9 +192,21 @@ function ruleGuaranteeVsNonguaranteedReliance(
     rp.guarantee_vs_upside === "lean_guarantees" ||
     rp.nonguaranteed_elements === "prefer_to_avoid";
 
-  const hasTarget =
-    specs?.desired_cash_value_accumulation != null ||
-    specs?.desired_annual_distribution != null;
+  // Check that the sub-object exists AND has at least one meaningful value.
+  // After the Step 6 onValid cleanup, empty sub-objects become undefined, but
+  // guard here as well so a partially-cleared object `{ amount: undefined }`
+  // does not produce a false positive.
+  const hasAccumTarget =
+    specs?.desired_cash_value_accumulation != null &&
+    (specs.desired_cash_value_accumulation.amount != null ||
+      specs.desired_cash_value_accumulation.at_age != null ||
+      specs.desired_cash_value_accumulation.year != null);
+  const hasDistTarget =
+    specs?.desired_annual_distribution != null &&
+    (specs.desired_annual_distribution.amount != null ||
+      specs.desired_annual_distribution.start_age != null ||
+      specs.desired_annual_distribution.end_age != null);
+  const hasTarget = hasAccumTarget || hasDistTarget;
 
   if (!guaranteeSignal || !hasTarget) return;
 
@@ -211,12 +223,8 @@ function ruleGuaranteeVsNonguaranteedReliance(
 
   // Derive the exact target phrase from what was set
   const targetPhrases: string[] = [];
-  if (specs?.desired_cash_value_accumulation != null) {
-    targetPhrases.push("a cash value accumulation target");
-  }
-  if (specs?.desired_annual_distribution != null) {
-    targetPhrases.push("an annual distribution target");
-  }
+  if (hasAccumTarget) targetPhrases.push("a cash value accumulation target");
+  if (hasDistTarget) targetPhrases.push("an annual distribution target");
 
   const prefText = prefPhrases.join("; ");
   const targetText = targetPhrases.join(" and ");
