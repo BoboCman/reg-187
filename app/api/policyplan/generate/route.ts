@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   const { data: intakeRow } = await supabase
     .from("policyplan_intakes")
     .select(
-      "id, advisor_id, status, payload, emphasis, suitability_flags, flag_resolutions"
+      "id, advisor_id, status, payload, emphasis, suitability_flags, flag_resolutions, liquid_net_worth"
     )
     .eq("id", intake_id)
     .eq("advisor_id", user.id)
@@ -81,10 +81,7 @@ export async function POST(request: NextRequest) {
 
   // ── 5. Build payload — stored snapshot, not a recomputation ──────────────
   const payload = intakeRow.payload as Record<string, unknown>;
-  const liquid_net_worth =
-    typeof payload?.financial === "object" && payload.financial !== null
-      ? (payload.financial as Record<string, unknown>).liquid_net_worth
-      : null;
+  const liquid_net_worth = intakeRow.liquid_net_worth;
 
   const webhookBody = {
     ...payload,
