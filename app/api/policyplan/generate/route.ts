@@ -36,26 +36,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
   }
 
-  // ── 3. Verify ownership ──────────────────────────────────────────────────
+  // ── 3. Verify ownership and gate on resolved status ───────────────────────
   const { data: intakeRow } = await supabase
     .from("policyplan_intakes")
-    .select("id, advisor_id, payload")
+    .select(
+      "id, advisor_id, status, payload, emphasis, suitability_flags, flag_resolutions"
+    )
     .eq("id", intake_id)
     .eq("advisor_id", user.id)
     .maybeSingle();
 
-  // Return 404 regardless of whether the row exists for another advisor.
   if (!intakeRow) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  // ── 4. Create pending output row ─────────────────────────────────────────
+  // Gate: only allow generation for cases in 'resolved' status.
+  if (intakeRow.status !== "resolved") {
+    return NextResponse.json(
+      { error: "not_resolved", message: "Case must be resolved before generating." },
+      { status: 409 }
+    );
+  }
+
+  // ── 4. Create pending output row (copying frozen snapshot) ────────────────
   const { data: outputRow, error: insertError } = await supabase
     .from("policyplan_outputs")
     .insert({
       intake_id,
       advisor_id: user.id,
       status: "pending",
+      emphasis: intakeRow.emphasis,
+      suitability_flags: intakeRow.suitability_flags,
+      flag_resolutions: intakeRow.flag_resolutions,
     })
     .select("id")
     .single();
@@ -67,12 +79,30 @@ export async function POST(request: NextRequest) {
 
   const output_id = outputRow.id as string;
 
-  // ── 5. Fire n8n webhook (server-to-server, fire-and-forget) ──────────────
+  // ── 5. Build payload — stored snapshot, not a recomputation ──────────────
+  const payload = intakeRow.payload as Record<string, unknown>;
+  const liquid_net_worth =
+    typeof payload?.financial === "object" && payload.financial !== null
+      ? (payload.financial as Record<string, unknown>).liquid_net_worth
+      : null;
+
+  const webhookBody = {
+    ...payload,
+    output_id,
+    intake_id,
+    advisor_id: user.id,
+    // Frozen snapshot — read once at submit, never recomputed
+    emphasis: intakeRow.emphasis,
+    suitability_flags: intakeRow.suitability_flags,
+    flag_resolutions: intakeRow.flag_resolutions,
+    liquid_net_worth,
+  };
+
+  // ── 6. Fire n8n webhook ───────────────────────────────────────────────────
   const webhookUrl = process.env.N8N_POLICYPLAN_WEBHOOK_URL;
   const webhookSecret = process.env.N8N_POLICYPLAN_WEBHOOK_SECRET;
 
   if (!webhookUrl || !webhookSecret) {
-    // Env vars not configured — mark row as error immediately.
     await supabase
       .from("policyplan_outputs")
       .update({ status: "error", meta: { reason: "webhook_not_configured" } })
@@ -80,13 +110,6 @@ export async function POST(request: NextRequest) {
     console.error("[policyplan/generate] N8N_POLICYPLAN_WEBHOOK_URL or N8N_POLICYPLAN_WEBHOOK_SECRET not set");
     return NextResponse.json({ error: "generation_trigger_failed" }, { status: 502 });
   }
-
-  const webhookBody = {
-    ...(intakeRow.payload as Record<string, unknown>),
-    output_id,
-    intake_id,
-    advisor_id: user.id,
-  };
 
   try {
     const controller = new AbortController();
@@ -112,7 +135,6 @@ export async function POST(request: NextRequest) {
       err instanceof Error ? err.message : "unknown_trigger_error";
     console.error("[policyplan/generate] Webhook trigger failed:", reason);
 
-    // Never log the secret — only log the sanitised reason.
     await supabase
       .from("policyplan_outputs")
       .update({ status: "error", meta: { reason: "trigger_failed" } })
@@ -121,6 +143,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "generation_trigger_failed" }, { status: 502 });
   }
 
-  // ── 6. Return accepted ───────────────────────────────────────────────────
+  // ── 7. Return accepted ───────────────────────────────────────────────────
   return NextResponse.json({ status: "generating", output_id }, { status: 200 });
 }

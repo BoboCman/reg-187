@@ -25,6 +25,7 @@ export type CaseRow = {
   // Computed on the server before passing down
   insured_display: string;
   flags: SuitabilityFlag[];
+  status: string;
 };
 
 type SortField = "created_at" | "insured" | "objective";

@@ -1,10 +1,7 @@
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { policyPlanIntakeSchema } from "@/lib/policyplan/schema";
-import { PPCaseReview } from "@/components/policyplan/PPCaseReview";
-import { GenerateDocuments } from "@/components/policyplan/GenerateDocuments";
+import { CaseWorkspace } from "@/components/policyplan/CaseWorkspace";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -21,17 +18,17 @@ export default async function CaseDetailPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
 
-  // Confirm session.
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Fetch the single row — RLS enforces advisor_id = auth.uid(),
-  // so a row belonging to another advisor returns nothing.
+  // Fetch the intake row including stored frozen snapshot columns.
   const { data: row, error } = await supabase
     .from("policyplan_intakes")
-    .select("id, created_at, payload")
+    .select(
+      "id, created_at, payload, status, emphasis, suitability_flags, flag_resolutions, version, supersedes_intake_id"
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -39,7 +36,7 @@ export default async function CaseDetailPage({ params }: Props) {
     notFound();
   }
 
-  // Parse payload through the Zod schema.
+  // Parse payload.
   const parsed = policyPlanIntakeSchema.safeParse(row.payload);
   if (!parsed.success) {
     return (
@@ -52,11 +49,23 @@ export default async function CaseDetailPage({ params }: Props) {
     );
   }
 
-  // Fetch the most recent output row for this case (RLS scopes to owner).
+  // Mark the intake in_review when an advisor opens a submitted case.
+  if (row.status === "submitted") {
+    await supabase
+      .from("policyplan_intakes")
+      .update({ status: "in_review" })
+      .eq("id", id)
+      .eq("advisor_id", user.id);
+  }
+
+  // The effective status for display — if we just moved it, show in_review.
+  const effectiveStatus = row.status === "submitted" ? "in_review" : row.status;
+
+  // Most recent output row for this case.
   const { data: outputRow } = await supabase
     .from("policyplan_outputs")
     .select(
-      "id, status, advisor_letter, client_summary, suitability_flags, completed_at, meta"
+      "id, status, advisor_letter, client_summary, suitability_flags, flag_resolutions, adopted_by, adopted_at, adoption_confirmation, completed_at, meta"
     )
     .eq("intake_id", id)
     .order("created_at", { ascending: false })
@@ -64,44 +73,16 @@ export default async function CaseDetailPage({ params }: Props) {
     .maybeSingle();
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)]">
-      {/* Header */}
-      <header className="bg-[var(--color-surface)] border-b border-[var(--color-border)] sticky top-0 z-20">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back to cases</span>
-            </Link>
-            <span className="text-[var(--color-border)] select-none">|</span>
-            <div>
-              <p className="text-[10px] font-semibold tracking-widest uppercase text-[var(--color-text-muted)]">
-                Insurance Planner AI Professional
-              </p>
-              <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                PolicyPlan — Case review
-              </p>
-            </div>
-          </div>
-          <span className="text-[10px] font-semibold uppercase tracking-widest px-2.5 py-1 rounded border border-[var(--color-border)] text-[var(--color-text-muted)] bg-[var(--color-readonly-bg)]">
-            Read only
-          </span>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-5">
-        {/* Best-interest document generation */}
-        <GenerateDocuments
-          intakeId={row.id}
-          initialOutput={outputRow ?? null}
-        />
-
-        {/* Case profile review */}
-        <PPCaseReview intake={parsed.data} caseId={row.id} />
-      </main>
-    </div>
+    <CaseWorkspace
+      intakeId={row.id}
+      intake={parsed.data}
+      intakeStatus={effectiveStatus ?? "in_review"}
+      storedEmphasis={row.emphasis ?? null}
+      storedFlags={row.suitability_flags ?? null}
+      storedResolutions={row.flag_resolutions ?? null}
+      intakeVersion={row.version ?? 1}
+      createdAt={row.created_at}
+      outputRow={outputRow ?? null}
+    />
   );
 }

@@ -91,19 +91,34 @@ export function SectionCard({
 // ---------------------------------------------------------------------------
 // PPCaseReview — pure display, no wizard context, no form state.
 // Used by both PPConfirmationScreen (post-submit) and the read-only detail view.
+// storedEmphasis / storedFlags come from the DB frozen snapshot when available;
+// falls back to live computation for legacy rows that predate Step 1.
 // ---------------------------------------------------------------------------
 export function PPCaseReview({
   intake,
   caseId,
+  storedEmphasis,
+  storedFlags,
 }: {
   intake: PolicyPlanIntake;
   caseId?: string | null;
+  storedEmphasis?: Record<string, "high" | "moderate" | "low"> | null;
+  storedFlags?: SuitabilityFlag[] | null;
 }) {
-  const emphasis = inferDesignEmphasis({
+  // Use stored snapshot if present; compute live only for legacy rows.
+  const emphasis = (storedEmphasis as Parameters<typeof inferDesignEmphasis>[0] & {
+    guarantee_protection: "high" | "moderate" | "low";
+    growth_orientation: "high" | "moderate" | "low";
+    cash_access: "high" | "moderate" | "low";
+    cost_sensitivity: "high" | "moderate" | "low";
+  }) ?? inferDesignEmphasis({
     objectives: intake.objectives,
     risk_preferences: intake.risk_preferences,
     policy_specs: intake.policy_specs,
   });
+
+  const suitabilityFlags: SuitabilityFlag[] =
+    storedFlags ?? detectSuitabilityTensions(intake, emphasis);
 
   const col1 = intake.financial?.columns?.client_1;
   const totals = col1 ? deriveFinancialTotals(col1) : null;
@@ -124,9 +139,6 @@ export function PPCaseReview({
       : premDuration?.mode === "scale"
       ? (PREMIUM_SCALE_LABELS[premDuration.scale_point] ?? premDuration.scale_point)
       : "—";
-
-  // Tension flags — shared rule module, not inline
-  const suitabilityFlags = detectSuitabilityTensions(intake, emphasis);
 
   const insuredNames = intake.insured_owner.insureds
     .map((i) => i.name)
@@ -293,13 +305,13 @@ export function PPCaseReview({
           will use these signals to score and rank product designs.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {(
+          {          (
             [
               ["Guarantee protection", "guarantee_protection"],
               ["Growth orientation", "growth_orientation"],
-              ["Cash access priority", "cash_access"],
+              ["Cash access", "cash_access"],
               ["Cost sensitivity", "cost_sensitivity"],
-            ] as [string, keyof typeof emphasis][]
+            ] as [string, string][]
           ).map(([label, key]) => (
             <div
               key={key}
@@ -308,7 +320,7 @@ export function PPCaseReview({
               <span className="text-sm text-[var(--color-text-secondary)]">
                 {label}
               </span>
-              <EmphasisBadge level={emphasis[key] as EmphasisLevel} />
+              <EmphasisBadge level={(emphasis as Record<string, EmphasisLevel>)[key]} />
             </div>
           ))}
         </div>
