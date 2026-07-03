@@ -264,9 +264,6 @@ export function PPStep1InsuredOwner() {
 
       {/* Page intro */}
       <div className="flex items-start justify-between gap-4 mb-6">
-        <p className="text-sm text-[var(--color-text-secondary)]">
-          Start with who is insured and who will own the policy.
-        </p>
         <button
           type="button"
           onClick={() => loadSample(PP_SAMPLE_CASE)}
@@ -389,19 +386,6 @@ export function PPStep1InsuredOwner() {
             />
           </FormField>
 
-          {/* State of ownership — always visible for all paths (spec item 2) */}
-          <FormField
-            label="State of ownership"
-            hint="2-letter state code"
-            error={errors.state_of_ownership?.message}
-          >
-            <TextInput
-              {...register("state_of_ownership")}
-              placeholder="NY"
-              maxLength={2}
-              className="uppercase w-24"
-            />
-          </FormField>
 
           {/* Same-owner summary row */}
           {!isDifferentOwner && (

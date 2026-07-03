@@ -36,11 +36,11 @@ export type PPFormData = {
 export const PP_STEP_COUNT = 7;
 
 export const PP_STEP_META: { label: string; subtitle: string }[] = [
-  { label: "Insured & owner",      subtitle: "Who is insured, who owns the policy" },
+  { label: "Insured & owner",      subtitle: "Captures who is insured and who will own the policy." },
   { label: "Objectives",           subtitle: "The client's purpose for coverage" },
   { label: "Financial profile",    subtitle: "Enter the financial information of the policy owner. For a trust-owned policy, enter the grantor\u2019s or the premium funding source\u2019s information, not the insured\u2019s." },
   { label: "Existing coverage",    subtitle: "In-force policies and replacement intent" },
-  { label: "Risk & preferences",   subtitle: "Tolerance, guarantees, and funding commitment" },
+  { label: "Risk & preferences",   subtitle: "Assesses comfort with guarantees, variability, complexity, and funding obligations." },
   { label: "Policy specifications",subtitle: "Target death benefit, premium, and duration" },
   { label: "Attestation",          subtitle: "Notes, signature, and best-interest confirmation" },
 ];
