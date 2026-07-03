@@ -9,8 +9,7 @@
 
 -- ── 1. Backfill ──────────────────────────────────────────────────────────────
 UPDATE policyplan_outputs
-SET    status     = 'draft',
-       updated_at = now()
+SET    status = 'draft'
 WHERE  status = 'complete';
 
 -- ── 2. Normalisation function ────────────────────────────────────────────────
