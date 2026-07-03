@@ -8,6 +8,7 @@ import {
   existingCoverageSchema,
   policyTypeEnum,
   OBJECTIVE_LABELS,
+  businessTypeEnum,
   type ExistingCoverage,
 } from "@/lib/policyplan/schema";
 import { usePPWizard } from "@/lib/policyplan/wizard-context";
@@ -87,6 +88,25 @@ function buildPurposeOptions(selectedObjectiveLabels: string[]): {
     ),
   };
 }
+
+const OWNERSHIP_OPTIONS = [
+  { value: "individual" as const, label: "Individual" },
+  { value: "business" as const, label: "Business" },
+  { value: "trust" as const, label: "Trust" },
+];
+
+const TRUST_OPTIONS = [
+  { value: "irrevocable" as const, label: "Irrevocable" },
+  { value: "revocable" as const, label: "Revocable" },
+];
+
+const BUSINESS_TYPE_OPTIONS: Array<{ value: typeof businessTypeEnum._type; label: string }> = [
+  { value: "c_corp", label: "C corporation" },
+  { value: "s_corp", label: "S corporation" },
+  { value: "llc", label: "LLC" },
+  { value: "limited_partnership", label: "Limited partnership" },
+  { value: "sole_proprietorship", label: "Sole proprietorship" },
+];
 
 const MAX_POLICIES = 3;
 
@@ -787,6 +807,49 @@ function PolicyCard({
     }
   };
 
+  // Live watched ownership sub-type values.
+  // These fields exist in the Zod schema but TypeScript's RHF path inference doesn't
+  // surface them — use (prefix + field) cast via `as any` throughout this block.
+  const ownershipTypeVal = watch(`${prefix}.ownership_type` as any) as "individual" | "business" | "trust" | undefined;
+
+  // Convenience alias for setValue that bypasses the strict path union.
+  const setVal = (path: string, value: unknown, opts?: object) =>
+    (setValue as (p: any, v: any, o?: any) => void)(path, value, opts);
+
+  // Clear stale sub-type fields when owner type changes — mirrors Step 1 handleOwnerTypeChange.
+  const handleOwnerTypeChange = (v: "individual" | "business" | "trust") => {
+    setVal(`${prefix}.ownership_type`, v, { shouldValidate: true });
+    if (v !== "business") setVal(`${prefix}.business_type`, undefined);
+    if (v !== "trust") {
+      setVal(`${prefix}.trust_type`, undefined);
+      setVal(`${prefix}.grantor_trust`, undefined);
+      setVal(`${prefix}.gst_exempt`, undefined);
+    }
+  };
+
+  // When owner relationship changes — mirrors Step 1 handleRelChange.
+  // Clears business/trust fields when leaving the "different" branch.
+  const handleOwnerRelationChange = (rel: OwnerRelation) => {
+    const prev = ownerRelation;
+    setOwnerRelation(rel);
+    if (rel !== "different") {
+      // Clear ownership sub-type fields when returning to a same-owner path
+      if (prev === "different") {
+        setVal(`${prefix}.ownership_type`, "individual");
+        setVal(`${prefix}.business_type`, undefined);
+        setVal(`${prefix}.trust_type`, undefined);
+        setVal(`${prefix}.grantor_trust`, undefined);
+        setVal(`${prefix}.gst_exempt`, undefined);
+      }
+    } else {
+      // Switching TO different — clear carry-over trust/business from previous owner
+      setVal(`${prefix}.business_type`, undefined);
+      setVal(`${prefix}.trust_type`, undefined);
+      setVal(`${prefix}.grantor_trust`, undefined);
+      setVal(`${prefix}.gst_exempt`, undefined);
+    }
+  };
+
   // Purpose handler — clear field when switching TO Other if current value is standard
   const handlePurposePreset = (p: string) => {
     if (p === "Other") {
@@ -960,12 +1023,12 @@ function PolicyCard({
                 </div>
               </div>
 
-              {/* Policy owner — mirrors Step 1 relationship options */}
+              {/* Policy owner — relationship selector + full Step 1 owner subform for "different" */}
               <div>
                 <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-2">Policy owner</p>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {insuredNames.length >= 2 ? (
-                    // Dual-insured: richer option set
+                    // Dual-insured: pill grid matching Step 1 dual options
                     <div className="flex flex-wrap gap-2">
                       {(["same", "insured_1", "insured_2", "joint", "different"] as OwnerRelation[]).map((rel) => {
                         const labelMap: Record<OwnerRelation, string> = {
@@ -979,7 +1042,7 @@ function PolicyCard({
                           <button
                             key={rel}
                             type="button"
-                            onClick={() => setOwnerRelation(rel)}
+                            onClick={() => handleOwnerRelationChange(rel)}
                             className={cn(
                               "px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors",
                               ownerRelation === rel
@@ -998,14 +1061,99 @@ function PolicyCard({
                         { value: "different", label: "Different owner" },
                       ]}
                       value={ownerRelation === "different" ? "different" : "same"}
-                      onChange={(v) => setOwnerRelation(v as OwnerRelation)}
+                      onChange={(v) => handleOwnerRelationChange(v as OwnerRelation)}
                     />
                   )}
+
+                  {/* ── Different owner: full Step 1-style subform ── */}
                   {ownerRelation === "different" && (
-                    <TextInput
-                      {...register(`${prefix}.policy_owner`)}
-                      placeholder="Owner name"
-                    />
+                    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-readonly-bg)] px-4 py-4 space-y-5">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                        Owner details
+                      </p>
+
+                      {/* Owner type */}
+                      <FormField label="Owner type">
+                        <SegmentedControl
+                          options={OWNERSHIP_OPTIONS}
+                          value={ownershipTypeVal ?? "individual"}
+                          onChange={handleOwnerTypeChange}
+                        />
+                      </FormField>
+
+                      {/* Owner name / entity */}
+                      <FormField label="Policy owner">
+                        <TextInput
+                          {...register(`${prefix}.policy_owner`)}
+                          placeholder="Name or entity"
+                        />
+                      </FormField>
+
+                      {/* Business details subcard */}
+                      {ownershipTypeVal === "business" && (
+                        <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)] mb-4">
+                            Business details
+                          </p>
+                          <FormField label="Business entity type">
+                            <div className="flex flex-wrap gap-2">
+                              {BUSINESS_TYPE_OPTIONS.map((opt) => {
+                                const isSelected = watch(`${prefix}.business_type` as any) === opt.value;
+                                return (
+                                  <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() =>
+                                      setVal(`${prefix}.business_type`, opt.value, { shouldValidate: true })
+                                    }
+                                    className={cn(
+                                      "px-3 py-1.5 rounded-full text-sm font-medium border transition-colors",
+                                      isSelected
+                                        ? "bg-[var(--color-accent)] text-white border-[var(--color-accent)]"
+                                        : "bg-[var(--color-surface)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+                                    )}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </FormField>
+                        </div>
+                      )}
+
+                      {/* Trust details subcard */}
+                      {ownershipTypeVal === "trust" && (
+                        <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)] mb-4">
+                            Trust details
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <FormField label="Trust type">
+                              <SegmentedControl
+                                options={TRUST_OPTIONS}
+                                value={watch(`${prefix}.trust_type` as any)}
+                                onChange={(v) => setVal(`${prefix}.trust_type`, v, { shouldValidate: true })}
+                              />
+                            </FormField>
+                            <FormField label="Grantor trust">
+                              <SegmentedControl
+                                options={YES_NO}
+                                value={watch(`${prefix}.grantor_trust` as any)}
+                                onChange={(v) => setVal(`${prefix}.grantor_trust`, v, { shouldValidate: true })}
+                              />
+                            </FormField>
+                            <FormField label="GST exempt">
+                              <SegmentedControl
+                                options={YES_NO}
+                                value={watch(`${prefix}.gst_exempt` as any)}
+                                onChange={(v) => setVal(`${prefix}.gst_exempt`, v, { shouldValidate: true })}
+                              />
+                            </FormField>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
