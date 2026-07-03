@@ -170,7 +170,14 @@ function PPAmountPicker({
   const chips = MONEY_CHIPS[fieldKey] ?? [25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000];
   const increment = STEPPER_INCREMENT[fieldKey] ?? 10_000;
   const [showExact, setShowExact] = useState(false);
+  // Always reflect the current form value — use value prop directly as source of truth.
+  // localValue only exists for stepper intermediate state; it resets to `value` on open.
   const [localValue, setLocalValue] = useState<number | undefined>(value);
+
+  // Sync localValue whenever the picker is remounted (i.e. opened fresh) or value changes externally.
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
 
   const step = (delta: number) => {
     const next = Math.max(0, (localValue ?? 0) + delta);
@@ -371,9 +378,9 @@ function statusLabel(status: FieldStatus): string {
   return "Exact";
 }
 
-// One field card can be open at a time — shared across the whole step.
-// A module-level ref so all cards in the same render tree share one slot.
-let globalCloseOpenPicker: (() => void) | null = null;
+// Module-level set of close callbacks — one entry per mounted card that is open.
+// Using a Set of stable refs avoids stale-closure comparison failures.
+const openPickerClosers = new Set<() => void>();
 
 function PPAmountFieldCard({
   fieldKey,
@@ -389,34 +396,26 @@ function PPAmountFieldCard({
   isTaxRate?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [status, setStatus] = useState<FieldStatus>(() =>
-    value == null ? "not_added" : "estimated"
-  );
+  // Derive status from value every render — no stale initializer.
+  const status: FieldStatus = value == null ? "not_added" : "estimated";
   const triggerRef = useRef<HTMLButtonElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const [pickerStyle, setPickerStyle] = useState<React.CSSProperties>({});
+  // Stable close ref so the Set comparison is reliable across renders.
+  const closeFnRef = useRef<() => void>(() => setOpen(false));
+  closeFnRef.current = () => setOpen(false);
 
-  // Sync status when value changes externally (e.g. reset)
-  useEffect(() => {
-    if (value == null) setStatus("not_added");
-    else if (status === "not_added") setStatus("estimated");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
-  // Register close handler globally so only one picker is open at a time
+  // Register/deregister this card's closer. On open, close every other open picker.
   useEffect(() => {
     if (open) {
-      if (globalCloseOpenPicker && globalCloseOpenPicker !== closeThis) {
-        globalCloseOpenPicker();
-      }
-      globalCloseOpenPicker = closeThis;
+      // Close all currently open pickers except this one.
+      openPickerClosers.forEach((fn) => { if (fn !== closeFnRef.current) fn(); });
+      openPickerClosers.add(closeFnRef.current);
     } else {
-      if (globalCloseOpenPicker === closeThis) globalCloseOpenPicker = null;
+      openPickerClosers.delete(closeFnRef.current);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { openPickerClosers.delete(closeFnRef.current); };
   }, [open]);
-
-  function closeThis() { setOpen(false); }
 
   // Position the portal picker below the trigger button
   useEffect(() => {
@@ -453,7 +452,6 @@ function PPAmountFieldCard({
 
   const handleChange = useCallback(
     (v: number | undefined, s: FieldStatus = "estimated") => {
-      setStatus(v == null ? "not_added" : s);
       onChange(v, s);
     },
     [onChange]
