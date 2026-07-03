@@ -455,72 +455,9 @@ export function PPStep5RiskPreferences() {
         </div>
       )}
 
-      {/* ── Answered-so-far review strip ── */}
-      {answeredSoFar.length > 0 && (
-        <div className="mb-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)] overflow-hidden">
-          {answeredSoFar.map((q) => (
-            <AnsweredRow
-              key={q.name as string}
-              shortLabel={q.shortLabel}
-              answer={optionLabel(q, allValues[q.name] as string | undefined)}
-              onEdit={() => handleEdit(q.name)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* ── Active question card ── */}
-      {activeQ && (
-        <Controller
-          control={control}
-          name={activeQ.name}
-          render={({ field }) => (
-            <ActiveQuestionCard
-              globalIndex={activeQIdx!}
-              groupLabel={GROUPS[activeGroupIdx]?.label ?? ""}
-              question={activeQ.question}
-              hint={activeQ.hint}
-              options={activeQ.options}
-              value={field.value as string | undefined}
-              onChange={(v) => {
-                field.onChange(v);
-                handleAnswered(activeQ.name);
-              }}
-              error={
-                (errors[activeQ.name] as { message?: string } | undefined)
-                  ?.message
-              }
-            />
-          )}
-        />
-      )}
-
-      {/* ── All done: answered-after strip for questions after active slot ── */}
-      {(() => {
-        const answeredAfter = QUESTIONS.filter(
-          (q) =>
-            !!allValues[q.name] &&
-            activeQIdx !== null &&
-            QUESTION_ORDER.indexOf(q.name) > activeQIdx
-        );
-        if (answeredAfter.length === 0) return null;
-        return (
-          <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)] overflow-hidden">
-            {answeredAfter.map((q) => (
-              <AnsweredRow
-                key={q.name as string}
-                shortLabel={q.shortLabel}
-                answer={optionLabel(q, allValues[q.name] as string | undefined)}
-                onEdit={() => handleEdit(q.name)}
-              />
-            ))}
-          </div>
-        );
-      })()}
-
-      {/* ── All complete summary ── */}
-      {allComplete && activeQIdx === null && (
-        <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)] overflow-hidden">
+      {/* ── All complete: single summary list (no active question) ── */}
+      {allComplete && activeQIdx === null ? (
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)] overflow-hidden">
           {QUESTIONS.map((q) => (
             <AnsweredRow
               key={q.name as string}
@@ -530,6 +467,71 @@ export function PPStep5RiskPreferences() {
             />
           ))}
         </div>
+      ) : (
+        <>
+          {/* ── Answered-so-far review strip (only shown while a question is active) ── */}
+          {answeredSoFar.length > 0 && (
+            <div className="mb-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)] overflow-hidden">
+              {answeredSoFar.map((q) => (
+                <AnsweredRow
+                  key={q.name as string}
+                  shortLabel={q.shortLabel}
+                  answer={optionLabel(q, allValues[q.name] as string | undefined)}
+                  onEdit={() => handleEdit(q.name)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* ── Active question card ── */}
+          {activeQ && (
+            <Controller
+              control={control}
+              name={activeQ.name}
+              render={({ field }) => (
+                <ActiveQuestionCard
+                  globalIndex={activeQIdx!}
+                  groupLabel={GROUPS[activeGroupIdx]?.label ?? ""}
+                  question={activeQ.question}
+                  hint={activeQ.hint}
+                  options={activeQ.options}
+                  value={field.value as string | undefined}
+                  onChange={(v) => {
+                    field.onChange(v);
+                    handleAnswered(activeQ.name);
+                  }}
+                  error={
+                    (errors[activeQ.name] as { message?: string } | undefined)
+                      ?.message
+                  }
+                />
+              )}
+            />
+          )}
+
+          {/* ── Answered-after strip: questions already answered beyond the active slot ── */}
+          {(() => {
+            const answeredAfter = QUESTIONS.filter(
+              (q) =>
+                !!allValues[q.name] &&
+                activeQIdx !== null &&
+                QUESTION_ORDER.indexOf(q.name) > activeQIdx
+            );
+            if (answeredAfter.length === 0) return null;
+            return (
+              <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)] overflow-hidden">
+                {answeredAfter.map((q) => (
+                  <AnsweredRow
+                    key={q.name as string}
+                    shortLabel={q.shortLabel}
+                    answer={optionLabel(q, allValues[q.name] as string | undefined)}
+                    onEdit={() => handleEdit(q.name)}
+                  />
+                ))}
+              </div>
+            );
+          })()}
+        </>
       )}
 
       <PPStepFooter continueDisabled={!allComplete} />
