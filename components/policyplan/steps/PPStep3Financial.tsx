@@ -2,6 +2,7 @@
 import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   financialSchema,
   deriveFinancialTotals,
@@ -370,6 +371,10 @@ function statusLabel(status: FieldStatus): string {
   return "Exact";
 }
 
+// One field card can be open at a time — shared across the whole step.
+// A module-level ref so all cards in the same render tree share one slot.
+let globalCloseOpenPicker: (() => void) | null = null;
+
 function PPAmountFieldCard({
   fieldKey,
   label,
@@ -387,7 +392,9 @@ function PPAmountFieldCard({
   const [status, setStatus] = useState<FieldStatus>(() =>
     value == null ? "not_added" : "estimated"
   );
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const [pickerStyle, setPickerStyle] = useState<React.CSSProperties>({});
 
   // Sync status when value changes externally (e.g. reset)
   useEffect(() => {
@@ -396,11 +403,49 @@ function PPAmountFieldCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
-  // Close on outside click
+  // Register close handler globally so only one picker is open at a time
+  useEffect(() => {
+    if (open) {
+      if (globalCloseOpenPicker && globalCloseOpenPicker !== closeThis) {
+        globalCloseOpenPicker();
+      }
+      globalCloseOpenPicker = closeThis;
+    } else {
+      if (globalCloseOpenPicker === closeThis) globalCloseOpenPicker = null;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  function closeThis() { setOpen(false); }
+
+  // Position the portal picker below the trigger button
+  useEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const pickerHeight = 340; // approximate max height
+    const above = spaceBelow < pickerHeight && rect.top > pickerHeight;
+    setPickerStyle({
+      position: "fixed",
+      left: rect.left,
+      width: rect.width,
+      ...(above
+        ? { bottom: window.innerHeight - rect.top + 4 }
+        : { top: rect.bottom + 4 }),
+      zIndex: 9999,
+    });
+  }, [open]);
+
+  // Close on outside click — checks both trigger and picker
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (
+        triggerRef.current?.contains(target) ||
+        pickerRef.current?.contains(target)
+      ) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -418,9 +463,30 @@ function PPAmountFieldCard({
     ? value != null ? `${value}%` : null
     : value != null ? `$${Math.round(value).toLocaleString("en-US")}` : null;
 
+  const pickerEl = open ? (
+    <div ref={pickerRef} style={pickerStyle} className="shadow-xl min-w-[320px] max-w-[480px]">
+      {isTaxRate ? (
+        <PPTaxRatePicker
+          value={value}
+          onChange={(v) => { handleChange(v, v == null ? "not_added" : "estimated"); }}
+          onClose={() => setOpen(false)}
+        />
+      ) : (
+        <PPAmountPicker
+          fieldKey={fieldKey}
+          label={label}
+          value={value}
+          onChange={(v, s) => handleChange(v, s)}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </div>
+  ) : null;
+
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors text-left group"
@@ -453,25 +519,10 @@ function PPAmountFieldCard({
         <Pencil className="w-3.5 h-3.5 text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)] shrink-0 transition-colors" />
       </button>
 
-      {open && (
-        <div className="absolute z-30 left-0 right-0 mt-1 shadow-xl">
-          {isTaxRate ? (
-            <PPTaxRatePicker
-              value={value}
-              onChange={(v) => { handleChange(v, v == null ? "not_added" : "estimated"); }}
-              onClose={() => setOpen(false)}
-            />
-          ) : (
-            <PPAmountPicker
-              fieldKey={fieldKey}
-              label={label}
-              value={value}
-              onChange={(v, s) => handleChange(v, s)}
-              onClose={() => setOpen(false)}
-            />
-          )}
-        </div>
-      )}
+      {/* Render picker in a portal so it is never clipped by overflow:hidden ancestors */}
+      {typeof document !== "undefined" && pickerEl
+        ? createPortal(pickerEl, document.body)
+        : null}
     </div>
   );
 }
@@ -492,7 +543,7 @@ function PPFinancialSection({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -592,26 +643,24 @@ function PPPersonEditor({
   const field = (key: keyof FinancialColumn) =>
     `${prefix}.${key}` as Parameters<typeof control.register>[0];
 
+  // Spec order: residence first, then liquids, retirement, business, investment RE, other
   const assetFields: [keyof FinancialColumn, string][] = [
+    ["residence", "Personal real estate"],
     ["cash_cds_securities", "Cash, CDs, and securities"],
     ["qualified_plans", "Qualified retirement plans"],
     ["business_interests", "Business interests"],
     ["real_estate", "Investment real estate"],
-    ["residence", "Primary residence"],
     ["other_assets", "Other assets"],
   ];
 
   const liabilityFields: [keyof FinancialColumn, string][] = [
-    ["mortgage_amount", "Mortgage balance"],
+    ["mortgage_amount", "Mortgage balance(s)"],
     ["revolving_debt", "Revolving / credit debt"],
     ["other_liability_amount", "Other liabilities"],
   ];
 
   return (
     <div className="space-y-3">
-      {/* Summary — pinned above sections */}
-      <PPFinancialSummaryRail totals={totals} />
-
       {/* Income section */}
       <PPFinancialSection title="Income" defaultOpen>
         <Controller
@@ -678,6 +727,9 @@ function PPPersonEditor({
           />
         ))}
       </PPFinancialSection>
+
+      {/* Summary — below sections so hierarchy is: enter data → see result */}
+      <PPFinancialSummaryRail totals={totals} />
     </div>
   );
 }
@@ -749,6 +801,13 @@ export function PPStep3Financial() {
 
   const [activeTab, setActiveTab] = useState<Prefix>(tabs[0].id);
 
+  // Keep activeTab valid whenever the tab set changes (e.g. insured count changes, sample load)
+  useEffect(() => {
+    if (!tabs.find((t) => t.id === activeTab)) {
+      setActiveTab(tabs[0].id);
+    }
+  }, [tabs, activeTab]);
+
   const onValid = (data: Financial) => {
     patch({ financial: data });
     markComplete(3);
@@ -764,8 +823,7 @@ export function PPStep3Financial() {
       <div className="mb-6 bg-[var(--color-accent-light)] border border-[var(--color-accent-ring)] rounded-lg px-5 py-4">
         <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
           <span className="font-semibold text-[var(--color-text-primary)]">Estimates are fine.</span>{" "}
-          Use the quick-pick amounts to fill in approximate values now — you can refine with exact
-          figures at any time. The summary updates live as you enter data.
+          Start with reasonable estimates. Use the quick-pick amounts to build the client&rsquo;s financial picture, then refine exact figures only where needed.
         </p>
       </div>
 
@@ -783,7 +841,7 @@ export function PPStep3Financial() {
           Expected source of premium funds
         </p>
         <p className="text-xs text-[var(--color-text-muted)] mb-4">
-          Select all that apply, or describe a custom source.
+          Choose the primary source of premium funds, or describe a custom source.
         </p>
         <Controller
           control={control}
