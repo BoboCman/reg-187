@@ -58,7 +58,7 @@ const MONEY_CHIPS: Record<string, number[]> = {
   death_benefit: [100_000, 250_000, 500_000, 1_000_000, 2_000_000, 5_000_000],
   gross_cash_value: [10_000, 25_000, 50_000, 100_000, 250_000, 500_000],
   cash_surrender_value: [10_000, 25_000, 50_000, 100_000, 250_000, 500_000],
-  policy_loan_balance: [5_000, 10_000, 25_000, 50_000, 100_000, 250_000],
+  policy_loan_balance: [0, 10_000, 25_000, 50_000, 100_000, 250_000],
   premium_amount: [1_000, 2_500, 5_000, 10_000, 25_000, 50_000],
 };
 
@@ -70,22 +70,25 @@ const STEPPER_INCREMENT: Record<string, number> = {
   premium_amount: 500,
 };
 
-// Policy-specific purposes not covered by Step 2 objectives
-const POLICY_SPECIFIC_PURPOSES = ["Key person", "Buy-sell"];
+// Fixed purpose options for existing-coverage policies.
+// These are product-level labels — independent of Step 2 planning objectives.
+const PURPOSE_OPTIONS = [
+  "Income & family protection",
+  "Cash value & living access",
+  "Estate & legacy transfer",
+  "Estate liquidity",
+  "Business planning",
+] as const;
 
-// Build the purpose chip list for a given policy card:
-// Row 1 = currently selected Step 2 objective labels (canonical)
-// Row 2 = policy-specific extras not in Step 2
-// Always appended: "Other"
-function buildPurposeOptions(selectedObjectiveLabels: string[]): {
+// Build purpose chip options — primary row is the fixed list, no secondary row.
+// Always appended: "Other".
+function buildPurposeOptions(_selectedObjectiveLabels: string[]): {
   primary: string[];
   secondary: string[];
 } {
   return {
-    primary: selectedObjectiveLabels,
-    secondary: POLICY_SPECIFIC_PURPOSES.filter(
-      (p) => !selectedObjectiveLabels.includes(p)
-    ),
+    primary: [...PURPOSE_OPTIONS],
+    secondary: [],
   };
 }
 
@@ -139,9 +142,10 @@ const PREMIUM_PRESETS: { id: PremiumPreset; label: string; years?: number }[] = 
 type FieldStatus = "not_added" | "estimated" | "exact" | "unknown";
 
 function chipLabel(v: number): string {
-  if (v >= 1_000_000) return `${v / 1_000_000}M`;
-  if (v >= 1_000) return `${v / 1_000}k`;
-  return `${v}`;
+  if (v === 0) return "$0";
+  if (v >= 1_000_000) return `$${v / 1_000_000}M`;
+  if (v >= 1_000) return `$${v / 1_000}k`;
+  return `$${v}`;
 }
 
 function statusLabel(s: FieldStatus): string {
@@ -152,7 +156,7 @@ function statusLabel(s: FieldStatus): string {
 }
 
 function fmtMoney(v: number | undefined | null): string | null {
-  if (v == null || v === 0) return null;
+  if (v == null) return null;
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -934,11 +938,11 @@ function PolicyCard({
             </span>
           )}
           {/* Loan balance — surfaced when present */}
-          {loanBalance != null && loanBalance > 0 && (
-            <span className="hidden lg:block text-xs tabular-nums text-[var(--color-text-secondary)]">
-              Loan {fmtMoney(loanBalance)}
-            </span>
-          )}
+  {loanBalance != null && (
+                  <span className="hidden lg:block text-xs tabular-nums text-[var(--color-text-secondary)]">
+                    Loan {loanBalance === 0 ? "$0" : fmtMoney(loanBalance)}
+                  </span>
+                )}
           {replacement === "yes" && (
             <span className="text-xs px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 font-medium">
               Replacement
