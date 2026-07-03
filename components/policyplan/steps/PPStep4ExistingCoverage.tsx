@@ -52,7 +52,6 @@ const EMPTY_POLICY = {
   under_replacement_consideration: undefined as "yes" | "no" | undefined,
 };
 
-// Money chips per field key
 const MONEY_CHIPS: Record<string, number[]> = {
   death_benefit: [100_000, 250_000, 500_000, 1_000_000, 2_000_000, 5_000_000],
   gross_cash_value: [10_000, 25_000, 50_000, 100_000, 250_000, 500_000],
@@ -69,7 +68,6 @@ const STEPPER_INCREMENT: Record<string, number> = {
   premium_amount: 500,
 };
 
-// Purpose presets
 const PURPOSE_PRESETS = [
   "Income replacement",
   "Estate liquidity",
@@ -81,7 +79,6 @@ const PURPOSE_PRESETS = [
   "Other",
 ] as const;
 
-// Year-issued presets — map to representative year values
 const currentYear = new Date().getFullYear();
 type YearPreset = "unknown" | "recent" | "5_10" | "10_20" | "20_plus" | "exact";
 const YEAR_PRESETS: { id: YearPreset; label: string; year?: number }[] = [
@@ -93,7 +90,6 @@ const YEAR_PRESETS: { id: YearPreset; label: string; year?: number }[] = [
   { id: "exact", label: "Enter exact year" },
 ];
 
-// Remaining-premium presets
 type PremiumPreset = "paid_up" | "ongoing" | "1_5" | "6_10" | "11_plus" | "unknown" | "exact";
 const PREMIUM_PRESETS: { id: PremiumPreset; label: string; years?: number }[] = [
   { id: "paid_up", label: "Paid-up", years: 0 },
@@ -106,10 +102,10 @@ const PREMIUM_PRESETS: { id: PremiumPreset; label: string; years?: number }[] = 
 ];
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * Amount picker — identical architecture to Step 3
+ * UI-only field status — includes "unknown" as a durable intentional state
  * ─────────────────────────────────────────────────────────────────────────── */
 
-type FieldStatus = "not_added" | "estimated" | "exact";
+type FieldStatus = "not_added" | "estimated" | "exact" | "unknown";
 
 function chipLabel(v: number): string {
   if (v >= 1_000_000) return `${v / 1_000_000}M`;
@@ -120,7 +116,8 @@ function chipLabel(v: number): string {
 function statusLabel(s: FieldStatus): string {
   if (s === "estimated") return "Estimated";
   if (s === "exact") return "Exact";
-  return "Not added";
+  if (s === "unknown") return "Unknown";
+  return "";
 }
 
 function fmtMoney(v: number | undefined | null): string | null {
@@ -132,16 +129,22 @@ function fmtMoney(v: number | undefined | null): string | null {
   }).format(v);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Amount picker — supports unknown as a distinct selection
+ * ─────────────────────────────────────────────────────────────────────────── */
+
 function AmountPicker({
   fieldKey,
   label,
   value,
+  currentStatus,
   onChange,
   onClose,
 }: {
   fieldKey: string;
   label: string;
   value: number | undefined;
+  currentStatus: FieldStatus;
   onChange: (v: number | undefined, status: FieldStatus) => void;
   onClose: () => void;
 }) {
@@ -149,9 +152,13 @@ function AmountPicker({
   const increment = STEPPER_INCREMENT[fieldKey] ?? 10_000;
   const [showExact, setShowExact] = useState(false);
   const [localValue, setLocalValue] = useState<number | undefined>(value);
+  const [localStatus, setLocalStatus] = useState<FieldStatus>(currentStatus);
   const exactWrapRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setLocalValue(value); }, [value]);
+  useEffect(() => {
+    setLocalValue(value);
+    setLocalStatus(currentStatus);
+  }, [value, currentStatus]);
 
   useEffect(() => {
     if (!showExact) return;
@@ -162,66 +169,112 @@ function AmountPicker({
   const step = (delta: number) => {
     const next = Math.max(0, (localValue ?? 0) + delta);
     setLocalValue(next);
+    setLocalStatus("estimated");
     onChange(next, "estimated");
   };
+
+  const isUnknown = localStatus === "unknown";
 
   return (
     <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] shadow-lg overflow-hidden">
       <div className="px-5 pt-5 pb-4 space-y-4">
         <p className="text-sm font-semibold text-[var(--color-text-primary)]">{label}</p>
 
+        {/* Quick chips */}
         <div>
           <p className="text-xs text-[var(--color-text-muted)] mb-2 uppercase tracking-wide font-medium">Quick estimate</p>
           <div className="flex flex-wrap gap-1.5">
-            <button type="button"
-              onClick={() => { setLocalValue(undefined); onChange(undefined, "not_added"); }}
-              className={cn("px-3 py-1.5 rounded text-xs font-medium border transition-colors",
-                localValue == null
-                  ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
-                  : "bg-[var(--color-readonly-bg)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
-              )}>Unknown</button>
+            {/* Unknown — distinct from None/not_added */}
+            <button
+              type="button"
+              onClick={() => {
+                setLocalValue(undefined);
+                setLocalStatus("unknown");
+                onChange(undefined, "unknown");
+              }}
+              className={cn(
+                "px-3 py-1.5 rounded text-xs font-medium border transition-colors",
+                isUnknown
+                  ? "bg-[var(--color-text-muted)] border-[var(--color-text-muted)] text-white"
+                  : "bg-[var(--color-readonly-bg)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-muted)]"
+              )}
+            >
+              Unknown
+            </button>
             {chips.map((c) => (
-              <button key={c} type="button"
-                onClick={() => { setLocalValue(c); onChange(c, "estimated"); }}
-                className={cn("px-3 py-1.5 rounded text-xs font-medium border transition-colors",
-                  localValue === c
+              <button
+                key={c}
+                type="button"
+                onClick={() => {
+                  setLocalValue(c);
+                  setLocalStatus("estimated");
+                  onChange(c, "estimated");
+                }}
+                className={cn(
+                  "px-3 py-1.5 rounded text-xs font-medium border transition-colors",
+                  localValue === c && !isUnknown
                     ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
                     : "bg-[var(--color-readonly-bg)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
-                )}>{chipLabel(c)}</button>
+                )}
+              >
+                {chipLabel(c)}
+              </button>
             ))}
           </div>
         </div>
 
+        {/* Stepper */}
         <div>
           <p className="text-xs text-[var(--color-text-muted)] mb-2 uppercase tracking-wide font-medium">Adjust</p>
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => step(-increment)}
-              className="w-10 h-10 rounded border border-[var(--color-border)] bg-[var(--color-readonly-bg)] text-[var(--color-text-primary)] font-semibold text-lg flex items-center justify-center hover:bg-[var(--color-background)] transition-colors">−</button>
+            <button
+              type="button"
+              onClick={() => step(-increment)}
+              className="w-10 h-10 rounded border border-[var(--color-border)] bg-[var(--color-readonly-bg)] text-[var(--color-text-primary)] font-semibold text-lg flex items-center justify-center hover:bg-[var(--color-background)] transition-colors"
+            >−</button>
             <span className="flex-1 text-center text-base font-semibold tabular-nums text-[var(--color-text-primary)]">
-              {localValue != null ? `$${localValue.toLocaleString("en-US")}` : "—"}
+              {isUnknown ? "Unknown" : localValue != null ? `$${localValue.toLocaleString("en-US")}` : "—"}
             </span>
-            <button type="button" onClick={() => step(+increment)}
-              className="w-10 h-10 rounded border border-[var(--color-border)] bg-[var(--color-readonly-bg)] text-[var(--color-text-primary)] font-semibold text-lg flex items-center justify-center hover:bg-[var(--color-background)] transition-colors">+</button>
+            <button
+              type="button"
+              onClick={() => step(+increment)}
+              className="w-10 h-10 rounded border border-[var(--color-border)] bg-[var(--color-readonly-bg)] text-[var(--color-text-primary)] font-semibold text-lg flex items-center justify-center hover:bg-[var(--color-background)] transition-colors"
+            >+</button>
           </div>
         </div>
 
+        {/* Exact entry */}
         <div>
-          <button type="button" onClick={() => setShowExact((v) => !v)}
-            className="text-xs text-[var(--color-accent)] hover:underline font-medium">
+          <button
+            type="button"
+            onClick={() => setShowExact((v) => !v)}
+            className="text-xs text-[var(--color-accent)] hover:underline font-medium"
+          >
             {showExact ? "Hide exact entry" : "Enter exact amount"}
           </button>
           {showExact && (
             <div ref={exactWrapRef} className="mt-2">
-              <MoneyInput value={localValue} onChange={(v) => { setLocalValue(v); onChange(v, "exact"); }} />
+              <MoneyInput
+                value={localValue}
+                onChange={(v) => {
+                  setLocalValue(v);
+                  setLocalStatus(v == null ? "not_added" : "exact");
+                  onChange(v, v == null ? "not_added" : "exact");
+                }}
+              />
             </div>
           )}
         </div>
       </div>
 
+      {/* Footer */}
       <div className="border-t border-[var(--color-border)] px-5 py-3 flex items-center justify-between gap-3 bg-[var(--color-readonly-bg)]">
         <span className="text-xs text-[var(--color-text-muted)]">Updates apply immediately</span>
-        <button type="button" onClick={onClose}
-          className="flex items-center gap-1.5 px-4 py-2 rounded bg-[var(--color-accent)] text-white text-sm font-medium hover:opacity-90 transition-opacity">
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex items-center gap-1.5 px-4 py-2 rounded bg-[var(--color-accent)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+        >
           <Check className="w-3.5 h-3.5" />Done
         </button>
       </div>
@@ -287,7 +340,6 @@ function AmountFieldCard({
     };
   }, [isOpen, reposition]);
 
-  // Close on outside click
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: MouseEvent) => {
@@ -301,7 +353,10 @@ function AmountFieldCard({
 
   const handleTriggerClick = () => { isOpen ? onClose() : onOpen(); };
 
-  const displayValue = value != null ? `$${Math.round(value).toLocaleString("en-US")}` : null;
+  const hasValue = status !== "not_added";
+  const displayValue = status === "unknown"
+    ? "Unknown"
+    : value != null ? `$${Math.round(value).toLocaleString("en-US")}` : null;
 
   const pickerEl = isOpen ? (
     <div ref={pickerRef} style={pickerStyle}>
@@ -309,6 +364,7 @@ function AmountFieldCard({
         fieldKey={fieldKey}
         label={label}
         value={value}
+        currentStatus={status}
         onChange={onChange}
         onClose={onClose}
       />
@@ -332,20 +388,30 @@ function AmountFieldCard({
       >
         <div className="flex-1 min-w-0">
           <p className={cn("text-sm font-normal leading-tight",
-            status === "not_added" ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-secondary)]"
+            hasValue ? "text-[var(--color-text-secondary)]" : "text-[var(--color-text-muted)]"
           )}>{label}</p>
-          <p className={cn("text-[15px] leading-snug mt-0.5 tabular-nums font-semibold",
-            status === "not_added" ? "text-[var(--color-text-muted)] font-normal" : "text-[var(--color-text-primary)]"
-          )}>{displayValue ?? "Not added"}</p>
+          <p className={cn(
+            "text-[15px] leading-snug mt-0.5 tabular-nums",
+            hasValue ? "font-semibold text-[var(--color-text-primary)]" : "font-normal text-[var(--color-text-muted)]",
+            status === "unknown" && "italic"
+          )}>
+            {displayValue ?? "Not added"}
+          </p>
         </div>
-        <span className={cn("shrink-0 text-[10px] font-medium tracking-wide px-2 py-0.5 rounded-full",
-          status === "not_added" ? "text-[var(--color-text-muted)] bg-transparent"
-            : status === "estimated" ? "text-amber-600 bg-amber-50"
-            : "text-[var(--color-success)] bg-[var(--color-success-light)]"
-        )}>
-          {status !== "not_added" ? statusLabel(status) : ""}
-        </span>
-        <Pencil className={cn("w-3.5 h-3.5 shrink-0 transition-colors opacity-40 group-hover:opacity-70",
+        {/* Status pill — hidden for not_added, distinct styling per status */}
+        {hasValue && (
+          <span className={cn(
+            "shrink-0 text-[10px] font-medium tracking-wide px-2 py-0.5 rounded-full",
+            status === "estimated" ? "text-amber-600 bg-amber-50"
+              : status === "exact" ? "text-[var(--color-success)] bg-[var(--color-success-light)]"
+              : status === "unknown" ? "text-[var(--color-text-muted)] bg-[var(--color-readonly-bg)]"
+              : ""
+          )}>
+            {statusLabel(status)}
+          </span>
+        )}
+        <Pencil className={cn(
+          "w-3.5 h-3.5 shrink-0 transition-colors opacity-40 group-hover:opacity-70",
           isOpen ? "text-[var(--color-accent)] opacity-100" : "text-[var(--color-text-muted)]"
         )} />
       </button>
@@ -355,10 +421,52 @@ function AmountFieldCard({
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * Policy card — full redesign per spec
+ * Helpers for hydrating UI state from loaded policy data
  * ─────────────────────────────────────────────────────────────────────────── */
 
 type StatusMap = Record<string, FieldStatus>;
+
+// Derive status for a money field — loaded non-null values default to "estimated".
+function deriveMoneyStatus(v: number | undefined | null): FieldStatus {
+  return v != null ? "estimated" : "not_added";
+}
+
+// Derive ownerRelation from loaded insured + policy_owner values.
+function deriveOwnerRelation(insured: string, owner: string): "same" | "different" {
+  if (!owner) return "same";
+  if (insured && owner && insured !== owner) return "different";
+  return "same";
+}
+
+// Derive insuredSelection — returns the matched name or "Other".
+function deriveInsuredSelection(insured: string, knownNames: string[]): string {
+  if (!insured) return knownNames[0] ?? "Other";
+  const match = knownNames.find((n) => n === insured);
+  return match ?? "Other";
+}
+
+// Derive year preset from loaded year_issued value.
+function deriveYearPreset(year: number | undefined | null): YearPreset | null {
+  if (year == null) return null;
+  const ago = currentYear - year;
+  if (ago <= 5) return "recent";
+  if (ago <= 10) return "5_10";
+  if (ago <= 20) return "10_20";
+  return "20_plus";
+}
+
+// Derive premium preset from loaded remaining_premium_years.
+function derivePremiumPreset(years: number | undefined | null): PremiumPreset | null {
+  if (years == null) return null;
+  if (years === 0) return "paid_up";
+  if (years <= 5) return "1_5";
+  if (years <= 10) return "6_10";
+  return "11_plus";
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Policy card
+ * ─────────────────────────────────────────────────────────────────────────── */
 
 function PolicyCard({
   idx,
@@ -371,6 +479,7 @@ function PolicyCard({
   setValue,
   watch,
   insuredNames,
+  isNewPolicy,
 }: {
   idx: number;
   fieldId: string;
@@ -382,42 +491,79 @@ function PolicyCard({
   setValue: ReturnType<typeof useForm<ExistingCoverage>>["setValue"];
   watch: ReturnType<typeof useForm<ExistingCoverage>>["watch"];
   insuredNames: string[];
+  isNewPolicy: boolean;
 }) {
   const prefix = `policies.${idx}` as const;
 
-  // Which field picker is open — null = none
   const [openFieldId, setOpenFieldId] = useState<string | null>(null);
-  const [statusMap, setStatusMap] = useState<StatusMap>({
-    death_benefit: "not_added",
-    gross_cash_value: "not_added",
-    cash_surrender_value: "not_added",
-    policy_loan_balance: "not_added",
-    premium_amount: "not_added",
+
+  // ── Hydrated from loaded values ──────────────────────────────────────────
+  const initialInsuredVal = watch(`${prefix}.insured`);
+  const initialOwnerVal = watch(`${prefix}.policy_owner`);
+  const initialDeathBenefit = watch(`${prefix}.death_benefit`);
+  const initialGrossCV = watch(`${prefix}.gross_cash_value`);
+  const initialCSV = watch(`${prefix}.cash_surrender_value`);
+  const initialLoanBal = watch(`${prefix}.policy_loan_balance`);
+  const initialPremAmt = watch(`${prefix}.premium_amount`);
+  const initialYearIssued = watch(`${prefix}.year_issued`);
+  const initialPremYears = watch(`${prefix}.remaining_premium_years`);
+  const initialPurpose = watch(`${prefix}.purpose_of_policy`);
+
+  // StatusMap — hydrate from loaded values (loaded non-null = estimated, not exact)
+  const [statusMap, setStatusMap] = useState<StatusMap>(() => ({
+    death_benefit: deriveMoneyStatus(initialDeathBenefit),
+    gross_cash_value: deriveMoneyStatus(initialGrossCV),
+    cash_surrender_value: deriveMoneyStatus(initialCSV),
+    policy_loan_balance: deriveMoneyStatus(initialLoanBal),
+    premium_amount: deriveMoneyStatus(initialPremAmt),
+  }));
+
+  // OwnerRelation — hydrate from loaded owner vs insured
+  const [ownerRelation, setOwnerRelation] = useState<"same" | "different">(() =>
+    deriveOwnerRelation(initialInsuredVal ?? "", initialOwnerVal ?? "")
+  );
+
+  // InsuredSelection — hydrate from loaded insured value
+  const [insuredSelection, setInsuredSelection] = useState<string>(() =>
+    deriveInsuredSelection(initialInsuredVal ?? "", insuredNames)
+  );
+  const [showOtherInsured, setShowOtherInsured] = useState<boolean>(() => {
+    if (!initialInsuredVal) return false;
+    return !insuredNames.includes(initialInsuredVal);
   });
 
-  // Ownership relationship UI state
-  const [ownerRelation, setOwnerRelation] = useState<"same" | "different">("same");
-
-  // Year-issued UI state
-  const [yearPreset, setYearPreset] = useState<YearPreset | null>(null);
+  // YearPreset — hydrate from loaded year_issued
+  const [yearPreset, setYearPreset] = useState<YearPreset | null>(() =>
+    deriveYearPreset(initialYearIssued)
+  );
   const [showExactYear, setShowExactYear] = useState(false);
 
-  // Remaining-premium UI state
-  const [premiumPreset, setPremiumPreset] = useState<PremiumPreset | null>(null);
+  // PremiumPreset — hydrate from loaded remaining_premium_years
+  const [premiumPreset, setPremiumPreset] = useState<PremiumPreset | null>(() =>
+    derivePremiumPreset(initialPremYears)
+  );
   const [showExactPremiumYears, setShowExactPremiumYears] = useState(false);
 
-  // Purpose UI state
-  const [showOtherPurpose, setShowOtherPurpose] = useState(false);
+  // Purpose — hydrate from loaded purpose_of_policy
+  const [showOtherPurpose, setShowOtherPurpose] = useState<boolean>(() => {
+    if (!initialPurpose) return false;
+    const standards = PURPOSE_PRESETS.slice(0, -1) as readonly string[];
+    return !standards.includes(initialPurpose);
+  });
 
-  // Insured quick-select UI state — "other" reveals text input
-  const [insuredSelection, setInsuredSelection] = useState<string | null>(null);
-  const [showOtherInsured, setShowOtherInsured] = useState(false);
+  // Track whether initial hydration is complete — prevents owner overwrite on mount
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    hydratedRef.current = true;
+  }, []);
 
+  // Live watched values for summary row and active-purpose logic
   const company = watch(`${prefix}.insurance_company`);
   const policyNum = watch(`${prefix}.policy_number`);
   const policyType = watch(`${prefix}.policy_type`);
   const deathBenefit = watch(`${prefix}.death_benefit`);
   const cashValue = watch(`${prefix}.gross_cash_value`);
+  const loanBalance = watch(`${prefix}.policy_loan_balance`);
   const replacement = watch(`${prefix}.under_replacement_consideration`);
   const insuredVal = watch(`${prefix}.insured`);
   const purposeVal = watch(`${prefix}.purpose_of_policy`);
@@ -425,19 +571,19 @@ function PolicyCard({
   const isIncomplete = !company && !policyNum;
   const typeLabel = policyType ? POLICY_TYPE_LABELS[policyType] : null;
 
-  // Helper to update status map when a field card value changes
   const updateStatus = (key: string, v: number | undefined, s: FieldStatus) => {
-    setStatusMap((prev) => ({ ...prev, [key]: v == null ? "not_added" : s }));
+    setStatusMap((prev) => ({ ...prev, [key]: s }));
   };
 
-  // Sync owner field when relation is "same" and insured changes
+  // Sync owner → insured ONLY on explicit user interaction (not on mount)
   useEffect(() => {
+    if (!hydratedRef.current) return;
     if (ownerRelation === "same" && insuredVal) {
       setValue(`${prefix}.policy_owner`, insuredVal);
     }
   }, [ownerRelation, insuredVal, prefix, setValue]);
 
-  // Handlers for year preset
+  // Year-issued handler
   const handleYearPreset = (preset: YearPreset) => {
     setYearPreset(preset);
     if (preset === "unknown") {
@@ -452,7 +598,7 @@ function PolicyCard({
     }
   };
 
-  // Handler for premium preset
+  // Premium-years handler
   const handlePremiumPreset = (preset: PremiumPreset) => {
     setPremiumPreset(preset);
     if (preset === "unknown") {
@@ -468,7 +614,7 @@ function PolicyCard({
     }
   };
 
-  // Handler for purpose preset
+  // Purpose handler
   const handlePurposePreset = (p: string) => {
     if (p === "Other") {
       setShowOtherPurpose(true);
@@ -479,22 +625,30 @@ function PolicyCard({
     }
   };
 
-  // Handler for insured selection
+  // Insured selection handler — pill-based for 1 or 2 insureds
   const handleInsuredSelect = (name: string) => {
     if (name === "Other") {
       setInsuredSelection("Other");
       setShowOtherInsured(true);
       setValue(`${prefix}.insured`, "");
+      // When switching to Other, don't auto-sync owner
     } else {
       setInsuredSelection(name);
       setShowOtherInsured(false);
       setValue(`${prefix}.insured`, name);
+      // Sync owner only when relation is already "same"
+      if (ownerRelation === "same") {
+        setValue(`${prefix}.policy_owner`, name);
+      }
     }
   };
 
-  const activePurposePreset = PURPOSE_PRESETS.slice(0, -1).includes(purposeVal as never)
-    ? purposeVal
-    : showOtherPurpose ? "Other" : null;
+  const activePurposePreset = (() => {
+    if (!purposeVal) return showOtherPurpose ? "Other" : null;
+    const standards = PURPOSE_PRESETS.slice(0, -1) as readonly string[];
+    if (standards.includes(purposeVal)) return purposeVal;
+    return showOtherPurpose ? "Other" : null;
+  })();
 
   return (
     <div className="rounded-lg border border-[var(--color-border)] overflow-hidden">
@@ -524,7 +678,7 @@ function PolicyCard({
           )}
         </div>
 
-        <div className="flex items-center gap-3 shrink-0 ml-3">
+        <div className="flex items-center gap-2.5 shrink-0 ml-3">
           {typeLabel && (
             <span className="hidden sm:block text-xs px-2 py-0.5 rounded bg-[var(--color-readonly-bg)] text-[var(--color-text-muted)] border border-[var(--color-border)]">
               {typeLabel}
@@ -538,6 +692,12 @@ function PolicyCard({
           {cashValue != null && cashValue > 0 && (
             <span className="hidden lg:block text-xs tabular-nums text-[var(--color-text-secondary)]">
               CV {fmtMoney(cashValue)}
+            </span>
+          )}
+          {/* Loan balance — surfaced when present */}
+          {loanBalance != null && loanBalance > 0 && (
+            <span className="hidden lg:block text-xs tabular-nums text-[var(--color-text-secondary)]">
+              Loan {fmtMoney(loanBalance)}
             </span>
           )}
           {replacement === "yes" && (
@@ -562,7 +722,6 @@ function PolicyCard({
             </p>
             <div className="space-y-4">
 
-              {/* Insurance company */}
               <FormField label="Insurance company">
                 <TextInput
                   {...register(`${prefix}.insurance_company`)}
@@ -570,7 +729,6 @@ function PolicyCard({
                 />
               </FormField>
 
-              {/* Policy number */}
               <FormField label="Policy number" hint="Leave blank if unknown">
                 <TextInput
                   {...register(`${prefix}.policy_number`)}
@@ -578,49 +736,42 @@ function PolicyCard({
                 />
               </FormField>
 
-              {/* Insured — smart defaulting */}
+              {/* Insured — pill-based for 1 OR 2 insureds, always consistent with Step 1 */}
               <div>
                 <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-2">Insured</p>
-                {insuredNames.length > 1 ? (
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {insuredNames.map((name) => (
-                        <button
-                          key={name}
-                          type="button"
-                          onClick={() => handleInsuredSelect(name)}
-                          className={cn(
-                            "px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors",
-                            insuredSelection === name
-                              ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
-                              : "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
-                          )}
-                        >{name}</button>
-                      ))}
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    {insuredNames.map((name) => (
                       <button
+                        key={name}
                         type="button"
-                        onClick={() => handleInsuredSelect("Other")}
+                        onClick={() => handleInsuredSelect(name)}
                         className={cn(
                           "px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors",
-                          insuredSelection === "Other"
+                          insuredSelection === name
                             ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
                             : "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
                         )}
-                      >Other</button>
-                    </div>
-                    {showOtherInsured && (
-                      <TextInput {...register(`${prefix}.insured`)} placeholder="Insured name" />
-                    )}
+                      >{name}</button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => handleInsuredSelect("Other")}
+                      className={cn(
+                        "px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors",
+                        insuredSelection === "Other"
+                          ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
+                          : "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+                      )}
+                    >Other</button>
                   </div>
-                ) : (
-                  <TextInput
-                    {...register(`${prefix}.insured`)}
-                    placeholder={insuredNames[0] || "Insured name"}
-                  />
-                )}
+                  {showOtherInsured && (
+                    <TextInput {...register(`${prefix}.insured`)} placeholder="Insured name" />
+                  )}
+                </div>
               </div>
 
-              {/* Policy owner — same / different relationship */}
+              {/* Policy owner */}
               <div>
                 <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-2">Policy owner</p>
                 <div className="space-y-2">
@@ -631,8 +782,10 @@ function PolicyCard({
                     ]}
                     value={ownerRelation}
                     onChange={(v) => {
-                      setOwnerRelation(v as "same" | "different");
-                      if (v === "same" && insuredVal) {
+                      const rel = v as "same" | "different";
+                      setOwnerRelation(rel);
+                      // Only sync when user explicitly picks "same"
+                      if (rel === "same" && insuredVal) {
                         setValue(`${prefix}.policy_owner`, insuredVal);
                       }
                     }}
@@ -646,7 +799,7 @@ function PolicyCard({
                 </div>
               </div>
 
-              {/* Policy type — pill selector */}
+              {/* Policy type */}
               <div>
                 <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-2">Policy type</p>
                 <Controller
@@ -672,7 +825,7 @@ function PolicyCard({
                 />
               </div>
 
-              {/* Year issued — guided presets */}
+              {/* Year issued — guided presets; Unknown stays visually selected */}
               <div>
                 <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-2">Year issued</p>
                 <div className="space-y-2">
@@ -685,7 +838,9 @@ function PolicyCard({
                         className={cn(
                           "px-3 py-1.5 rounded border text-xs font-medium transition-colors",
                           yearPreset === p.id
-                            ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
+                            ? p.id === "unknown"
+                              ? "bg-[var(--color-text-muted)] border-[var(--color-text-muted)] text-white"
+                              : "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
                             : "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
                         )}
                       >{p.label}</button>
@@ -713,7 +868,7 @@ function PolicyCard({
             <div className="space-y-2">
               {(["death_benefit", "gross_cash_value", "cash_surrender_value", "policy_loan_balance"] as const).map((key) => {
                 const fid = `${fieldId}.${key}`;
-                const label: Record<string, string> = {
+                const labelMap: Record<string, string> = {
                   death_benefit: "Death benefit",
                   gross_cash_value: "Gross cash value",
                   cash_surrender_value: "Cash surrender value",
@@ -728,7 +883,7 @@ function PolicyCard({
                       <AmountFieldCard
                         fieldId={fid}
                         fieldKey={key}
-                        label={label[key]}
+                        label={labelMap[key]}
                         value={field.value}
                         isOpen={openFieldId === fid}
                         onOpen={() => setOpenFieldId(fid)}
@@ -750,7 +905,6 @@ function PolicyCard({
             </p>
             <div className="space-y-4">
 
-              {/* Annual premium — field card */}
               <Controller
                 control={control}
                 name={`${prefix}.premium_amount`}
@@ -772,7 +926,7 @@ function PolicyCard({
                 }}
               />
 
-              {/* Remaining premium years — guided presets */}
+              {/* Remaining premium years — Unknown stays visually selected */}
               <div>
                 <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-2">Remaining premium years</p>
                 <div className="space-y-2">
@@ -785,7 +939,9 @@ function PolicyCard({
                         className={cn(
                           "px-3 py-1.5 rounded border text-xs font-medium transition-colors",
                           premiumPreset === p.id
-                            ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
+                            ? p.id === "unknown"
+                              ? "bg-[var(--color-text-muted)] border-[var(--color-text-muted)] text-white"
+                              : "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
                             : "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
                         )}
                       >{p.label}</button>
@@ -803,7 +959,7 @@ function PolicyCard({
                 </div>
               </div>
 
-              {/* Purpose of policy — quick-select pills */}
+              {/* Purpose of policy */}
               <div>
                 <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-2">Purpose of policy</p>
                 <div className="space-y-2">
@@ -877,6 +1033,8 @@ function PolicyCard({
 export function PPStep4ExistingCoverage() {
   const { formData, patch, markComplete, goNext } = usePPWizard();
   const [openIdx, setOpenIdx] = useState<number | null>(null);
+  // Track which field indices were just added (new) vs loaded from existing data
+  const [newPolicyIndices, setNewPolicyIndices] = useState<Set<number>>(new Set());
 
   const { register, control, handleSubmit, watch, setValue, reset, formState: { errors } } =
     useForm<ExistingCoverage>({
@@ -890,7 +1048,6 @@ export function PPStep4ExistingCoverage() {
   const { fields, append, remove } = useFieldArray({ control, name: "policies" });
   const hasCoverage = watch("has_existing_coverage");
 
-  // Derive insured names from step 1 for smart defaulting
   const insuredNames: string[] = (formData.insured_owner?.insureds ?? [])
     .map((i) => i.name)
     .filter(Boolean);
@@ -901,18 +1058,24 @@ export function PPStep4ExistingCoverage() {
   }, [formData.existing_coverage]);
 
   function handleAddPolicy() {
-    // Pre-fill insured with first known insured name
+    const newIdx = fields.length;
     const prefilled = {
       ...EMPTY_POLICY,
       insured: insuredNames[0] ?? "",
       policy_owner: insuredNames[0] ?? "",
     };
     append(prefilled);
-    setOpenIdx(fields.length);
+    setOpenIdx(newIdx);
+    setNewPolicyIndices((prev) => new Set([...prev, newIdx]));
   }
 
   function handleRemove(idx: number) {
     remove(idx);
+    setNewPolicyIndices((prev) => {
+      const next = new Set<number>();
+      prev.forEach((i) => { if (i < idx) next.add(i); else if (i > idx) next.add(i - 1); });
+      return next;
+    });
     setOpenIdx((prev) =>
       prev === idx ? null : prev != null && prev > idx ? prev - 1 : prev
     );
@@ -972,30 +1135,22 @@ export function PPStep4ExistingCoverage() {
               setValue={setValue}
               watch={watch}
               insuredNames={insuredNames}
+              isNewPolicy={newPolicyIndices.has(idx)}
             />
           ))}
 
-          {fields.length < 3 && (
-            <button
-              type="button"
-              onClick={handleAddPolicy}
-              className="w-full flex items-center gap-3 rounded-lg border border-dashed border-[var(--color-border-strong)] px-5 py-4 text-sm text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors bg-[var(--color-surface)]"
-            >
-              <span className="flex items-center justify-center w-7 h-7 rounded-full bg-[var(--color-readonly-bg)] border border-[var(--color-border)]">
-                <Plus size={14} />
-              </span>
-              <span className="font-medium">
-                {fields.length === 0 ? "Add a policy" : "Add another policy"}
-              </span>
-              <span className="text-xs text-[var(--color-text-muted)] ml-auto hidden sm:block">
-                Carrier, values &amp; replacement status
-              </span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleAddPolicy}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-lg border-2 border-dashed border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors"
+          >
+            <Plus size={15} />
+            Add policy
+          </button>
         </div>
       )}
 
-      <PPStepFooter onContinue={handleSubmit(onValid)} />
+      <PPStepFooter onContinue={() => handleSubmit(onValid)()} />
     </form>
   );
 }
