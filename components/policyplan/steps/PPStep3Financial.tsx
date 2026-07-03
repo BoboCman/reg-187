@@ -732,9 +732,9 @@ function PPPersonEditor({
   }, []);
 
   const assetFields: [keyof FinancialColumn, string][] = [
-    ["residence", "Personal real estate"],
     ["cash_cds_securities", "Cash, CDs, and securities"],
     ["qualified_plans", "Qualified retirement plans"],
+    ["residence", "Personal real estate"],
     ["business_interests", "Business interests"],
     ["real_estate", "Investment real estate"],
     ["other_assets", "Other assets"],
