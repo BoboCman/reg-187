@@ -2,6 +2,7 @@
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   attestationSchema,
   ATTESTATION_TEXT,
@@ -15,10 +16,11 @@ import {
 import { detectSuitabilityTensions } from "@/lib/policyplan/rules";
 import { usePPWizard } from "@/lib/policyplan/wizard-context";
 import { createClient } from "@/lib/supabase/client";
-import { PPStepFooter, PPSectionCard } from "@/components/policyplan/PPStepWrapper";
+import { PPStepFooter } from "@/components/policyplan/PPStepWrapper";
 import { FormField } from "@/components/ui/FormField";
 import { TextInput, TextArea } from "@/components/ui/inputs";
 import { today } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 type AttestationDefaults = {
   confirmed?: true;
@@ -32,6 +34,7 @@ export function PPStep7Attestation() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pendingPayload, setPendingPayload] = useState<PolicyPlanIntake | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const ownershipType = formData.insured_owner?.ownership_type;
   const showSignerTitle = ownershipType === "trust" || ownershipType === "business";
 
@@ -65,8 +68,6 @@ export function PPStep7Attestation() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No authenticated session. Please sign in and try again.");
 
-      // Compute the frozen snapshot once — all downstream stages read these
-      // stored values; no recomputation ever happens after this point.
       const emphasis = inferDesignEmphasis({
         objectives: validatedIntake.objectives,
         risk_preferences: validatedIntake.risk_preferences,
@@ -74,8 +75,6 @@ export function PPStep7Attestation() {
       });
       const suitability_flags = detectSuitabilityTensions(validatedIntake, emphasis);
 
-      // Frozen liquid net worth — matches householdLiquidNetWorth in rules.ts:
-      // sum primary_capacity across all present financial columns.
       const cols = validatedIntake.financial?.columns;
       const presentCols = [cols?.client_1, cols?.client_2, cols?.joint].filter(
         (c): c is NonNullable<typeof c> => c != null
@@ -145,6 +144,7 @@ export function PPStep7Attestation() {
 
   return (
     <form onSubmit={handleSubmit(onValid)} noValidate>
+      {/* Save failure — always above everything else */}
       {saveError && (
         <div className="mb-5 rounded-lg border border-red-300 bg-red-50 px-5 py-4">
           <p className="text-sm font-semibold text-red-700 mb-1">
@@ -163,87 +163,146 @@ export function PPStep7Attestation() {
           )}
         </div>
       )}
-      <div className="space-y-5">
-        {/* Notes */}
-        <PPSectionCard title="Additional notes">
-          <FormField label="Notes or comments for the advisor" hint="Optional">
-            <TextArea
-              value={formData.notes ?? ""}
-              onChange={(e) => patch({ notes: e.target.value })}
-              placeholder="Relevant context, health disclosures, planning considerations..."
-              rows={5}
-            />
-          </FormField>
-        </PPSectionCard>
 
-        {/* Attestation */}
-        <PPSectionCard title="Best-interest attestation">
-          <div className="space-y-6">
-            {/* Attestation text */}
-            <div className="rounded-lg bg-[var(--color-background)] border border-[var(--color-border)] px-5 py-4">
-              <p className="text-sm leading-relaxed text-[var(--color-text-secondary)]">
-                {ATTESTATION_TEXT}
+      <p className="text-sm text-[var(--color-text-secondary)] mb-6">
+        Review your notes, read the attestation statement, confirm, and sign.
+      </p>
+
+      <div className="space-y-5">
+        {/* Additional notes — collapsible, visually secondary */}
+        <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setNotesOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-[var(--color-readonly-bg)] transition-colors text-left"
+            aria-expanded={notesOpen}
+          >
+            <span className="text-sm font-medium text-[var(--color-text-secondary)]">
+              Additional notes
+              <span className="text-xs text-[var(--color-text-muted)] ml-2 font-normal">Optional</span>
+            </span>
+            {notesOpen ? (
+              <ChevronUp size={15} className="text-[var(--color-text-muted)]" />
+            ) : (
+              <ChevronDown size={15} className="text-[var(--color-text-muted)]" />
+            )}
+          </button>
+          {notesOpen && (
+            <div className="border-t border-[var(--color-border)] px-5 pb-5 pt-4">
+              <TextArea
+                value={formData.notes ?? ""}
+                onChange={(e) => patch({ notes: e.target.value })}
+                placeholder="Relevant context, health disclosures, planning considerations..."
+                rows={4}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Sign-off card — the main event */}
+        <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] overflow-hidden">
+          {/* Card header */}
+          <div className="px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-readonly-bg)]">
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
+              Best-interest attestation
+            </h2>
+            <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+              Read, confirm, and sign before submitting.
+            </p>
+          </div>
+
+          <div className="px-6 py-6 space-y-6">
+            {/* Zone 1 — Statement */}
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)] mb-3">
+                Statement
               </p>
+              <div className="rounded-lg bg-[var(--color-background)] border border-[var(--color-border)] px-5 py-5">
+                <p className="text-sm leading-relaxed text-[var(--color-text-secondary)]">
+                  {ATTESTATION_TEXT}
+                </p>
+              </div>
             </div>
 
-            {/* Checkbox */}
-            <FormField
-              label="Confirmation"
-              error={(errors.confirmed as { message?: string } | undefined)?.message}
-            >
-              <label className="flex items-start gap-3 cursor-pointer">
-                <Controller
-                  control={control}
-                  name="confirmed"
-                  render={({ field }) => (
-                    <input
-                      type="checkbox"
-                      checked={field.value === true}
-                      onChange={(e) => field.onChange(e.target.checked ? true : undefined)}
-                      className="mt-0.5 h-5 w-5 rounded border-[var(--color-border-strong)] accent-[var(--color-accent)] cursor-pointer shrink-0"
-                    />
-                  )}
-                />
-                <span className="text-sm text-[var(--color-text-primary)] leading-relaxed">
-                  I confirm that the above statement is accurate and complete.
-                </span>
-              </label>
-            </FormField>
-
-            {/* Signature */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField
-                label="Signature (type full name)"
-                error={errors.owner_signature?.message}
-                required
+            {/* Zone 2 — Confirmation */}
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)] mb-3">
+                Confirmation
+              </p>
+              <div
+                className={cn(
+                  "rounded-lg border px-5 py-4 transition-colors",
+                  confirmed === true
+                    ? "border-[var(--color-success)] bg-[var(--color-success-light)]"
+                    : "border-[var(--color-border-strong)] bg-[var(--color-surface)]"
+                )}
               >
-                <TextInput
-                  {...register("owner_signature")}
-                  placeholder="Full legal name"
-                  error={!!errors.owner_signature}
-                  className="italic"
-                />
-              </FormField>
+                <label className="flex items-start gap-4 cursor-pointer">
+                  <Controller
+                    control={control}
+                    name="confirmed"
+                    render={({ field }) => (
+                      <input
+                        type="checkbox"
+                        checked={field.value === true}
+                        onChange={(e) => field.onChange(e.target.checked ? true : undefined)}
+                        className="mt-0.5 h-5 w-5 rounded border-[var(--color-border-strong)] accent-[var(--color-accent)] cursor-pointer shrink-0"
+                      />
+                    )}
+                  />
+                  <span className="text-sm font-medium text-[var(--color-text-primary)] leading-relaxed">
+                    I have read the above statement and affirm that it is accurate and complete.
+                  </span>
+                </label>
+                {(errors.confirmed as { message?: string } | undefined)?.message && (
+                  <p className="text-xs text-[var(--color-error)] mt-2 ml-9">
+                    {(errors.confirmed as { message?: string }).message}
+                  </p>
+                )}
+              </div>
+            </div>
 
-              <FormField label="Date signed" error={errors.signed_date?.message} required>
-                <TextInput
-                  {...register("signed_date")}
-                  type="date"
-                  error={!!errors.signed_date}
-                />
-              </FormField>
-
-              {showSignerTitle && (
-                <FormField label="Signer title or capacity" hint="e.g. Trustee, President">
+            {/* Zone 3 — Signature */}
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)] mb-3">
+                Signature
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  label="Signature (type full name)"
+                  error={errors.owner_signature?.message}
+                  required
+                  className={showSignerTitle ? "" : "sm:col-span-1"}
+                >
                   <TextInput
-                    {...register("signer_title")}
-                    placeholder="Trustee"
+                    {...register("owner_signature")}
+                    placeholder="Full legal name"
+                    error={!!errors.owner_signature}
+                    className="italic"
                   />
                 </FormField>
-              )}
+
+                <FormField label="Date signed" error={errors.signed_date?.message} required>
+                  <TextInput
+                    {...register("signed_date")}
+                    type="date"
+                    error={!!errors.signed_date}
+                  />
+                </FormField>
+
+                {showSignerTitle && (
+                  <FormField
+                    label="Signer title or capacity"
+                    hint="e.g. Trustee, President"
+                    className="sm:col-span-2"
+                  >
+                    <TextInput {...register("signer_title")} placeholder="Trustee" />
+                  </FormField>
+                )}
+              </div>
             </div>
           </div>
-        </PPSectionCard>
+        </div>
       </div>
 
       <PPStepFooter
@@ -255,5 +314,3 @@ export function PPStep7Attestation() {
     </form>
   );
 }
-
-

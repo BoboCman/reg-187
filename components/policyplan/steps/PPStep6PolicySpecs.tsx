@@ -2,6 +2,7 @@
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   policySpecsSchema,
   deathBenefitScaleEnum,
@@ -9,7 +10,7 @@ import {
   type PolicySpecs,
 } from "@/lib/policyplan/schema";
 import { usePPWizard } from "@/lib/policyplan/wizard-context";
-import { PPStepFooter, PPSectionCard } from "@/components/policyplan/PPStepWrapper";
+import { PPStepFooter } from "@/components/policyplan/PPStepWrapper";
 import { FormField } from "@/components/ui/FormField";
 import { MoneyInput, TextInput } from "@/components/ui/inputs";
 import { cn } from "@/lib/utils";
@@ -32,71 +33,135 @@ const PREMIUM_SCALE_LABELS: Record<string, string> = {
   all_years: "All years (lifetime)",
 };
 
-/** Dual-mode duration: tap a scale point OR type an age, mutually exclusive. */
+/**
+ * Dual-mode duration — scale chips or exact age entry.
+ * Two visually distinct modes with a clear "or" separator.
+ */
 function DualModeDuration({
   scaleOptions,
   scaleLabels,
   value,
   onChange,
-  label,
+  modeLabel,
 }: {
   scaleOptions: readonly string[];
   scaleLabels: Record<string, string>;
   value: { mode: "age"; age: number } | { mode: "scale"; scale_point: string } | undefined;
   onChange: (v: { mode: "age"; age: number } | { mode: "scale"; scale_point: string } | undefined) => void;
-  label: string;
+  modeLabel: string;
 }) {
-  const [ageInput, setAgeInput] = useState(
-    value?.mode === "age" ? String(value.age) : ""
-  );
-
+  const [ageInput, setAgeInput] = useState(value?.mode === "age" ? String(value.age) : "");
   const activeScale = value?.mode === "scale" ? value.scale_point : null;
+  const ageMode = value?.mode === "age";
 
   return (
-    <div className="space-y-3">
-      <p className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide">{label}</p>
-      <div className="flex flex-wrap gap-2">
-        {scaleOptions.map((pt) => (
-          <button
-            key={pt}
-            type="button"
-            onClick={() => {
-              setAgeInput("");
-              onChange({ mode: "scale", scale_point: pt });
+    <div className="space-y-4">
+      {/* Mode A — standard duration points */}
+      <div
+        className={cn(
+          "rounded-lg border p-4 transition-colors",
+          !ageMode
+            ? "border-[var(--color-accent)] bg-[var(--color-accent-light)]"
+            : "border-[var(--color-border)] bg-[var(--color-surface)]"
+        )}
+      >
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)] mb-3">
+          Standard {modeLabel.toLowerCase()} points
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {scaleOptions.map((pt) => (
+            <button
+              key={pt}
+              type="button"
+              onClick={() => {
+                setAgeInput("");
+                onChange({ mode: "scale", scale_point: pt });
+              }}
+              className={cn(
+                "px-3 py-2 rounded border text-sm transition-colors min-h-[40px] font-medium",
+                activeScale === pt
+                  ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
+                  : "bg-[var(--color-surface)] border-[var(--color-border-strong)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+              )}
+            >
+              {scaleLabels[pt]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Mode B — specific age */}
+      <div
+        className={cn(
+          "rounded-lg border p-4 transition-colors",
+          ageMode
+            ? "border-[var(--color-accent)] bg-[var(--color-accent-light)]"
+            : "border-[var(--color-border)] bg-[var(--color-surface)]"
+        )}
+      >
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)] mb-3">
+          Specific age
+        </p>
+        <div className="flex items-center gap-3">
+          <input
+            type="number"
+            min={0}
+            max={120}
+            value={ageInput}
+            placeholder="e.g. 95"
+            onChange={(e) => {
+              const raw = e.target.value;
+              setAgeInput(raw);
+              const n = parseInt(raw, 10);
+              if (!isNaN(n) && n >= 0 && n <= 120) {
+                onChange({ mode: "age", age: n });
+              }
+            }}
+            onFocus={() => {
+              if (value?.mode === "scale") onChange(undefined);
             }}
             className={cn(
-              "px-3 py-2 rounded border text-sm transition-colors min-h-[40px]",
-              activeScale === pt
-                ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white font-medium"
-                : "bg-[var(--color-surface)] border-[var(--color-border-strong)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+              "w-28 rounded border px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-ring)] min-h-[40px] bg-[var(--color-surface)]",
+              ageMode ? "border-[var(--color-accent)]" : "border-[var(--color-border-strong)]"
             )}
-          >
-            {scaleLabels[pt]}
-          </button>
-        ))}
+          />
+          <span className="text-sm text-[var(--color-text-muted)]">years old (attained age)</span>
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <p className="text-xs text-[var(--color-text-muted)]">or a specific age:</p>
-        <input
-          type="number"
-          min={0}
-          max={120}
-          value={ageInput}
-          placeholder="e.g. 95"
-          onChange={(e) => {
-            const raw = e.target.value;
-            setAgeInput(raw);
-            const n = parseInt(raw, 10);
-            if (!isNaN(n) && n >= 0 && n <= 120) {
-              onChange({ mode: "age", age: n });
-            }
-          }}
-          onFocus={() => {
-            // Clear scale selection when user starts typing an age
-            if (value?.mode === "scale") onChange(undefined);
-          }}
-          className="w-24 rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-ring)] min-h-[40px]"
-        />
+    </div>
+  );
+}
+
+/** A target block — amount input + duration selector as one design decision. */
+function TargetBlock({
+  title,
+  description,
+  amountLabel,
+  amountControl,
+  durationLabel,
+  durationControl,
+}: {
+  title: string;
+  description: string;
+  amountLabel: string;
+  amountControl: React.ReactNode;
+  durationLabel: string;
+  durationControl: React.ReactNode;
+}) {
+  return (
+    <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] overflow-hidden">
+      <div className="px-6 pt-6 pb-4 border-b border-[var(--color-border)]">
+        <h2 className="text-base font-semibold text-[var(--color-text-primary)]">{title}</h2>
+        <p className="text-sm text-[var(--color-text-muted)] mt-0.5">{description}</p>
+      </div>
+      <div className="px-6 py-5 space-y-6">
+        <FormField label={amountLabel}>
+          {amountControl}
+        </FormField>
+        <div>
+          <p className="text-sm font-medium text-[var(--color-text-primary)] mb-3">{durationLabel}</p>
+          {durationControl}
+        </div>
       </div>
     </div>
   );
@@ -104,6 +169,7 @@ function DualModeDuration({
 
 export function PPStep6PolicySpecs() {
   const { formData, patch, markComplete, goNext } = usePPWizard();
+  const [optionalOpen, setOptionalOpen] = useState(false);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<PolicySpecs>({
     resolver: zodResolver(policySpecsSchema),
@@ -116,7 +182,6 @@ export function PPStep6PolicySpecs() {
   }, [formData.policy_specs]);
 
   const onValid = (data: PolicySpecs) => {
-    // Strip empty optional sub-objects so they stay undefined in the payload
     const cva = data.desired_cash_value_accumulation;
     if (cva && cva.amount == null && cva.at_age == null && cva.year == null) {
       data = { ...data, desired_cash_value_accumulation: undefined };
@@ -132,25 +197,32 @@ export function PPStep6PolicySpecs() {
 
   return (
     <form onSubmit={handleSubmit(onValid)} noValidate>
+      <p className="text-sm text-[var(--color-text-secondary)] mb-6">
+        Set the primary design targets for this policy. These drive the illustration parameters and
+        best-interest analysis.
+      </p>
+
       <div className="space-y-5">
-        {/* Death benefit */}
-        <PPSectionCard title="Death benefit">
-          <div className="space-y-5">
-            <FormField label="Desired death benefit amount">
-              <Controller
-                control={control}
-                name="desired_death_benefit"
-                render={({ field }) => (
-                  <MoneyInput value={field.value} onChange={field.onChange} />
-                )}
-              />
-            </FormField>
+        {/* Coverage target */}
+        <TargetBlock
+          title="Coverage target"
+          description="How much death benefit is needed, and for how long?"
+          amountLabel="Desired death benefit"
+          amountControl={
+            <Controller
+              control={control}
+              name="desired_death_benefit"
+              render={({ field }) => <MoneyInput value={field.value} onChange={field.onChange} />}
+            />
+          }
+          durationLabel="Coverage duration"
+          durationControl={
             <Controller
               control={control}
               name="death_benefit_duration"
               render={({ field }) => (
                 <DualModeDuration
-                  label="Coverage duration"
+                  modeLabel="Duration"
                   scaleOptions={deathBenefitScaleEnum.options}
                   scaleLabels={DB_SCALE_LABELS}
                   value={field.value}
@@ -158,27 +230,29 @@ export function PPStep6PolicySpecs() {
                 />
               )}
             />
-          </div>
-        </PPSectionCard>
+          }
+        />
 
-        {/* Premium */}
-        <PPSectionCard title="Premium">
-          <div className="space-y-5">
-            <FormField label="Desired annual premium">
-              <Controller
-                control={control}
-                name="desired_premium"
-                render={({ field }) => (
-                  <MoneyInput value={field.value} onChange={field.onChange} />
-                )}
-              />
-            </FormField>
+        {/* Premium target */}
+        <TargetBlock
+          title="Premium target"
+          description="What is the intended annual outlay, and for how long will premiums be paid?"
+          amountLabel="Desired annual premium"
+          amountControl={
+            <Controller
+              control={control}
+              name="desired_premium"
+              render={({ field }) => <MoneyInput value={field.value} onChange={field.onChange} />}
+            />
+          }
+          durationLabel="Premium payment period"
+          durationControl={
             <Controller
               control={control}
               name="premium_duration"
               render={({ field }) => (
                 <DualModeDuration
-                  label="Premium payment period"
+                  modeLabel="Payment period"
                   scaleOptions={premiumScaleEnum.options}
                   scaleLabels={PREMIUM_SCALE_LABELS}
                   value={field.value}
@@ -186,94 +260,125 @@ export function PPStep6PolicySpecs() {
                 />
               )}
             />
-          </div>
-        </PPSectionCard>
+          }
+        />
 
-        {/* Optional targets */}
-        <PPSectionCard title="Optional targets">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Cash value accumulation */}
-            <FormField label="Cash value accumulation target" hint="Target amount">
-              <Controller
-                control={control}
-                name="desired_cash_value_accumulation.amount"
-                render={({ field }) => (
-                  <MoneyInput value={field.value} onChange={field.onChange} />
-                )}
-              />
-            </FormField>
-            <FormField label="At age (for accumulation target)">
-              <Controller
-                control={control}
-                name="desired_cash_value_accumulation.at_age"
-                render={({ field }) => (
-                  <TextInput
-                    type="number"
-                    min={0}
-                    max={120}
-                    placeholder="e.g. 65"
-                    value={field.value ?? ""}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      field.onChange(raw === "" ? undefined : parseInt(raw, 10));
-                    }}
-                  />
-                )}
-              />
-            </FormField>
-
-            {/* Annual distribution */}
-            <FormField label="Annual distribution target">
-              <Controller
-                control={control}
-                name="desired_annual_distribution.amount"
-                render={({ field }) => (
-                  <MoneyInput value={field.value} onChange={field.onChange} />
-                )}
-              />
-            </FormField>
-            <div className="grid grid-cols-2 gap-2">
-              <FormField label="From age">
-                <Controller
-                  control={control}
-                  name="desired_annual_distribution.start_age"
-                  render={({ field }) => (
-                    <TextInput
-                      type="number"
-                      min={0}
-                      max={120}
-                      placeholder="e.g. 65"
-                      value={field.value ?? ""}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        field.onChange(raw === "" ? undefined : parseInt(raw, 10));
-                      }}
-                    />
-                  )}
-                />
-              </FormField>
-              <FormField label="To age">
-                <Controller
-                  control={control}
-                  name="desired_annual_distribution.end_age"
-                  render={({ field }) => (
-                    <TextInput
-                      type="number"
-                      min={0}
-                      max={120}
-                      placeholder="e.g. 85"
-                      value={field.value ?? ""}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        field.onChange(raw === "" ? undefined : parseInt(raw, 10));
-                      }}
-                    />
-                  )}
-                />
-              </FormField>
+        {/* Optional planning targets — collapsed by default */}
+        <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setOptionalOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-6 py-4 hover:bg-[var(--color-readonly-bg)] transition-colors text-left"
+            aria-expanded={optionalOpen}
+          >
+            <div>
+              <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+                Optional planning targets
+              </span>
+              <span className="text-xs text-[var(--color-text-muted)] ml-3">
+                Cash value accumulation &amp; annual distributions
+              </span>
             </div>
-          </div>
-        </PPSectionCard>
+            {optionalOpen ? (
+              <ChevronUp size={16} className="text-[var(--color-text-muted)]" />
+            ) : (
+              <ChevronDown size={16} className="text-[var(--color-text-muted)]" />
+            )}
+          </button>
+
+          {optionalOpen && (
+            <div className="border-t border-[var(--color-border)] px-6 py-5 space-y-6">
+              {/* Cash value accumulation */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)] mb-3">
+                  Cash value accumulation target
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField label="Target amount">
+                    <Controller
+                      control={control}
+                      name="desired_cash_value_accumulation.amount"
+                      render={({ field }) => <MoneyInput value={field.value} onChange={field.onChange} />}
+                    />
+                  </FormField>
+                  <FormField label="At age">
+                    <Controller
+                      control={control}
+                      name="desired_cash_value_accumulation.at_age"
+                      render={({ field }) => (
+                        <TextInput
+                          type="number"
+                          min={0}
+                          max={120}
+                          placeholder="e.g. 65"
+                          value={field.value ?? ""}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            field.onChange(raw === "" ? undefined : parseInt(raw, 10));
+                          }}
+                        />
+                      )}
+                    />
+                  </FormField>
+                </div>
+              </div>
+
+              {/* Annual distribution */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)] mb-3">
+                  Annual distribution target
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <FormField label="Annual amount" className="sm:col-span-1">
+                    <Controller
+                      control={control}
+                      name="desired_annual_distribution.amount"
+                      render={({ field }) => <MoneyInput value={field.value} onChange={field.onChange} />}
+                    />
+                  </FormField>
+                  <FormField label="From age">
+                    <Controller
+                      control={control}
+                      name="desired_annual_distribution.start_age"
+                      render={({ field }) => (
+                        <TextInput
+                          type="number"
+                          min={0}
+                          max={120}
+                          placeholder="e.g. 65"
+                          value={field.value ?? ""}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            field.onChange(raw === "" ? undefined : parseInt(raw, 10));
+                          }}
+                        />
+                      )}
+                    />
+                  </FormField>
+                  <FormField label="To age">
+                    <Controller
+                      control={control}
+                      name="desired_annual_distribution.end_age"
+                      render={({ field }) => (
+                        <TextInput
+                          type="number"
+                          min={0}
+                          max={120}
+                          placeholder="e.g. 85"
+                          value={field.value ?? ""}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            field.onChange(raw === "" ? undefined : parseInt(raw, 10));
+                          }}
+                        />
+                      )}
+                    />
+                  </FormField>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <PPStepFooter onContinue={handleSubmit(onValid)} />
