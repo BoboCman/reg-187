@@ -2,7 +2,7 @@
 import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useRef, useState } from "react";
-import { Pencil, Plus, X, Check } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import {
   policySpecsSchema,
   deathBenefitScaleEnum,
@@ -12,6 +12,7 @@ import {
 import { usePPWizard } from "@/lib/policyplan/wizard-context";
 import { PPStepFooter } from "@/components/policyplan/PPStepWrapper";
 import { MoneyInput, TextInput } from "@/components/ui/inputs";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { cn } from "@/lib/utils";
 
 /* ── Labels ─────────────────────────────────────────────────────────────── */
@@ -192,119 +193,59 @@ function ModeFirstDuration({
 
 /* ── PrimaryTargetCard ───────────────────────────────────────────────────── */
 
+const AMOUNT_STATUS_OPTIONS = [
+  { value: "estimated" as const, label: "Estimated" },
+  { value: "exact" as const, label: "Exact" },
+];
+
 function PrimaryTargetCard({
   title,
   description,
   amountLabel,
   durationLabel: durationTitle,
   amount,
-  duration,
-  scaleLabels,
   amountStatus,
   onAmountStatusChange,
   onAmountChange,
   durationControl,
-  isEditing,
-  onEditToggle,
 }: {
   title: string;
   description: string;
   amountLabel: string;
   durationLabel: string;
   amount: number | undefined;
-  duration: DurationValue;
-  scaleLabels: Record<string, string>;
   amountStatus: "estimated" | "exact";
   onAmountStatusChange: (s: "estimated" | "exact") => void;
   onAmountChange: (v: number | undefined) => void;
   durationControl: React.ReactNode;
-  isEditing: boolean;
-  onEditToggle: () => void;
 }) {
-  const hasAmount = amount != null;
-  const hasDuration = !!duration;
-
   return (
     <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] overflow-hidden">
       {/* Header */}
-      <div className="px-5 pt-5 pb-4 border-b border-[var(--color-border)] flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</h2>
-          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{description}</p>
-        </div>
-        <button
-          type="button"
-          onClick={onEditToggle}
-          className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent)] hover:underline shrink-0 mt-0.5"
-          aria-label={isEditing ? "Close edit" : "Edit"}
-        >
-          {isEditing ? (
-            <><Check size={13} />Done</>
-          ) : (
-            <><Pencil size={13} />Edit</>
-          )}
-        </button>
+      <div className="px-5 pt-5 pb-4 border-b border-[var(--color-border)]">
+        <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</h2>
+        <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{description}</p>
       </div>
 
-      {/* Summary row — always visible */}
-      {!isEditing && (
-        <div className="px-5 py-4 grid grid-cols-2 gap-x-6 gap-y-3">
-          <div>
-            <p className="text-[11px] uppercase tracking-wide font-semibold text-[var(--color-text-muted)] mb-1">
-              {amountLabel}
-            </p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={cn("text-sm font-semibold", hasAmount ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)]")}>
-                {hasAmount ? fmtMoney(amount) : "Not set"}
-              </span>
-              {hasAmount && <AmountStatusBadge status={amountStatus} />}
-            </div>
-          </div>
-          <div>
-            <p className="text-[11px] uppercase tracking-wide font-semibold text-[var(--color-text-muted)] mb-1">
-              {durationTitle}
-            </p>
-            <span className={cn("text-sm font-semibold", hasDuration ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)]")}>
-              {hasDuration ? durationLabel(duration, scaleLabels) : "Not set"}
-            </span>
-          </div>
+      {/* Always-visible fields — mirrors Step 1 inline pattern */}
+      <div className="px-5 py-5 space-y-6">
+        {/* Amount + Estimated/Exact toggle */}
+        <div className="space-y-3">
+          <p className="text-xs font-medium text-[var(--color-text-secondary)]">{amountLabel}</p>
+          <MoneyInput value={amount} onChange={onAmountChange} />
+          <SegmentedControl
+            options={AMOUNT_STATUS_OPTIONS}
+            value={amountStatus}
+            onChange={onAmountStatusChange}
+          />
         </div>
-      )}
 
-      {/* Edit panel */}
-      {isEditing && (
-        <div className="px-5 py-5 space-y-6">
-          {/* Amount row */}
-          <div className="space-y-3">
-            <p className="text-xs font-medium text-[var(--color-text-secondary)]">{amountLabel}</p>
-            <MoneyInput value={amount} onChange={onAmountChange} />
-            {/* Estimated / Exact toggle */}
-            <div className="flex gap-2">
-              {(["estimated", "exact"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => onAmountStatusChange(s)}
-                  className={cn(
-                    "px-3 py-1.5 rounded border text-xs font-semibold transition-colors",
-                    amountStatus === s
-                      ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
-                      : "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
-                  )}
-                >
-                  {s === "estimated" ? "Estimated" : "Exact"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Duration */}
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-[var(--color-text-secondary)]">{durationTitle}</p>
-            {durationControl}
-          </div>
+        {/* Duration */}
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-[var(--color-text-secondary)]">{durationTitle}</p>
+          {durationControl}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -414,10 +355,6 @@ export function PPStep6PolicySpecs() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.policy_specs]);
 
-  // Primary target edit states
-  const [coverageEditing, setCoverageEditing] = useState(false);
-  const [premiumEditing, setPremiumEditing] = useState(false);
-
   // Amount status (UI-only — Estimated / Exact)
   const [dbStatus, setDbStatus] = useState<"estimated" | "exact">("estimated");
   const [premStatus, setPremStatus] = useState<"estimated" | "exact">("estimated");
@@ -503,8 +440,6 @@ export function PPStep6PolicySpecs() {
                   amountLabel="Desired death benefit"
                   durationLabel="Coverage duration"
                   amount={dbField.value}
-                  duration={durField.value}
-                  scaleLabels={DB_SCALE_LABELS}
                   amountStatus={dbStatus}
                   onAmountStatusChange={setDbStatus}
                   onAmountChange={dbField.onChange}
@@ -516,8 +451,6 @@ export function PPStep6PolicySpecs() {
                       onChange={durField.onChange}
                     />
                   }
-                  isEditing={coverageEditing}
-                  onEditToggle={() => setCoverageEditing((v) => !v)}
                 />
               )}
             />
@@ -539,8 +472,6 @@ export function PPStep6PolicySpecs() {
                   amountLabel="Desired annual premium"
                   durationLabel="Premium payment period"
                   amount={premField.value}
-                  duration={durField.value}
-                  scaleLabels={PREMIUM_SCALE_LABELS}
                   amountStatus={premStatus}
                   onAmountStatusChange={setPremStatus}
                   onAmountChange={premField.onChange}
@@ -552,8 +483,6 @@ export function PPStep6PolicySpecs() {
                       onChange={durField.onChange}
                     />
                   }
-                  isEditing={premiumEditing}
-                  onEditToggle={() => setPremiumEditing((v) => !v)}
                 />
               )}
             />
