@@ -389,19 +389,6 @@ export function PPStep1InsuredOwner() {
             />
           </FormField>
 
-          {/* State of ownership — always visible for all paths (spec item 2) */}
-          <FormField
-            label="State of ownership"
-            hint="2-letter state code"
-            error={errors.state_of_ownership?.message}
-          >
-            <TextInput
-              {...register("state_of_ownership")}
-              placeholder="NY"
-              maxLength={2}
-              className="uppercase w-24"
-            />
-          </FormField>
 
           {/* Same-owner summary row */}
           {!isDifferentOwner && (
