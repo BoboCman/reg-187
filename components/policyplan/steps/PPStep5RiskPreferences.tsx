@@ -7,19 +7,21 @@ import { riskPreferencesSchema, type RiskPreferences } from "@/lib/policyplan/sc
 import { usePPWizard } from "@/lib/policyplan/wizard-context";
 import { PPStepFooter } from "@/components/policyplan/PPStepWrapper";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, ChevronDown, ChevronUp, Pencil } from "lucide-react";
+import { CheckCircle2, Pencil } from "lucide-react";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type QuestionDef = {
   name: keyof RiskPreferences;
   question: string;
-  shortLabel: string; // used in collapsed summary rows
+  shortLabel: string;
   hint?: string;
   options: { value: string; label: string }[];
 };
 
-// ── Questions (unchanged) ────────────────────────────────────────────────────
+type GroupStatus = "not_started" | "in_progress" | "complete";
+
+// ── Questions (unchanged) ─────────────────────────────────────────────────────
 
 const QUESTIONS: QuestionDef[] = [
   {
@@ -96,7 +98,7 @@ const QUESTIONS: QuestionDef[] = [
   },
 ];
 
-// ── Groups (unchanged structure) ─────────────────────────────────────────────
+// ── Groups (unchanged structure) ──────────────────────────────────────────────
 
 const GROUPS: {
   label: string;
@@ -120,18 +122,166 @@ const GROUPS: {
   },
 ];
 
+// Flat ordered list of question names — drives the global Q index
+const QUESTION_ORDER = QUESTIONS.map((q) => q.name);
 const questionByName = Object.fromEntries(QUESTIONS.map((q) => [q.name, q]));
 
-// ── Helper ────────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function optionLabel(q: QuestionDef, value: string | undefined): string {
   if (!value) return "—";
   return q.options.find((o) => o.value === value)?.label ?? value;
 }
 
-// ── Sub-components ───────────────────────────────────────────────────────────
+function groupForQuestion(name: keyof RiskPreferences): number {
+  return GROUPS.findIndex((g) => g.questionNames.includes(name));
+}
 
-/** Compact row shown for an already-answered question */
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+/** Slim 3-section progress rail — passive orientation only */
+function GroupProgressRail({
+  statuses,
+  activeGroupIdx,
+}: {
+  statuses: GroupStatus[];
+  activeGroupIdx: number;
+}) {
+  return (
+    <div className="flex gap-3 mb-7">
+      {GROUPS.map((group, i) => {
+        const status = statuses[i];
+        return (
+          <div key={group.label} className="flex-1 min-w-0">
+            <div
+              className={cn(
+                "h-1 rounded-full transition-all duration-300",
+                status === "complete"
+                  ? "bg-[var(--color-success)]"
+                  : status === "in_progress"
+                  ? "bg-[var(--color-accent)]"
+                  : "bg-[var(--color-border-strong)]"
+              )}
+            />
+            <div className="flex items-center gap-1 mt-1.5">
+              {status === "complete" && (
+                <CheckCircle2 size={10} className="text-[var(--color-success)] shrink-0" />
+              )}
+              <p
+                className={cn(
+                  "text-[10px] font-medium truncate leading-tight",
+                  status === "complete"
+                    ? "text-[var(--color-success)]"
+                    : status === "in_progress"
+                    ? "text-[var(--color-accent)]"
+                    : "text-[var(--color-text-muted)]"
+                )}
+              >
+                {group.label}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** One answer chip */
+function AnswerChip({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={cn(
+        "px-5 py-3 rounded-xl border text-sm font-medium transition-all min-h-[52px]",
+        "text-left leading-snug",
+        selected
+          ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white shadow-sm scale-[1.01]"
+          : "bg-[var(--color-surface)] border-[var(--color-border-strong)] text-[var(--color-text-secondary)]",
+        !selected && "hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+/** The one active question card */
+function ActiveQuestionCard({
+  globalIndex,
+  groupLabel,
+  question,
+  hint,
+  options,
+  value,
+  onChange,
+  error,
+}: {
+  globalIndex: number;
+  groupLabel: string;
+  question: string;
+  hint?: string;
+  options: { value: string; label: string }[];
+  value: string | undefined;
+  onChange: (v: string) => void;
+  error?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[var(--color-accent-ring)] bg-[var(--color-surface)] shadow-sm px-6 py-6 space-y-5">
+      {/* Eyebrow row */}
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
+          {groupLabel}
+        </span>
+        <span className="text-[11px] font-semibold text-[var(--color-accent)] tabular-nums shrink-0">
+          Question {globalIndex + 1} of {QUESTIONS.length}
+        </span>
+      </div>
+
+      {/* Question text */}
+      <p className="text-[15px] font-semibold text-[var(--color-text-primary)] leading-snug">
+        {question}
+      </p>
+
+      {/* Hint */}
+      {hint && (
+        <p className="text-[11px] text-[var(--color-text-muted)] leading-relaxed -mt-2 font-mono">
+          {hint}
+        </p>
+      )}
+
+      {/* Answer chips — wrap naturally; 2-col on mobile */}
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2.5">
+        {options.map((opt) => (
+          <AnswerChip
+            key={opt.value}
+            label={opt.label}
+            selected={value === opt.value}
+            onClick={() => onChange(opt.value)}
+          />
+        ))}
+      </div>
+
+      {error && (
+        <p className="text-xs text-[var(--color-error)]" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Compact answered-question review row */
 function AnsweredRow({
   shortLabel,
   answer,
@@ -144,8 +294,13 @@ function AnsweredRow({
   return (
     <div className="flex items-center justify-between gap-3 py-2.5 px-1">
       <div className="flex items-center gap-3 min-w-0">
-        <span className="text-xs font-medium text-[var(--color-text-muted)] shrink-0">{shortLabel}</span>
-        <span className="text-sm font-semibold text-[var(--color-text-primary)] truncate">{answer}</span>
+        <CheckCircle2 size={14} className="text-[var(--color-success)] shrink-0" />
+        <span className="text-xs font-medium text-[var(--color-text-muted)] shrink-0 w-36 truncate">
+          {shortLabel}
+        </span>
+        <span className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
+          {answer}
+        </span>
       </div>
       <button
         type="button"
@@ -160,289 +315,6 @@ function AnsweredRow({
   );
 }
 
-/** The active question block — full display with answer choices */
-function ActiveQuestion({
-  questionNumber,
-  totalInGroup,
-  question,
-  shortLabel,
-  hint,
-  options,
-  value,
-  onChange,
-  error,
-}: {
-  questionNumber: number;
-  totalInGroup: number;
-  question: string;
-  shortLabel: string;
-  hint?: string;
-  options: { value: string; label: string }[];
-  value: string | undefined;
-  onChange: (v: string) => void;
-  error?: string;
-}) {
-  return (
-    <div className="space-y-4 py-1">
-      {/* Eyebrow */}
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-accent)] mb-1.5">
-          Question {questionNumber} of {totalInGroup}
-        </p>
-        <p className="text-[15px] font-semibold text-[var(--color-text-primary)] leading-snug">
-          {question}
-        </p>
-        {hint && (
-          <p className="text-[11px] text-[var(--color-text-muted)] mt-1.5 leading-relaxed font-mono">
-            {hint}
-          </p>
-        )}
-      </div>
-
-      {/* Answer choices */}
-      <div className="flex flex-wrap gap-2">
-        {options.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            aria-pressed={value === opt.value}
-            className={cn(
-              "px-4 py-3 rounded-lg border text-sm font-medium transition-all min-h-[48px] text-left leading-snug",
-              "sm:min-w-[140px]",
-              value === opt.value
-                ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white shadow-sm"
-                : "bg-[var(--color-surface)] border-[var(--color-border-strong)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
-            )}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-
-      {error && (
-        <p className="text-xs text-[var(--color-error)]" role="alert">{error}</p>
-      )}
-    </div>
-  );
-}
-
-// ── GroupCard ────────────────────────────────────────────────────────────────
-
-type GroupStatus = "not_started" | "in_progress" | "complete";
-
-function GroupCard({
-  group,
-  groupIndex,
-  status,
-  control,
-  watch,
-  errors,
-  activeQuestionName,
-  onAnswered,
-  onEdit,
-  isReviewExpanded,
-  onToggleReview,
-}: {
-  group: typeof GROUPS[number];
-  groupIndex: number;
-  status: GroupStatus;
-  control: ReturnType<typeof useForm<RiskPreferences>>["control"];
-  watch: ReturnType<typeof useForm<RiskPreferences>>["watch"];
-  errors: ReturnType<typeof useForm<RiskPreferences>>["formState"]["errors"];
-  activeQuestionName: keyof RiskPreferences | null;
-  onAnswered: (name: keyof RiskPreferences, value: string) => void;
-  onEdit: (name: keyof RiskPreferences) => void;
-  isReviewExpanded: boolean;
-  onToggleReview: () => void;
-}) {
-  const isLocked = status === "not_started";
-  const isComplete = status === "complete";
-  const isActive = status === "in_progress";
-
-  return (
-    <div
-      className={cn(
-        "rounded-xl border transition-all",
-        isLocked
-          ? "border-[var(--color-border)] bg-[var(--color-surface)] opacity-50"
-          : isComplete
-          ? "border-[var(--color-border)] bg-[var(--color-surface)]"
-          : "border-[var(--color-accent-ring)] bg-[var(--color-surface)] shadow-sm"
-      )}
-    >
-      {/* Group header */}
-      <div
-        className={cn(
-          "flex items-start justify-between gap-3 px-5 py-4",
-          isComplete && "cursor-pointer",
-          isComplete ? "border-b border-[var(--color-border)]" : isActive ? "border-b border-[var(--color-accent-ring)]" : ""
-        )}
-        onClick={isComplete ? onToggleReview : undefined}
-        role={isComplete ? "button" : undefined}
-        tabIndex={isComplete ? 0 : undefined}
-        onKeyDown={isComplete ? (e) => e.key === "Enter" && onToggleReview() : undefined}
-      >
-        <div className="flex items-start gap-3 min-w-0">
-          {/* Status dot / check */}
-          <div className="mt-0.5 shrink-0">
-            {isComplete ? (
-              <CheckCircle2 size={18} className="text-[var(--color-success)]" />
-            ) : isActive ? (
-              <div className="w-4 h-4 rounded-full border-2 border-[var(--color-accent)] bg-[var(--color-accent-light)] mt-0.5" />
-            ) : (
-              <div className="w-4 h-4 rounded-full border-2 border-[var(--color-border-strong)] mt-0.5" />
-            )}
-          </div>
-          <div className="min-w-0">
-            <h2 className={cn(
-              "text-sm font-semibold",
-              isLocked ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-primary)]"
-            )}>
-              {group.label}
-            </h2>
-            {!isComplete && (
-              <p className="text-xs text-[var(--color-text-muted)] mt-0.5 leading-relaxed">
-                {group.description}
-              </p>
-            )}
-            {isComplete && (
-              <p className="text-xs text-[var(--color-success)] mt-0.5 font-medium">Complete</p>
-            )}
-          </div>
-        </div>
-        {isComplete && (
-          <div className="shrink-0 text-[var(--color-text-muted)]">
-            {isReviewExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </div>
-        )}
-      </div>
-
-      {/* ── Locked state: nothing more to show ── */}
-      {isLocked && null}
-
-      {/* ── Complete state: collapsed summary, expandable ── */}
-      {isComplete && isReviewExpanded && (
-        <div className="px-5 py-3 divide-y divide-[var(--color-border)]">
-          {group.questionNames.map((name) => {
-            const q = questionByName[name as string];
-            if (!q) return null;
-            const val = watch(name) as string | undefined;
-            return (
-              <AnsweredRow
-                key={name as string}
-                shortLabel={q.shortLabel}
-                answer={optionLabel(q, val)}
-                onEdit={() => onEdit(name)}
-              />
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── Active group: guided question flow ── */}
-      {isActive && (
-        <div className="px-5 py-4 space-y-0">
-          {group.questionNames.map((name, qIdx) => {
-            const q = questionByName[name as string];
-            if (!q) return null;
-            const val = watch(name) as string | undefined;
-            const isAnswered = !!val && name !== activeQuestionName;
-            const isActiveQ = name === activeQuestionName;
-            const isFuture = !val && !isActiveQ;
-
-            if (isAnswered) {
-              return (
-                <div key={name as string} className={cn(qIdx > 0 && "border-t border-[var(--color-border)]")}>
-                  <AnsweredRow
-                    shortLabel={q.shortLabel}
-                    answer={optionLabel(q, val)}
-                    onEdit={() => onEdit(name)}
-                  />
-                </div>
-              );
-            }
-
-            if (isActiveQ) {
-              // Count answered questions before this one for "Q X of N" display
-              const answeredBefore = group.questionNames
-                .slice(0, qIdx)
-                .filter((n) => !!watch(n)).length;
-              const questionNumber = answeredBefore + 1;
-
-              const err = (errors[q.name] as { message?: string } | undefined)?.message;
-
-              return (
-                <div key={name as string} className={cn(qIdx > 0 && "border-t border-[var(--color-border)] pt-4")}>
-                  <Controller
-                    control={control}
-                    name={q.name}
-                    render={({ field }) => (
-                      <ActiveQuestion
-                        questionNumber={questionNumber}
-                        totalInGroup={group.questionNames.length}
-                        question={q.question}
-                        shortLabel={q.shortLabel}
-                        hint={q.hint}
-                        options={q.options}
-                        value={field.value as string | undefined}
-                        onChange={(v) => {
-                          field.onChange(v);
-                          onAnswered(name, v);
-                        }}
-                        error={err}
-                      />
-                    )}
-                  />
-                </div>
-              );
-            }
-
-            // Future question in this group — hidden until active
-            return null;
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Top progress rail ────────────────────────────────────────────────────────
-
-function GroupProgressRail({ statuses }: { statuses: GroupStatus[] }) {
-  return (
-    <div className="flex gap-2 mb-6">
-      {GROUPS.map((group, i) => {
-        const status = statuses[i];
-        return (
-          <div key={group.label} className="flex-1 min-w-0">
-            <div
-              className={cn(
-                "h-1.5 rounded-full transition-all",
-                status === "complete"
-                  ? "bg-[var(--color-success)]"
-                  : status === "in_progress"
-                  ? "bg-[var(--color-accent)]"
-                  : "bg-[var(--color-border-strong)]"
-              )}
-            />
-            <p className={cn(
-              "text-[10px] font-medium mt-1.5 truncate",
-              status === "complete"
-                ? "text-[var(--color-success)]"
-                : status === "in_progress"
-                ? "text-[var(--color-accent)]"
-                : "text-[var(--color-text-muted)]"
-            )}>
-              {group.label}
-            </p>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 const ADVANCE_DELAY_MS = 320;
@@ -450,7 +322,13 @@ const ADVANCE_DELAY_MS = 320;
 export function PPStep5RiskPreferences() {
   const { formData, patch, markComplete, goNext } = usePPWizard();
 
-  const { control, handleSubmit, watch, reset, formState: { errors } } = useForm<RiskPreferences>({
+  const {
+    control,
+    handleSubmit,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<RiskPreferences>({
     resolver: zodResolver(riskPreferencesSchema),
     defaultValues: formData.risk_preferences as RiskPreferences | undefined,
   });
@@ -460,46 +338,36 @@ export function PPStep5RiskPreferences() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.risk_preferences]);
 
-  // ── UI state ─────────────────────────────────────────────────────────────
+  // ── UI state ──────────────────────────────────────────────────────────────
 
-  // Which group is currently active (0-indexed); null = not started yet
-  const [activeGroupIdx, setActiveGroupIdx] = useState<number>(() => {
-    // Hydrate: find the first incomplete group
+  // Global index of the currently active question (0–6); null = all done
+  const [activeQIdx, setActiveQIdx] = useState<number | null>(() => {
     if (!formData.risk_preferences) return 0;
-    for (let gi = 0; gi < GROUPS.length; gi++) {
-      const allAnswered = GROUPS[gi].questionNames.every(
-        (n) => !!(formData.risk_preferences as RiskPreferences | undefined)?.[n]
-      );
-      if (!allAnswered) return gi;
-    }
-    return GROUPS.length; // all complete
+    const rp = formData.risk_preferences as RiskPreferences;
+    const first = QUESTION_ORDER.findIndex((n) => !rp[n]);
+    return first === -1 ? null : first;
   });
 
-  // Active question within the current group
-  const [activeQuestionName, setActiveQuestionName] = useState<keyof RiskPreferences | null>(() => {
-    if (!formData.risk_preferences) return GROUPS[0]?.questionNames[0] ?? null;
-    for (let gi = 0; gi < GROUPS.length; gi++) {
-      for (const name of GROUPS[gi].questionNames) {
-        const val = (formData.risk_preferences as RiskPreferences | undefined)?.[name];
-        if (!val) return name;
-      }
-    }
-    return null;
-  });
-
-  // Expanded review state for completed groups
-  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
-
-  // Error state for incomplete submission
   const [submitError, setSubmitError] = useState<string | null>(null);
-
-  // Advance timer ref — cancel on unmount
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Derived group statuses ────────────────────────────────────────────────
+  // ── Derived values ────────────────────────────────────────────────────────
 
   const allValues = watch();
 
+  // Global question statuses
+  const answeredNames = new Set(
+    QUESTION_ORDER.filter((n) => !!allValues[n])
+  );
+  const allComplete = answeredNames.size === QUESTIONS.length;
+
+  // Active question definition
+  const activeQ =
+    activeQIdx !== null ? (questionByName[QUESTION_ORDER[activeQIdx]] ?? null) : null;
+  const activeGroupIdx =
+    activeQ ? groupForQuestion(activeQ.name) : -1;
+
+  // Group statuses for the rail
   const groupStatuses: GroupStatus[] = GROUPS.map((group, gi) => {
     const allAnswered = group.questionNames.every((n) => !!allValues[n]);
     if (allAnswered) return "complete";
@@ -507,70 +375,44 @@ export function PPStep5RiskPreferences() {
     return "not_started";
   });
 
-  const allComplete = groupStatuses.every((s) => s === "complete");
+  // Questions answered so far (before the active one) — shown in review strip
+  const answeredSoFar = QUESTIONS.filter(
+    (q) =>
+      !!allValues[q.name] &&
+      (activeQIdx === null || QUESTION_ORDER.indexOf(q.name) < activeQIdx)
+  );
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  // ── Auto-advance ──────────────────────────────────────────────────────────
 
   const handleAnswered = useCallback(
-    (name: keyof RiskPreferences, _value: string) => {
+    (name: keyof RiskPreferences) => {
       if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
 
       advanceTimerRef.current = setTimeout(() => {
-        // Find current group
-        const gi = GROUPS.findIndex((g) => g.questionNames.includes(name));
-        if (gi === -1) return;
-        const group = GROUPS[gi];
-
-        // Find next unanswered question in this group
-        const currentIdx = group.questionNames.indexOf(name);
+        const currentIdx = QUESTION_ORDER.indexOf(name);
+        // Find next unanswered question globally
         const snapshot = watch();
-        const nextInGroup = group.questionNames
-          .slice(currentIdx + 1)
-          .find((n) => !snapshot[n]);
-
-        if (nextInGroup) {
-          // Advance to next question within same group
-          setActiveQuestionName(nextInGroup);
-        } else {
-          // Group is complete — advance to next group
-          const nextGroupIdx = gi + 1;
-          if (nextGroupIdx < GROUPS.length) {
-            setActiveGroupIdx(nextGroupIdx);
-            const nextGroup = GROUPS[nextGroupIdx];
-            const firstUnanswered = nextGroup.questionNames.find((n) => !snapshot[n]);
-            setActiveQuestionName(firstUnanswered ?? nextGroup.questionNames[0]);
-          } else {
-            // All groups complete
-            setActiveGroupIdx(GROUPS.length);
-            setActiveQuestionName(null);
-          }
-        }
+        const nextIdx = QUESTION_ORDER.findIndex(
+          (n, i) => i > currentIdx && !snapshot[n]
+        );
+        setActiveQIdx(nextIdx === -1 ? null : nextIdx);
       }, ADVANCE_DELAY_MS);
     },
     [watch]
   );
 
-  const handleEdit = useCallback((name: keyof RiskPreferences) => {
-    // Find which group owns this question
-    const gi = GROUPS.findIndex((g) => g.questionNames.includes(name));
-    if (gi === -1) return;
-    setActiveGroupIdx(gi);
-    setActiveQuestionName(name);
-    // If this group was complete and collapsed, expand it in the UI
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      next.delete(gi);
-      return next;
-    });
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+    };
   }, []);
 
-  const handleToggleReview = useCallback((gi: number) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(gi)) next.delete(gi);
-      else next.add(gi);
-      return next;
-    });
+  // ── Edit a prior answer ───────────────────────────────────────────────────
+
+  const handleEdit = useCallback((name: keyof RiskPreferences) => {
+    const idx = QUESTION_ORDER.indexOf(name);
+    if (idx !== -1) setActiveQIdx(idx);
   }, []);
 
   // ── Submit ────────────────────────────────────────────────────────────────
@@ -584,16 +426,10 @@ export function PPStep5RiskPreferences() {
 
   const onInvalid = () => {
     setSubmitError("Please answer all questions before continuing.");
-    // Focus first incomplete group
-    const firstIncompleteGroup = GROUPS.findIndex((g) =>
-      g.questionNames.some((n) => !(watch()[n]))
-    );
-    if (firstIncompleteGroup !== -1) {
-      setActiveGroupIdx(firstIncompleteGroup);
-      const group = GROUPS[firstIncompleteGroup];
-      const firstUnanswered = group.questionNames.find((n) => !watch()[n]);
-      if (firstUnanswered) setActiveQuestionName(firstUnanswered);
-    }
+    // Return to first unanswered question
+    const snapshot = watch();
+    const firstUnanswered = QUESTION_ORDER.findIndex((n) => !snapshot[n]);
+    if (firstUnanswered !== -1) setActiveQIdx(firstUnanswered);
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -602,39 +438,99 @@ export function PPStep5RiskPreferences() {
     <form onSubmit={handleSubmit(onValid, onInvalid)} noValidate>
       {/* Intro */}
       <p className="text-sm text-[var(--color-text-secondary)] mb-5 leading-relaxed">
-        These questions help frame the client&apos;s comfort with guarantees, variability,
-        complexity, and funding obligations.
+        These questions help frame the client&apos;s comfort with guarantees,
+        variability, complexity, and funding obligations.
       </p>
 
-      {/* Group progress rail */}
-      <GroupProgressRail statuses={groupStatuses} />
+      {/* Slim section progress rail */}
+      <GroupProgressRail statuses={groupStatuses} activeGroupIdx={activeGroupIdx} />
 
       {/* Submit error banner */}
       {submitError && (
-        <div className="mb-4 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]" role="alert">
+        <div
+          className="mb-5 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]"
+          role="alert"
+        >
           {submitError}
         </div>
       )}
 
-      {/* Group cards */}
-      <div className="space-y-4">
-        {GROUPS.map((group, gi) => (
-          <GroupCard
-            key={group.label}
-            group={group}
-            groupIndex={gi}
-            status={groupStatuses[gi]}
-            control={control}
-            watch={watch}
-            errors={errors}
-            activeQuestionName={gi === activeGroupIdx ? activeQuestionName : null}
-            onAnswered={handleAnswered}
-            onEdit={handleEdit}
-            isReviewExpanded={expandedGroups.has(gi)}
-            onToggleReview={() => handleToggleReview(gi)}
-          />
-        ))}
-      </div>
+      {/* ── Answered-so-far review strip ── */}
+      {answeredSoFar.length > 0 && (
+        <div className="mb-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)] overflow-hidden">
+          {answeredSoFar.map((q) => (
+            <AnsweredRow
+              key={q.name as string}
+              shortLabel={q.shortLabel}
+              answer={optionLabel(q, allValues[q.name] as string | undefined)}
+              onEdit={() => handleEdit(q.name)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── Active question card ── */}
+      {activeQ && (
+        <Controller
+          control={control}
+          name={activeQ.name}
+          render={({ field }) => (
+            <ActiveQuestionCard
+              globalIndex={activeQIdx!}
+              groupLabel={GROUPS[activeGroupIdx]?.label ?? ""}
+              question={activeQ.question}
+              hint={activeQ.hint}
+              options={activeQ.options}
+              value={field.value as string | undefined}
+              onChange={(v) => {
+                field.onChange(v);
+                handleAnswered(activeQ.name);
+              }}
+              error={
+                (errors[activeQ.name] as { message?: string } | undefined)
+                  ?.message
+              }
+            />
+          )}
+        />
+      )}
+
+      {/* ── All done: answered-after strip for questions after active slot ── */}
+      {(() => {
+        const answeredAfter = QUESTIONS.filter(
+          (q) =>
+            !!allValues[q.name] &&
+            activeQIdx !== null &&
+            QUESTION_ORDER.indexOf(q.name) > activeQIdx
+        );
+        if (answeredAfter.length === 0) return null;
+        return (
+          <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)] overflow-hidden">
+            {answeredAfter.map((q) => (
+              <AnsweredRow
+                key={q.name as string}
+                shortLabel={q.shortLabel}
+                answer={optionLabel(q, allValues[q.name] as string | undefined)}
+                onEdit={() => handleEdit(q.name)}
+              />
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* ── All complete summary ── */}
+      {allComplete && activeQIdx === null && (
+        <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)] overflow-hidden">
+          {QUESTIONS.map((q) => (
+            <AnsweredRow
+              key={q.name as string}
+              shortLabel={q.shortLabel}
+              answer={optionLabel(q, allValues[q.name] as string | undefined)}
+              onEdit={() => handleEdit(q.name)}
+            />
+          ))}
+        </div>
+      )}
 
       <PPStepFooter continueDisabled={!allComplete} />
     </form>
