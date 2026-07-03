@@ -534,29 +534,38 @@ function PPAmountFieldCard({
         )}
       >
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-[var(--color-text-primary)]">{label}</p>
+          {/* Label — slightly lighter weight so the value dominates */}
           <p className={cn(
-            "text-xs mt-0.5 tabular-nums",
+            "text-sm font-normal leading-tight",
             status === "not_added"
               ? "text-[var(--color-text-muted)]"
               : "text-[var(--color-text-secondary)]"
+          )}>{label}</p>
+          {/* Value — 2–4 px larger, semibold, tabular-nums; muted when not entered */}
+          <p className={cn(
+            "text-[15px] leading-snug mt-0.5 tabular-nums font-semibold",
+            status === "not_added"
+              ? "text-[var(--color-text-muted)] font-normal"
+              : "text-[var(--color-text-primary)]"
           )}>
             {displayValue ?? "Not added"}
           </p>
         </div>
+        {/* Status pill — softened: no border, lighter bg, regular weight */}
         <span className={cn(
-          "shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border",
+          "shrink-0 text-[10px] font-medium tracking-wide px-2 py-0.5 rounded-full",
           status === "not_added"
-            ? "border-[var(--color-border)] text-[var(--color-text-muted)] bg-[var(--color-readonly-bg)]"
+            ? "text-[var(--color-text-muted)] bg-transparent"
             : status === "estimated"
-            ? "border-amber-300 text-amber-700 bg-amber-50"
-            : "border-[var(--color-success)] text-[var(--color-success)] bg-[var(--color-success-light)]"
+            ? "text-amber-600 bg-amber-50"
+            : "text-[var(--color-success)] bg-[var(--color-success-light)]"
         )}>
-          {statusLabel(status)}
+          {status !== "not_added" ? statusLabel(status) : ""}
         </span>
+        {/* Pencil — tertiary: always muted, only accent on open */}
         <Pencil className={cn(
-          "w-4 h-4 shrink-0 transition-colors",
-          isOpen ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)]"
+          "w-3.5 h-3.5 shrink-0 transition-colors opacity-40 group-hover:opacity-70",
+          isOpen ? "text-[var(--color-accent)] opacity-100" : "text-[var(--color-text-muted)]"
         )} />
       </button>
 
