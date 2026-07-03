@@ -923,22 +923,6 @@ export function PPStep3Financial() {
 
   return (
     <form onSubmit={handleSubmit(onValid)} noValidate>
-      {/* Page intro */}
-      <div className="mb-6 bg-[var(--color-accent-light)] border border-[var(--color-accent-ring)] rounded-lg px-5 py-4">
-        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-          <span className="font-semibold text-[var(--color-text-primary)]">Estimates are fine.</span>{" "}
-          Start with reasonable estimates. Use the quick-pick amounts to build the client&rsquo;s financial picture, then refine exact figures only where needed.
-        </p>
-      </div>
-
-      {/* Whose financials */}
-      <div className="mb-6 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-5 py-4">
-        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-          <span className="font-semibold text-[var(--color-text-primary)]">Whose information to enter.</span>{" "}
-          Enter the financial information of the policy owner. For a trust-owned policy, enter the grantor&rsquo;s or the premium funding source&rsquo;s information, not the insured&rsquo;s.
-        </p>
-      </div>
-
       {/* Premium source */}
       <div className="mb-6 bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] px-5 py-5">
         <p className="text-sm font-semibold text-[var(--color-text-primary)] mb-1">
