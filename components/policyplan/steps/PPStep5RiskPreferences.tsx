@@ -436,12 +436,6 @@ export function PPStep5RiskPreferences() {
 
   return (
     <form onSubmit={handleSubmit(onValid, onInvalid)} noValidate>
-      {/* Intro */}
-      <p className="text-sm text-[var(--color-text-secondary)] mb-5 leading-relaxed">
-        These questions help frame the client&apos;s comfort with guarantees,
-        variability, complexity, and funding obligations.
-      </p>
-
       {/* Slim section progress rail */}
       <GroupProgressRail statuses={groupStatuses} activeGroupIdx={activeGroupIdx} />
 
