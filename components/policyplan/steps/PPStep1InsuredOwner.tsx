@@ -264,9 +264,6 @@ export function PPStep1InsuredOwner() {
 
       {/* Page intro */}
       <div className="flex items-start justify-between gap-4 mb-6">
-        <p className="text-sm text-[var(--color-text-secondary)]">
-          Start with who is insured and who will own the policy.
-        </p>
         <button
           type="button"
           onClick={() => loadSample(PP_SAMPLE_CASE)}
