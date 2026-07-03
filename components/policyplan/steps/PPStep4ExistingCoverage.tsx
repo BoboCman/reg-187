@@ -7,6 +7,7 @@ import { Plus, Trash2, ChevronDown, ChevronUp, AlertCircle, Pencil, Check } from
 import {
   existingCoverageSchema,
   policyTypeEnum,
+  OBJECTIVE_LABELS,
   type ExistingCoverage,
 } from "@/lib/policyplan/schema";
 import { usePPWizard } from "@/lib/policyplan/wizard-context";
@@ -68,16 +69,26 @@ const STEPPER_INCREMENT: Record<string, number> = {
   premium_amount: 500,
 };
 
-const PURPOSE_PRESETS = [
-  "Income replacement",
-  "Estate liquidity",
-  "Business planning",
-  "Supplemental retirement",
-  "Wealth transfer",
-  "Key person",
-  "Buy-sell",
-  "Other",
-] as const;
+// Policy-specific purposes not covered by Step 2 objectives
+const POLICY_SPECIFIC_PURPOSES = ["Key person", "Buy-sell"];
+
+// Build the purpose chip list for a given policy card:
+// Row 1 = currently selected Step 2 objective labels (canonical)
+// Row 2 = policy-specific extras not in Step 2
+// Always appended: "Other"
+function buildPurposeOptions(selectedObjectiveLabels: string[]): {
+  primary: string[];
+  secondary: string[];
+} {
+  return {
+    primary: selectedObjectiveLabels,
+    secondary: POLICY_SPECIFIC_PURPOSES.filter(
+      (p) => !selectedObjectiveLabels.includes(p)
+    ),
+  };
+}
+
+const MAX_POLICIES = 3;
 
 const currentYear = new Date().getFullYear();
 type YearPreset = "unknown" | "recent" | "5_10" | "10_20" | "20_plus" | "exact";
@@ -431,11 +442,30 @@ function deriveMoneyStatus(v: number | undefined | null): FieldStatus {
   return v != null ? "estimated" : "not_added";
 }
 
-// Derive ownerRelation from loaded insured + policy_owner values.
-function deriveOwnerRelation(insured: string, owner: string): "same" | "different" {
+// All possible owner relationship values — mirrors Step 1 logic for dual-insured cases.
+type OwnerRelation =
+  | "same"          // same as the selected insured (single or dual)
+  | "insured_1"     // same as insured 1 (dual only)
+  | "insured_2"     // same as insured 2 (dual only)
+  | "joint"         // jointly owned: "Insured 1 & Insured 2" (dual only)
+  | "different";    // custom owner entry
+
+function deriveOwnerRelation(
+  owner: string,
+  insuredVal: string,
+  insuredNames: string[]
+): OwnerRelation {
   if (!owner) return "same";
-  if (insured && owner && insured !== owner) return "different";
-  return "same";
+  if (insuredNames.length >= 2) {
+    const joint = `${insuredNames[0]} & ${insuredNames[1]}`;
+    if (owner === joint) return "joint";
+    if (owner === insuredNames[0]) return "insured_1";
+    if (owner === insuredNames[1]) return "insured_2";
+    if (owner === insuredVal) return "same";
+    return "different";
+  }
+  if (insuredVal && owner === insuredVal) return "same";
+  return owner ? "different" : "same";
 }
 
 // Derive insuredSelection — returns the matched name or "Other".
@@ -480,6 +510,7 @@ function PolicyCard({
   watch,
   insuredNames,
   isNewPolicy,
+  selectedObjectiveLabels,
 }: {
   idx: number;
   fieldId: string;
@@ -491,7 +522,9 @@ function PolicyCard({
   setValue: ReturnType<typeof useForm<ExistingCoverage>>["setValue"];
   watch: ReturnType<typeof useForm<ExistingCoverage>>["watch"];
   insuredNames: string[];
+  // Used for new-policy defaults: pre-selects insured 1 and mirrors owner.
   isNewPolicy: boolean;
+  selectedObjectiveLabels: string[];
 }) {
   const prefix = `policies.${idx}` as const;
 
@@ -518,10 +551,15 @@ function PolicyCard({
     premium_amount: deriveMoneyStatus(initialPremAmt),
   }));
 
-  // OwnerRelation — hydrate from loaded owner vs insured
-  const [ownerRelation, setOwnerRelation] = useState<"same" | "different">(() =>
-    deriveOwnerRelation(initialInsuredVal ?? "", initialOwnerVal ?? "")
-  );
+  // OwnerRelation — hydrate from loaded values; new policies default to "same"
+  const [ownerRelation, setOwnerRelation] = useState<OwnerRelation>(() => {
+    if (isNewPolicy) return "same";
+    return deriveOwnerRelation(
+      initialOwnerVal ?? "",
+      initialInsuredVal ?? "",
+      insuredNames
+    );
+  });
 
   // InsuredSelection — hydrate from loaded insured value
   const [insuredSelection, setInsuredSelection] = useState<string>(() =>
@@ -544,11 +582,14 @@ function PolicyCard({
   );
   const [showExactPremiumYears, setShowExactPremiumYears] = useState(false);
 
-  // Purpose — hydrate from loaded purpose_of_policy
+  // Purpose — build chip options from Step 2 objectives + policy-specific extras
+  const purposeOptions = buildPurposeOptions(selectedObjectiveLabels);
+  const allStandardPurposes = [...purposeOptions.primary, ...purposeOptions.secondary];
+
+  // hydrate: value is "custom" (Other) if it isn't in any standard chip list
   const [showOtherPurpose, setShowOtherPurpose] = useState<boolean>(() => {
     if (!initialPurpose) return false;
-    const standards = PURPOSE_PRESETS.slice(0, -1) as readonly string[];
-    return !standards.includes(initialPurpose);
+    return !allStandardPurposes.includes(initialPurpose);
   });
 
   // Track whether initial hydration is complete — prevents owner overwrite on mount
@@ -575,13 +616,22 @@ function PolicyCard({
     setStatusMap((prev) => ({ ...prev, [key]: s }));
   };
 
-  // Sync owner → insured ONLY on explicit user interaction (not on mount)
+  // Mirror policy_owner from relationship — only after mount (not on load)
   useEffect(() => {
     if (!hydratedRef.current) return;
-    if (ownerRelation === "same" && insuredVal) {
-      setValue(`${prefix}.policy_owner`, insuredVal);
+    const dual = insuredNames.length >= 2;
+    if (ownerRelation === "same") {
+      // Mirrors the currently selected insured
+      if (insuredVal) setValue(`${prefix}.policy_owner`, insuredVal);
+    } else if (ownerRelation === "insured_1" && dual) {
+      setValue(`${prefix}.policy_owner`, insuredNames[0]);
+    } else if (ownerRelation === "insured_2" && dual) {
+      setValue(`${prefix}.policy_owner`, insuredNames[1]);
+    } else if (ownerRelation === "joint" && dual) {
+      setValue(`${prefix}.policy_owner`, `${insuredNames[0]} & ${insuredNames[1]}`);
     }
-  }, [ownerRelation, insuredVal, prefix, setValue]);
+    // "different" — no mirror, manual entry shown
+  }, [ownerRelation, insuredVal, insuredNames, prefix, setValue]);
 
   // Year-issued handler
   const handleYearPreset = (preset: YearPreset) => {
@@ -614,11 +664,15 @@ function PolicyCard({
     }
   };
 
-  // Purpose handler
+  // Purpose handler — clear field when switching TO Other if current value is standard
   const handlePurposePreset = (p: string) => {
     if (p === "Other") {
       setShowOtherPurpose(true);
-      setValue(`${prefix}.purpose_of_policy`, purposeVal ?? "");
+      // Only clear if the current value is a standard purpose chip
+      if (allStandardPurposes.includes(purposeVal ?? "")) {
+        setValue(`${prefix}.purpose_of_policy`, "");
+      }
+      // Otherwise preserve the custom value
     } else {
       setShowOtherPurpose(false);
       setValue(`${prefix}.purpose_of_policy`, p);
@@ -645,8 +699,7 @@ function PolicyCard({
 
   const activePurposePreset = (() => {
     if (!purposeVal) return showOtherPurpose ? "Other" : null;
-    const standards = PURPOSE_PRESETS.slice(0, -1) as readonly string[];
-    if (standards.includes(purposeVal)) return purposeVal;
+    if (allStandardPurposes.includes(purposeVal)) return purposeVal;
     return showOtherPurpose ? "Other" : null;
   })();
 
@@ -736,7 +789,7 @@ function PolicyCard({
                 />
               </FormField>
 
-              {/* Insured — pill-based for 1 OR 2 insureds, always consistent with Step 1 */}
+              {/* Insured — pill-based; adds joint/survivorship for dual-insured */}
               <div>
                 <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-2">Insured</p>
                 <div className="space-y-2">
@@ -754,6 +807,19 @@ function PolicyCard({
                         )}
                       >{name}</button>
                     ))}
+                    {/* Joint / survivorship — dual-insured only */}
+                    {insuredNames.length >= 2 && (
+                      <button
+                        type="button"
+                        onClick={() => handleInsuredSelect(`${insuredNames[0]} & ${insuredNames[1]}`)}
+                        className={cn(
+                          "px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors",
+                          insuredSelection === `${insuredNames[0]} & ${insuredNames[1]}`
+                            ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
+                            : "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+                        )}
+                      >Joint / survivorship</button>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleInsuredSelect("Other")}
@@ -771,25 +837,47 @@ function PolicyCard({
                 </div>
               </div>
 
-              {/* Policy owner */}
+              {/* Policy owner — mirrors Step 1 relationship options */}
               <div>
                 <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-2">Policy owner</p>
                 <div className="space-y-2">
-                  <SegmentedControl
-                    options={[
-                      { value: "same", label: "Same as insured" },
-                      { value: "different", label: "Different owner" },
-                    ]}
-                    value={ownerRelation}
-                    onChange={(v) => {
-                      const rel = v as "same" | "different";
-                      setOwnerRelation(rel);
-                      // Only sync when user explicitly picks "same"
-                      if (rel === "same" && insuredVal) {
-                        setValue(`${prefix}.policy_owner`, insuredVal);
-                      }
-                    }}
-                  />
+                  {insuredNames.length >= 2 ? (
+                    // Dual-insured: richer option set
+                    <div className="flex flex-wrap gap-2">
+                      {(["same", "insured_1", "insured_2", "joint", "different"] as OwnerRelation[]).map((rel) => {
+                        const labelMap: Record<OwnerRelation, string> = {
+                          same: "Same as insured",
+                          insured_1: `Same as ${insuredNames[0] || "Insured 1"}`,
+                          insured_2: `Same as ${insuredNames[1] || "Insured 2"}`,
+                          joint: "Jointly owned",
+                          different: "Different owner",
+                        };
+                        return (
+                          <button
+                            key={rel}
+                            type="button"
+                            onClick={() => setOwnerRelation(rel)}
+                            className={cn(
+                              "px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors",
+                              ownerRelation === rel
+                                ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
+                                : "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+                            )}
+                          >{labelMap[rel]}</button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    // Single-insured: simple two-option segmented control
+                    <SegmentedControl
+                      options={[
+                        { value: "same", label: "Same as insured" },
+                        { value: "different", label: "Different owner" },
+                      ]}
+                      value={ownerRelation === "different" ? "different" : "same"}
+                      onChange={(v) => setOwnerRelation(v as OwnerRelation)}
+                    />
+                  )}
                   {ownerRelation === "different" && (
                     <TextInput
                       {...register(`${prefix}.policy_owner`)}
@@ -959,12 +1047,31 @@ function PolicyCard({
                 </div>
               </div>
 
-              {/* Purpose of policy */}
+              {/* Purpose of policy — primary row from Step 2 objectives, secondary for policy-specific */}
               <div>
                 <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-2">Purpose of policy</p>
                 <div className="space-y-2">
+                  {/* Row 1: Step 2 objective labels */}
+                  {purposeOptions.primary.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {purposeOptions.primary.map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => handlePurposePreset(p)}
+                          className={cn(
+                            "px-3 py-1.5 rounded border text-xs font-medium transition-colors",
+                            activePurposePreset === p
+                              ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
+                              : "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+                          )}
+                        >{p}</button>
+                      ))}
+                    </div>
+                  )}
+                  {/* Row 2: policy-specific + Other */}
                   <div className="flex flex-wrap gap-2">
-                    {PURPOSE_PRESETS.map((p) => (
+                    {purposeOptions.secondary.map((p) => (
                       <button
                         key={p}
                         type="button"
@@ -977,6 +1084,16 @@ function PolicyCard({
                         )}
                       >{p}</button>
                     ))}
+                    <button
+                      type="button"
+                      onClick={() => handlePurposePreset("Other")}
+                      className={cn(
+                        "px-3 py-1.5 rounded border text-xs font-medium transition-colors",
+                        activePurposePreset === "Other"
+                          ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
+                          : "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+                      )}
+                    >Other</button>
                   </div>
                   {showOtherPurpose && (
                     <TextInput
@@ -1052,12 +1169,18 @@ export function PPStep4ExistingCoverage() {
     .map((i) => i.name)
     .filter(Boolean);
 
+  // Step 2 selected objectives → canonical labels for Step 4 purpose chips
+  const selectedObjectiveLabels: string[] = (formData.objectives?.selected ?? [])
+    .map((obj) => OBJECTIVE_LABELS[obj as keyof typeof OBJECTIVE_LABELS])
+    .filter(Boolean);
+
   useEffect(() => {
     if (formData.existing_coverage) reset(formData.existing_coverage as ExistingCoverage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.existing_coverage]);
 
   function handleAddPolicy() {
+    if (fields.length >= MAX_POLICIES) return;
     const newIdx = fields.length;
     const prefilled = {
       ...EMPTY_POLICY,
@@ -1136,17 +1259,25 @@ export function PPStep4ExistingCoverage() {
               watch={watch}
               insuredNames={insuredNames}
               isNewPolicy={newPolicyIndices.has(idx)}
+              selectedObjectiveLabels={selectedObjectiveLabels}
             />
           ))}
 
-          <button
-            type="button"
-            onClick={handleAddPolicy}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-lg border-2 border-dashed border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors"
-          >
-            <Plus size={15} />
-            Add policy
-          </button>
+          {fields.length < MAX_POLICIES && (
+            <button
+              type="button"
+              onClick={handleAddPolicy}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-lg border-2 border-dashed border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors"
+            >
+              <Plus size={15} />
+              Add policy
+            </button>
+          )}
+          {fields.length >= MAX_POLICIES && (
+            <p className="text-xs text-center text-[var(--color-text-muted)] py-2">
+              Maximum of {MAX_POLICIES} policies reached.
+            </p>
+          )}
         </div>
       )}
 
