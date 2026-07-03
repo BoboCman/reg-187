@@ -14,7 +14,7 @@ import { PPStepFooter } from "@/components/policyplan/PPStepWrapper";
 import { MoneyInput, PercentInput } from "@/components/ui/inputs";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/utils";
-import { ChevronDown, ChevronUp, Pencil, Check } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Constants & helpers
@@ -44,7 +44,6 @@ const PREMIUM_SOURCE_PRESETS = [
   "Other",
 ] as const;
 
-// Per-field quick-pick chip amounts (in dollars)
 const MONEY_CHIPS: Record<string, number[]> = {
   annual_income: [50_000, 100_000, 150_000, 200_000, 300_000, 500_000],
   cash_cds_securities: [25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000],
@@ -80,6 +79,12 @@ function chipLabel(v: number): string {
 }
 
 type FieldStatus = "not_added" | "estimated" | "exact";
+
+function statusLabel(s: FieldStatus): string {
+  if (s === "not_added") return "Not added";
+  if (s === "estimated") return "Estimated";
+  return "Exact";
+}
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Premium source selector
@@ -170,11 +175,9 @@ function PPAmountPicker({
   const chips = MONEY_CHIPS[fieldKey] ?? [25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000];
   const increment = STEPPER_INCREMENT[fieldKey] ?? 10_000;
   const [showExact, setShowExact] = useState(false);
-  // Always reflect the current form value — use value prop directly as source of truth.
-  // localValue only exists for stepper intermediate state; it resets to `value` on open.
   const [localValue, setLocalValue] = useState<number | undefined>(value);
 
-  // Sync localValue whenever the picker is remounted (i.e. opened fresh) or value changes externally.
+  // Sync localValue with incoming value whenever the picker opens with a new value.
   useEffect(() => {
     setLocalValue(value);
   }, [value]);
@@ -311,7 +314,6 @@ function PPTaxRatePicker({
         </button>
       </div>
 
-      {/* Slider */}
       <div className="space-y-2">
         <div className="flex justify-between text-xs text-[var(--color-text-muted)]">
           <span>{min}%</span>
@@ -331,7 +333,6 @@ function PPTaxRatePicker({
         />
       </div>
 
-      {/* Snap chips */}
       <div className="flex flex-wrap gap-1.5">
         {TAX_SNAP_POINTS.map((p) => (
           <button
@@ -369,60 +370,42 @@ function PPTaxRatePicker({
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * Field card — compact row with popover editor
+ * Field card — presentational; open state owned by PPPersonEditor
  * ─────────────────────────────────────────────────────────────────────────── */
 
-function statusLabel(status: FieldStatus): string {
-  if (status === "not_added") return "Not added";
-  if (status === "estimated") return "Estimated";
-  return "Exact";
-}
-
-// Module-level set of close callbacks — one entry per mounted card that is open.
-// Using a Set of stable refs avoids stale-closure comparison failures.
-const openPickerClosers = new Set<() => void>();
-
 function PPAmountFieldCard({
+  fieldId,
   fieldKey,
   label,
   value,
+  isOpen,
+  onOpen,
+  onClose,
+  status,
   onChange,
   isTaxRate,
 }: {
+  fieldId: string;
   fieldKey: string;
   label: string;
   value: number | undefined;
-  onChange: (v: number | undefined, status?: FieldStatus) => void;
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  status: FieldStatus;
+  onChange: (v: number | undefined, status: FieldStatus) => void;
   isTaxRate?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  // Derive status from value every render — no stale initializer.
-  const status: FieldStatus = value == null ? "not_added" : "estimated";
   const triggerRef = useRef<HTMLButtonElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const [pickerStyle, setPickerStyle] = useState<React.CSSProperties>({});
-  // Stable close ref so the Set comparison is reliable across renders.
-  const closeFnRef = useRef<() => void>(() => setOpen(false));
-  closeFnRef.current = () => setOpen(false);
 
-  // Register/deregister this card's closer. On open, close every other open picker.
-  useEffect(() => {
-    if (open) {
-      // Close all currently open pickers except this one.
-      openPickerClosers.forEach((fn) => { if (fn !== closeFnRef.current) fn(); });
-      openPickerClosers.add(closeFnRef.current);
-    } else {
-      openPickerClosers.delete(closeFnRef.current);
-    }
-    return () => { openPickerClosers.delete(closeFnRef.current); };
-  }, [open]);
-
-  // Position the portal picker below the trigger button
-  useEffect(() => {
-    if (!open || !triggerRef.current) return;
+  // Recompute portal position whenever the picker opens, or on resize/scroll.
+  const reposition = useCallback(() => {
+    if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
-    const pickerHeight = 340; // approximate max height
+    const pickerHeight = 360;
     const above = spaceBelow < pickerHeight && rect.top > pickerHeight;
     setPickerStyle({
       position: "fixed",
@@ -433,49 +416,60 @@ function PPAmountFieldCard({
         : { top: rect.bottom + 4 }),
       zIndex: 9999,
     });
-  }, [open]);
+  }, []);
 
-  // Close on outside click — checks both trigger and picker
   useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (
-        triggerRef.current?.contains(target) ||
-        pickerRef.current?.contains(target)
-      ) return;
-      setOpen(false);
+    if (!isOpen) return;
+    reposition();
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
+    return () => {
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  }, [isOpen, reposition]);
 
-  const handleChange = useCallback(
-    (v: number | undefined, s: FieldStatus = "estimated") => {
-      onChange(v, s);
-    },
-    [onChange]
-  );
+  // Outside-click: close only when click lands outside both trigger and picker.
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (pickerRef.current?.contains(target)) return;
+      onClose();
+    };
+    // Use capture so it fires before any stopPropagation inside the picker.
+    document.addEventListener("pointerdown", handler, true);
+    return () => document.removeEventListener("pointerdown", handler, true);
+  }, [isOpen, onClose]);
+
+  const handleTriggerClick = () => {
+    if (isOpen) {
+      onClose();
+    } else {
+      onOpen();
+    }
+  };
 
   const displayValue = isTaxRate
     ? value != null ? `${value}%` : null
     : value != null ? `$${Math.round(value).toLocaleString("en-US")}` : null;
 
-  const pickerEl = open ? (
+  const pickerEl = isOpen ? (
     <div ref={pickerRef} style={pickerStyle} className="shadow-xl min-w-[320px] max-w-[480px]">
       {isTaxRate ? (
         <PPTaxRatePicker
           value={value}
-          onChange={(v) => { handleChange(v, v == null ? "not_added" : "estimated"); }}
-          onClose={() => setOpen(false)}
+          onChange={(v) => onChange(v, v == null ? "not_added" : "estimated")}
+          onClose={onClose}
         />
       ) : (
         <PPAmountPicker
           fieldKey={fieldKey}
           label={label}
           value={value}
-          onChange={(v, s) => handleChange(v, s)}
-          onClose={() => setOpen(false)}
+          onChange={onChange}
+          onClose={onClose}
         />
       )}
     </div>
@@ -486,40 +480,48 @@ function PPAmountFieldCard({
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors text-left group"
+        onClick={handleTriggerClick}
+        aria-expanded={isOpen}
+        aria-controls={`picker-${fieldId}`}
+        className={cn(
+          "w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors text-left group",
+          isOpen
+            ? "border-[var(--color-accent)] bg-[var(--color-accent-light)]"
+            : "border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-light)]"
+        )}
       >
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-[var(--color-text-primary)]">{label}</p>
-          <p
-            className={cn(
-              "text-xs mt-0.5",
-              status === "not_added"
-                ? "text-[var(--color-text-muted)]"
-                : "text-[var(--color-text-secondary)]"
-            )}
-          >
+          <p className={cn(
+            "text-xs mt-0.5",
+            status === "not_added"
+              ? "text-[var(--color-text-muted)]"
+              : "text-[var(--color-text-secondary)]"
+          )}>
             {displayValue ?? "Not added"}
           </p>
         </div>
-        <span
-          className={cn(
-            "shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border",
-            status === "not_added"
-              ? "border-[var(--color-border)] text-[var(--color-text-muted)] bg-[var(--color-readonly-bg)]"
-              : status === "estimated"
-              ? "border-amber-300 text-amber-700 bg-amber-50"
-              : "border-[var(--color-success)] text-[var(--color-success)] bg-[var(--color-success-light)]"
-          )}
-        >
+        <span className={cn(
+          "shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border",
+          status === "not_added"
+            ? "border-[var(--color-border)] text-[var(--color-text-muted)] bg-[var(--color-readonly-bg)]"
+            : status === "estimated"
+            ? "border-amber-300 text-amber-700 bg-amber-50"
+            : "border-[var(--color-success)] text-[var(--color-success)] bg-[var(--color-success-light)]"
+        )}>
           {statusLabel(status)}
         </span>
-        <Pencil className="w-3.5 h-3.5 text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)] shrink-0 transition-colors" />
+        <Pencil className={cn(
+          "w-3.5 h-3.5 shrink-0 transition-colors",
+          isOpen ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)]"
+        )} />
       </button>
 
-      {/* Render picker in a portal so it is never clipped by overflow:hidden ancestors */}
       {typeof document !== "undefined" && pickerEl
-        ? createPortal(pickerEl, document.body)
+        ? createPortal(
+            <div id={`picker-${fieldId}`}>{pickerEl}</div>,
+            document.body
+          )
         : null}
     </div>
   );
@@ -555,7 +557,7 @@ function PPFinancialSection({
         )}
       </button>
       {open && (
-        <div className="px-4 pb-4 space-y-2 border-t border-[var(--color-border)]">
+        <div className="px-4 pb-4 border-t border-[var(--color-border)]">
           <div className="pt-3 space-y-2">{children}</div>
         </div>
       )}
@@ -591,28 +593,18 @@ function PPFinancialSummaryRail({ totals }: { totals: ReturnType<typeof deriveFi
               : "border-b border-[var(--color-border)] last:border-0"
           )}
         >
-          <span
-            className={cn(
-              "text-sm",
-              highlight
-                ? "font-semibold text-[var(--color-text-primary)]"
-                : "text-[var(--color-text-secondary)]"
-            )}
-          >
+          <span className={cn(
+            "text-sm",
+            highlight ? "font-semibold text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)]"
+          )}>
             {label}
           </span>
-          <span
-            className={cn(
-              "text-sm font-semibold tabular-nums",
-              highlight
-                ? value >= 0
-                  ? "text-[var(--color-success)]"
-                  : "text-[var(--color-error)]"
-                : value < 0
-                ? "text-[var(--color-error)]"
-                : "text-[var(--color-text-primary)]"
-            )}
-          >
+          <span className={cn(
+            "text-sm font-semibold tabular-nums",
+            highlight
+              ? value >= 0 ? "text-[var(--color-success)]" : "text-[var(--color-error)]"
+              : value < 0 ? "text-[var(--color-error)]" : "text-[var(--color-text-primary)]"
+          )}>
             {value < 0 ? "−" : ""}${Math.abs(Math.round(value)).toLocaleString("en-US")}
           </span>
         </div>
@@ -622,10 +614,28 @@ function PPFinancialSummaryRail({ totals }: { totals: ReturnType<typeof deriveFi
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * Single-person financial editor (one active tab at a time)
+ * Single-person financial editor
+ * One shared `openEditorId` — only one picker open at a time, owned here.
  * ─────────────────────────────────────────────────────────────────────────── */
 
 type Prefix = "columns.client_1" | "columns.client_2" | "columns.joint";
+
+// UI-only field status tracking — not persisted to schema.
+type StatusMap = Record<string, FieldStatus>;
+
+function initStatusMap(col: Partial<FinancialColumn>): StatusMap {
+  const keys: (keyof FinancialColumn)[] = [
+    "annual_income", "income_tax_rate",
+    "residence", "cash_cds_securities", "qualified_plans",
+    "business_interests", "real_estate", "other_assets",
+    "mortgage_amount", "revolving_debt", "other_liability_amount",
+  ];
+  const map: StatusMap = {};
+  for (const k of keys) {
+    map[k] = col[k] == null ? "not_added" : "estimated";
+  }
+  return map;
+}
 
 function PPPersonEditor({
   prefix,
@@ -638,10 +648,37 @@ function PPPersonEditor({
   const col = (colValue ?? {}) as FinancialColumn;
   const totals = deriveFinancialTotals(col);
 
+  // Single shared open-editor id. Empty string = no picker open.
+  const [openEditorId, setOpenEditorId] = useState<string>("");
+
+  // UI-only status map — tracks Estimated / Exact / Not added per field.
+  const [statusMap, setStatusMap] = useState<StatusMap>(() => initStatusMap(col));
+
+  // Re-init status map when the column data changes from an external reset (e.g. sample load).
+  // Only runs when the column reference structurally changes — not on every field change.
+  const prevColRef = useRef<Partial<FinancialColumn>>(col);
+  useEffect(() => {
+    // If a reset caused all values to become undefined, reinitialize.
+    const allEmpty = Object.values(col).every((v) => v == null);
+    const prevAllEmpty = Object.values(prevColRef.current).every((v) => v == null);
+    if (allEmpty && !prevAllEmpty) {
+      setStatusMap(initStatusMap(col));
+    }
+    prevColRef.current = col;
+  }, [col]);
+
   const field = (key: keyof FinancialColumn) =>
     `${prefix}.${key}` as Parameters<typeof control.register>[0];
 
-  // Spec order: residence first, then liquids, retirement, business, investment RE, other
+  const fieldId = (key: keyof FinancialColumn) => `${prefix}.${key}`;
+
+  const openField = useCallback((id: string) => setOpenEditorId(id), []);
+  const closeField = useCallback(() => setOpenEditorId(""), []);
+
+  const updateStatus = useCallback((key: string, s: FieldStatus) => {
+    setStatusMap((prev) => ({ ...prev, [key]: s }));
+  }, []);
+
   const assetFields: [keyof FinancialColumn, string][] = [
     ["residence", "Personal real estate"],
     ["cash_cds_securities", "Cash, CDs, and securities"],
@@ -659,17 +696,22 @@ function PPPersonEditor({
 
   return (
     <div className="space-y-3">
-      {/* Income section */}
+      {/* Income */}
       <PPFinancialSection title="Income" defaultOpen>
         <Controller
           control={control}
           name={field("annual_income")}
           render={({ field: f }) => (
             <PPAmountFieldCard
+              fieldId={fieldId("annual_income")}
               fieldKey="annual_income"
               label="Annual income"
               value={f.value as number | undefined}
-              onChange={(v) => f.onChange(v)}
+              isOpen={openEditorId === fieldId("annual_income")}
+              onOpen={() => openField(fieldId("annual_income"))}
+              onClose={closeField}
+              status={statusMap["annual_income"] ?? "not_added"}
+              onChange={(v, s) => { f.onChange(v); updateStatus("annual_income", s ?? "not_added"); }}
             />
           )}
         />
@@ -678,17 +720,22 @@ function PPPersonEditor({
           name={field("income_tax_rate")}
           render={({ field: f }) => (
             <PPAmountFieldCard
+              fieldId={fieldId("income_tax_rate")}
               fieldKey="income_tax_rate"
               label="Income tax rate"
               value={f.value as number | undefined}
-              onChange={(v) => f.onChange(v)}
+              isOpen={openEditorId === fieldId("income_tax_rate")}
+              onOpen={() => openField(fieldId("income_tax_rate"))}
+              onClose={closeField}
+              status={statusMap["income_tax_rate"] ?? "not_added"}
+              onChange={(v, s) => { f.onChange(v); updateStatus("income_tax_rate", s ?? "not_added"); }}
               isTaxRate
             />
           )}
         />
       </PPFinancialSection>
 
-      {/* Assets section */}
+      {/* Assets */}
       <PPFinancialSection title="Assets" defaultOpen>
         {assetFields.map(([key, label]) => (
           <Controller
@@ -697,17 +744,22 @@ function PPPersonEditor({
             name={field(key)}
             render={({ field: f }) => (
               <PPAmountFieldCard
+                fieldId={fieldId(key)}
                 fieldKey={key}
                 label={label}
                 value={f.value as number | undefined}
-                onChange={(v) => f.onChange(v)}
+                isOpen={openEditorId === fieldId(key)}
+                onOpen={() => openField(fieldId(key))}
+                onClose={closeField}
+                status={statusMap[key] ?? "not_added"}
+                onChange={(v, s) => { f.onChange(v); updateStatus(key, s ?? "not_added"); }}
               />
             )}
           />
         ))}
       </PPFinancialSection>
 
-      {/* Liabilities section */}
+      {/* Liabilities */}
       <PPFinancialSection title="Liabilities" defaultOpen={false}>
         {liabilityFields.map(([key, label]) => (
           <Controller
@@ -716,17 +768,22 @@ function PPPersonEditor({
             name={field(key)}
             render={({ field: f }) => (
               <PPAmountFieldCard
+                fieldId={fieldId(key)}
                 fieldKey={key}
                 label={label}
                 value={f.value as number | undefined}
-                onChange={(v) => f.onChange(v)}
+                isOpen={openEditorId === fieldId(key)}
+                onOpen={() => openField(fieldId(key))}
+                onClose={closeField}
+                status={statusMap[key] ?? "not_added"}
+                onChange={(v, s) => { f.onChange(v); updateStatus(key, s ?? "not_added"); }}
               />
             )}
           />
         ))}
       </PPFinancialSection>
 
-      {/* Summary — below sections so hierarchy is: enter data → see result */}
+      {/* Summary — below sections */}
       <PPFinancialSummaryRail totals={totals} />
     </div>
   );
@@ -799,7 +856,7 @@ export function PPStep3Financial() {
 
   const [activeTab, setActiveTab] = useState<Prefix>(tabs[0].id);
 
-  // Keep activeTab valid whenever the tab set changes (e.g. insured count changes, sample load)
+  // Keep activeTab valid when tab set changes (e.g. insured count or sample load)
   useEffect(() => {
     if (!tabs.find((t) => t.id === activeTab)) {
       setActiveTab(tabs[0].id);
@@ -812,9 +869,6 @@ export function PPStep3Financial() {
     goNext();
   };
 
-  // Source of premium field value for the controlled selector
-  const sourceValue = useWatch({ control, name: "expected_source_of_premium" });
-
   return (
     <form onSubmit={handleSubmit(onValid)} noValidate>
       {/* Page intro */}
@@ -825,7 +879,7 @@ export function PPStep3Financial() {
         </p>
       </div>
 
-      {/* Whose financials — Reg 187 suitability is about the policy owner */}
+      {/* Whose financials */}
       <div className="mb-6 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-5 py-4">
         <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
           <span className="font-semibold text-[var(--color-text-primary)]">Whose information to enter.</span>{" "}
@@ -845,10 +899,7 @@ export function PPStep3Financial() {
           control={control}
           name="expected_source_of_premium"
           render={({ field: f }) => (
-            <PPPremiumSourceSelector
-              value={f.value}
-              onChange={f.onChange}
-            />
+            <PPPremiumSourceSelector value={f.value} onChange={f.onChange} />
           )}
         />
       </div>
@@ -860,7 +911,7 @@ export function PPStep3Financial() {
         </div>
       )}
 
-      {/* Person editor — all tabs mounted, only active tab visible (preserves RHF state) */}
+      {/* Person editors — all mounted, only active tab visible (preserves RHF state) */}
       {tabs.map((t) => (
         <div key={t.id} className={t.id === activeTab ? "block" : "hidden"}>
           <PPPersonEditor prefix={t.id} control={control} />
