@@ -573,7 +573,7 @@ function PPFinancialSummaryRail({ totals }: { totals: ReturnType<typeof deriveFi
     ["Total assets", totals.total_assets],
     ["Total liabilities", totals.total_liabilities],
     ["Net worth", totals.net_worth],
-    ["Liquid net worth (excludes residence)", totals.liquid_net_worth, true],
+    ["Liquid net worth", totals.liquid_net_worth, true],
   ];
 
   return (
