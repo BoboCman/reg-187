@@ -14,7 +14,7 @@ import { PPStepFooter } from "@/components/policyplan/PPStepWrapper";
 import { MoneyInput, PercentInput } from "@/components/ui/inputs";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/utils";
-import { ChevronDown, ChevronUp, Pencil } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Check } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Constants & helpers
@@ -176,11 +176,22 @@ function PPAmountPicker({
   const increment = STEPPER_INCREMENT[fieldKey] ?? 10_000;
   const [showExact, setShowExact] = useState(false);
   const [localValue, setLocalValue] = useState<number | undefined>(value);
+  const exactWrapRef = useRef<HTMLDivElement>(null);
 
   // Sync localValue with incoming value whenever the picker opens with a new value.
   useEffect(() => {
     setLocalValue(value);
   }, [value]);
+
+  // Auto-focus the exact input as soon as it mounts.
+  useEffect(() => {
+    if (!showExact) return;
+    const input = exactWrapRef.current?.querySelector("input");
+    if (input) {
+      // Defer one tick so the input is fully painted before focusing.
+      requestAnimationFrame(() => input.focus({ preventScroll: true }));
+    }
+  }, [showExact]);
 
   const step = (delta: number) => {
     const next = Math.max(0, (localValue ?? 0) + delta);
@@ -189,96 +200,103 @@ function PPAmountPicker({
   };
 
   return (
-    <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] shadow-lg p-5 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] shadow-lg overflow-hidden">
+      {/* Header — label only, no top-right Done */}
+      <div className="px-5 pt-5 pb-4 space-y-4">
         <p className="text-sm font-semibold text-[var(--color-text-primary)]">{label}</p>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors px-2 py-1 rounded hover:bg-[var(--color-background)]"
-        >
-          Done
-        </button>
-      </div>
 
-      {/* Quick chips */}
-      <div>
-        <p className="text-xs text-[var(--color-text-muted)] mb-2 uppercase tracking-wide font-medium">Quick estimate</p>
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={() => { setLocalValue(undefined); onChange(undefined, "not_added"); }}
-            className={cn(
-              "px-3 py-1.5 rounded text-xs font-medium border transition-colors",
-              localValue == null
-                ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
-                : "bg-[var(--color-readonly-bg)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
-            )}
-          >
-            None
-          </button>
-          {chips.map((c) => (
+        {/* Quick chips */}
+        <div>
+          <p className="text-xs text-[var(--color-text-muted)] mb-2 uppercase tracking-wide font-medium">Quick estimate</p>
+          <div className="flex flex-wrap gap-1.5">
             <button
-              key={c}
               type="button"
-              onClick={() => { setLocalValue(c); onChange(c, "estimated"); }}
+              onClick={() => { setLocalValue(undefined); onChange(undefined, "not_added"); }}
               className={cn(
                 "px-3 py-1.5 rounded text-xs font-medium border transition-colors",
-                localValue === c
+                localValue == null
                   ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
                   : "bg-[var(--color-readonly-bg)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
               )}
             >
-              {chipLabel(c)}
+              None
             </button>
-          ))}
+            {chips.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => { setLocalValue(c); onChange(c, "estimated"); }}
+                className={cn(
+                  "px-3 py-1.5 rounded text-xs font-medium border transition-colors",
+                  localValue === c
+                    ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
+                    : "bg-[var(--color-readonly-bg)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+                )}
+              >
+                {chipLabel(c)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Stepper */}
+        <div>
+          <p className="text-xs text-[var(--color-text-muted)] mb-2 uppercase tracking-wide font-medium">Adjust</p>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => step(-increment)}
+              className="w-10 h-10 rounded border border-[var(--color-border)] bg-[var(--color-readonly-bg)] text-[var(--color-text-primary)] font-semibold text-lg flex items-center justify-center hover:bg-[var(--color-background)] transition-colors"
+            >
+              −
+            </button>
+            <span className="flex-1 text-center text-base font-semibold tabular-nums text-[var(--color-text-primary)]">
+              {localValue != null ? `$${localValue.toLocaleString("en-US")}` : "—"}
+            </span>
+            <button
+              type="button"
+              onClick={() => step(+increment)}
+              className="w-10 h-10 rounded border border-[var(--color-border)] bg-[var(--color-readonly-bg)] text-[var(--color-text-primary)] font-semibold text-lg flex items-center justify-center hover:bg-[var(--color-background)] transition-colors"
+            >
+              +
+            </button>
+          </div>
+        </div>
+
+        {/* Exact entry toggle */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowExact((v) => !v)}
+            className="text-xs text-[var(--color-accent)] hover:underline font-medium"
+          >
+            {showExact ? "Hide exact entry" : "Enter exact amount"}
+          </button>
+          {showExact && (
+            <div ref={exactWrapRef} className="mt-2">
+              <MoneyInput
+                value={localValue}
+                onChange={(v) => {
+                  setLocalValue(v);
+                  onChange(v, "exact");
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Stepper */}
-      <div>
-        <p className="text-xs text-[var(--color-text-muted)] mb-2 uppercase tracking-wide font-medium">Adjust</p>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => step(-increment)}
-            className="w-10 h-10 rounded border border-[var(--color-border)] bg-[var(--color-readonly-bg)] text-[var(--color-text-primary)] font-semibold text-lg flex items-center justify-center hover:bg-[var(--color-background)] transition-colors"
-          >
-            −
-          </button>
-          <span className="flex-1 text-center text-base font-semibold text-[var(--color-text-primary)]">
-            {localValue != null ? `$${localValue.toLocaleString("en-US")}` : "—"}
-          </span>
-          <button
-            type="button"
-            onClick={() => step(+increment)}
-            className="w-10 h-10 rounded border border-[var(--color-border)] bg-[var(--color-readonly-bg)] text-[var(--color-text-primary)] font-semibold text-lg flex items-center justify-center hover:bg-[var(--color-background)] transition-colors"
-          >
-            +
-          </button>
-        </div>
-      </div>
-
-      {/* Exact entry */}
-      <div>
+      {/* Footer — primary close action */}
+      <div className="border-t border-[var(--color-border)] px-5 py-3 flex items-center justify-between gap-3 bg-[var(--color-readonly-bg)]">
+        <span className="text-xs text-[var(--color-text-muted)]">Updates apply immediately</span>
         <button
           type="button"
-          onClick={() => setShowExact((v) => !v)}
-          className="text-xs text-[var(--color-accent)] hover:underline font-medium"
+          onClick={onClose}
+          className="flex items-center gap-1.5 px-4 py-2 rounded bg-[var(--color-accent)] text-white text-sm font-medium hover:opacity-90 transition-opacity sm:w-auto w-full justify-center"
         >
-          {showExact ? "Hide exact entry" : "Enter exact amount"}
+          <Check className="w-3.5 h-3.5" />
+          Done
         </button>
-        {showExact && (
-          <div className="mt-2">
-            <MoneyInput
-              value={localValue}
-              onChange={(v) => {
-                setLocalValue(v);
-                onChange(v, "exact");
-              }}
-            />
-          </div>
-        )}
       </div>
     </div>
   );
@@ -298,72 +316,86 @@ function PPTaxRatePicker({
   onClose: () => void;
 }) {
   const [showExact, setShowExact] = useState(false);
+  const exactWrapRef = useRef<HTMLDivElement>(null);
   const min = TAX_SNAP_POINTS[0];
   const max = TAX_SNAP_POINTS[TAX_SNAP_POINTS.length - 1];
 
+  // Auto-focus exact input when revealed.
+  useEffect(() => {
+    if (!showExact) return;
+    const input = exactWrapRef.current?.querySelector("input");
+    if (input) requestAnimationFrame(() => input.focus({ preventScroll: true }));
+  }, [showExact]);
+
   return (
-    <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] shadow-lg p-5 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] shadow-lg overflow-hidden">
+      <div className="px-5 pt-5 pb-4 space-y-4">
         <p className="text-sm font-semibold text-[var(--color-text-primary)]">Income tax rate</p>
+
+        <div className="space-y-2">
+          <div className="flex justify-between text-xs text-[var(--color-text-muted)]">
+            <span>{min}%</span>
+            <span className="font-semibold tabular-nums text-[var(--color-text-primary)] text-sm">
+              {value != null ? `${value}%` : "—"}
+            </span>
+            <span>{max}%</span>
+          </div>
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={1}
+            value={value ?? min}
+            onChange={(e) => onChange(Number(e.target.value))}
+            className="w-full accent-[var(--color-accent)] h-2 cursor-pointer"
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          {TAX_SNAP_POINTS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => onChange(p)}
+              className={cn(
+                "px-3 py-1 rounded text-xs font-medium border transition-colors tabular-nums",
+                value === p
+                  ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
+                  : "bg-[var(--color-readonly-bg)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+              )}
+            >
+              {p}%
+            </button>
+          ))}
+        </div>
+
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowExact((v) => !v)}
+            className="text-xs text-[var(--color-accent)] hover:underline font-medium"
+          >
+            {showExact ? "Hide exact entry" : "Enter exact rate"}
+          </button>
+          {showExact && (
+            <div ref={exactWrapRef} className="mt-2">
+              <PercentInput value={value} onChange={onChange} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Footer — primary close action */}
+      <div className="border-t border-[var(--color-border)] px-5 py-3 flex items-center justify-between gap-3 bg-[var(--color-readonly-bg)]">
+        <span className="text-xs text-[var(--color-text-muted)]">Updates apply immediately</span>
         <button
           type="button"
           onClick={onClose}
-          className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors px-2 py-1 rounded hover:bg-[var(--color-background)]"
+          className="flex items-center gap-1.5 px-4 py-2 rounded bg-[var(--color-accent)] text-white text-sm font-medium hover:opacity-90 transition-opacity sm:w-auto w-full justify-center"
         >
+          <Check className="w-3.5 h-3.5" />
           Done
         </button>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex justify-between text-xs text-[var(--color-text-muted)]">
-          <span>{min}%</span>
-          <span className="font-semibold text-[var(--color-text-primary)] text-sm">
-            {value != null ? `${value}%` : "—"}
-          </span>
-          <span>{max}%</span>
-        </div>
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={1}
-          value={value ?? min}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="w-full accent-[var(--color-accent)] h-2 cursor-pointer"
-        />
-      </div>
-
-      <div className="flex flex-wrap gap-1.5">
-        {TAX_SNAP_POINTS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => onChange(p)}
-            className={cn(
-              "px-3 py-1 rounded text-xs font-medium border transition-colors",
-              value === p
-                ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
-                : "bg-[var(--color-readonly-bg)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
-            )}
-          >
-            {p}%
-          </button>
-        ))}
-      </div>
-
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowExact((v) => !v)}
-          className="text-xs text-[var(--color-accent)] hover:underline font-medium"
-        >
-          {showExact ? "Hide exact entry" : "Enter exact rate"}
-        </button>
-        {showExact && (
-          <div className="mt-2">
-            <PercentInput value={value} onChange={onChange} />
-          </div>
-        )}
       </div>
     </div>
   );
@@ -404,13 +436,24 @@ function PPAmountFieldCard({
   const reposition = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
+    const margin = 12;
+    const pickerHeight = 420;
+    const maxPickerWidth = 480;
     const spaceBelow = window.innerHeight - rect.bottom;
-    const pickerHeight = 360;
     const above = spaceBelow < pickerHeight && rect.top > pickerHeight;
+
+    // Clamp horizontal: never overflow viewport edges.
+    const rawLeft = rect.left;
+    const pickerW = Math.min(Math.max(rect.width, 320), maxPickerWidth, window.innerWidth - margin * 2);
+    const clampedLeft = Math.min(
+      Math.max(rawLeft, margin),
+      window.innerWidth - pickerW - margin
+    );
+
     setPickerStyle({
       position: "fixed",
-      left: rect.left,
-      width: rect.width,
+      left: clampedLeft,
+      width: pickerW,
       ...(above
         ? { bottom: window.innerHeight - rect.top + 4 }
         : { top: rect.bottom + 4 }),
@@ -456,7 +499,7 @@ function PPAmountFieldCard({
     : value != null ? `$${Math.round(value).toLocaleString("en-US")}` : null;
 
   const pickerEl = isOpen ? (
-    <div ref={pickerRef} style={pickerStyle} className="shadow-xl min-w-[320px] max-w-[480px]">
+    <div ref={pickerRef} style={pickerStyle}>
       {isTaxRate ? (
         <PPTaxRatePicker
           value={value}
@@ -484,16 +527,16 @@ function PPAmountFieldCard({
         aria-expanded={isOpen}
         aria-controls={`picker-${fieldId}`}
         className={cn(
-          "w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors text-left group",
+          "w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-all text-left group",
           isOpen
-            ? "border-[var(--color-accent)] bg-[var(--color-accent-light)]"
+            ? "border-[var(--color-accent)] bg-[var(--color-accent-light)] ring-2 ring-[var(--color-accent-ring)]"
             : "border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-light)]"
         )}
       >
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-[var(--color-text-primary)]">{label}</p>
           <p className={cn(
-            "text-xs mt-0.5",
+            "text-xs mt-0.5 tabular-nums",
             status === "not_added"
               ? "text-[var(--color-text-muted)]"
               : "text-[var(--color-text-secondary)]"
@@ -512,7 +555,7 @@ function PPAmountFieldCard({
           {statusLabel(status)}
         </span>
         <Pencil className={cn(
-          "w-3.5 h-3.5 shrink-0 transition-colors",
+          "w-4 h-4 shrink-0 transition-colors",
           isOpen ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)]"
         )} />
       </button>
