@@ -130,9 +130,13 @@ export function PPStep1InsuredOwner() {
   }
 
   // Apply mirrored owner when a same-owner relationship is active.
+  // Uses shouldValidate:true so RHF counts the field as valid immediately.
   function applyMirror(rel: OwnerRelationship) {
     if (rel !== "different") {
-      setValue("policy_owner", mirroredOwner(rel), { shouldValidate: false });
+      setValue("policy_owner", mirroredOwner(rel), {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
     }
   }
 
@@ -151,12 +155,29 @@ export function PPStep1InsuredOwner() {
   }, [insured2Name]);
 
   // When relationship changes: apply mirror or switch ownership_type for "different".
+  // Also clears stale branch-specific values when leaving a branch.
   function handleRelChange(rel: OwnerRelationship) {
+    const prev = ownerRel;
     setOwnerRel(rel);
     if (rel !== "different") {
-      setValue("policy_owner", mirroredOwner(rel), { shouldValidate: false });
-      // Clear owner-type / trust / business when returning to same-owner
-      setValue("ownership_type", "individual", { shouldValidate: false });
+      setValue("policy_owner", mirroredOwner(rel), {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      // Clear owner-type / trust / business when returning to same-owner path.
+      if (prev === "different") {
+        setValue("ownership_type", "individual", { shouldValidate: false });
+        setValue("business_type", undefined, { shouldValidate: false });
+        setValue("trust_type", undefined, { shouldValidate: false });
+        setValue("grantor_trust", undefined, { shouldValidate: false });
+        setValue("gst_exempt", undefined, { shouldValidate: false });
+      }
+    } else {
+      // Switching TO different — clear trust/business carry-over.
+      setValue("business_type", undefined, { shouldValidate: false });
+      setValue("trust_type", undefined, { shouldValidate: false });
+      setValue("grantor_trust", undefined, { shouldValidate: false });
+      setValue("gst_exempt", undefined, { shouldValidate: false });
     }
   }
 
@@ -180,6 +201,19 @@ export function PPStep1InsuredOwner() {
 
   const isDifferentOwner = ownerRel === "different";
 
+  // Clear stale sub-type values when ownership_type changes.
+  function handleOwnerTypeChange(v: typeof ownershipType) {
+    setValue("ownership_type", v, { shouldValidate: true });
+    if (v !== "business") {
+      setValue("business_type", undefined, { shouldValidate: false });
+    }
+    if (v !== "trust") {
+      setValue("trust_type", undefined, { shouldValidate: false });
+      setValue("grantor_trust", undefined, { shouldValidate: false });
+      setValue("gst_exempt", undefined, { shouldValidate: false });
+    }
+  }
+
   // Ownership relationship options vary by insured count
   const singleOwnerOptions = [
     { value: "same_as_insured" as OwnerRelationship, label: "Same as insured" },
@@ -192,18 +226,42 @@ export function PPStep1InsuredOwner() {
     { value: "different" as OwnerRelationship, label: "Different owner" },
   ];
 
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const onValid = (data: InsuredOwner) => {
-    // Freeze the mirrored value into policy_owner before saving.
+    setSubmitError(null);
+    // On same-owner paths, force-set policy_owner from mirror before saving.
     if (!isDifferentOwner) {
-      data.policy_owner = mirroredOwner(ownerRel) || data.insureds[0]?.name;
+      const mirrored = mirroredOwner(ownerRel) || data.insureds[0]?.name;
+      if (!mirrored) {
+        setSubmitError("Enter the insured name before continuing.");
+        return;
+      }
+      data.policy_owner = mirrored;
     }
     patch({ insured_owner: data });
     markComplete(1);
     goNext();
   };
 
+  const onInvalid = (errs: object) => {
+    console.log("[v0] PPStep1 validation errors:", errs);
+    setSubmitError("Please complete the required ownership information before continuing.");
+  };
+
   return (
-    <form onSubmit={handleSubmit(onValid)} noValidate>
+    <form onSubmit={handleSubmit(onValid, onInvalid)} noValidate>
+      {/* Hidden input keeps policy_owner registered with RHF at all times,
+          even when the visible text input is in the "different owner" branch only. */}
+      <input type="hidden" {...register("policy_owner")} />
+
+      {/* Submit error banner */}
+      {submitError && (
+        <div className="mb-4 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
+          {submitError}
+        </div>
+      )}
+
       {/* Page intro */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <p className="text-sm text-[var(--color-text-secondary)]">
@@ -331,6 +389,20 @@ export function PPStep1InsuredOwner() {
             />
           </FormField>
 
+          {/* State of ownership — always visible for all paths (spec item 2) */}
+          <FormField
+            label="State of ownership"
+            hint="2-letter state code"
+            error={errors.state_of_ownership?.message}
+          >
+            <TextInput
+              {...register("state_of_ownership")}
+              placeholder="NY"
+              maxLength={2}
+              className="uppercase w-24"
+            />
+          </FormField>
+
           {/* Same-owner summary row */}
           {!isDifferentOwner && (
             <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-readonly-bg)] px-4 py-3">
@@ -359,27 +431,14 @@ export function PPStep1InsuredOwner() {
                 <SegmentedControl
                   options={OWNERSHIP_OPTIONS}
                   value={ownershipType}
-                  onChange={(v) => setValue("ownership_type", v, { shouldValidate: true })}
+                  onChange={handleOwnerTypeChange}
                 />
               </FormField>
 
-              {/* B. Owner name / entity */}
+              {/* B. Owner name / entity — visible input only in different-owner branch.
+                  policy_owner is also kept registered via the hidden input above. */}
               <FormField label="Policy owner">
                 <TextInput {...register("policy_owner")} placeholder="Name or entity" />
-              </FormField>
-
-              {/* C. State of ownership */}
-              <FormField
-                label="State of ownership"
-                hint="2-letter state code"
-                error={errors.state_of_ownership?.message}
-              >
-                <TextInput
-                  {...register("state_of_ownership")}
-                  placeholder="NY"
-                  maxLength={2}
-                  className="uppercase w-24"
-                />
               </FormField>
 
               {/* Business details subcard */}
@@ -464,7 +523,7 @@ export function PPStep1InsuredOwner() {
         </div>
       </div>
 
-      <PPStepFooter onContinue={handleSubmit(onValid)} />
+      <PPStepFooter />
     </form>
   );
 }
