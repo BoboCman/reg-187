@@ -524,7 +524,7 @@ function PPFinancialSummaryRail({ totals }: { totals: ReturnType<typeof deriveFi
     ["Total assets", totals.total_assets],
     ["Total liabilities", totals.total_liabilities],
     ["Net worth", totals.net_worth],
-    ["Liquid net worth", totals.liquid_net_worth, true],
+    ["Liquid net worth (excludes residence)", totals.liquid_net_worth, true],
   ];
 
   return (
@@ -766,6 +766,14 @@ export function PPStep3Financial() {
           <span className="font-semibold text-[var(--color-text-primary)]">Estimates are fine.</span>{" "}
           Use the quick-pick amounts to fill in approximate values now — you can refine with exact
           figures at any time. The summary updates live as you enter data.
+        </p>
+      </div>
+
+      {/* Whose financials — Reg 187 suitability is about the policy owner */}
+      <div className="mb-6 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-5 py-4">
+        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+          <span className="font-semibold text-[var(--color-text-primary)]">Whose information to enter.</span>{" "}
+          Enter the financial information of the policy owner. For a trust-owned policy, enter the grantor&rsquo;s or the premium funding source&rsquo;s information, not the insured&rsquo;s.
         </p>
       </div>
 
