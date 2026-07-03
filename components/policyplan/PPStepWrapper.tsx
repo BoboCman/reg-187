@@ -4,7 +4,9 @@ import { PP_STEP_COUNT, usePPWizard } from "@/lib/policyplan/wizard-context";
 import type { ReactNode } from "react";
 
 interface StepFooterProps {
-  onContinue: () => void;
+  // When omitted the Continue button renders as type="submit" so a wrapping
+  // <form> handles submission (and its own handleSubmit / onInvalid) directly.
+  onContinue?: () => void;
   continueDisabled?: boolean;
   isLastStep?: boolean;
   continueLabel?: string;
@@ -32,7 +34,7 @@ export function PPStepFooter({ onContinue, continueDisabled, isLastStep, continu
           Step {step} of {PP_STEP_COUNT}
         </span>
         <button
-          type="button"
+          type={onContinue ? "button" : "submit"}
           onClick={onContinue}
           disabled={continueDisabled}
           className={cn(

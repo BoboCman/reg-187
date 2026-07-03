@@ -38,7 +38,7 @@ export const PP_STEP_COUNT = 7;
 export const PP_STEP_META: { label: string; subtitle: string }[] = [
   { label: "Insured & owner",      subtitle: "Who is insured, who owns the policy" },
   { label: "Objectives",           subtitle: "The client's purpose for coverage" },
-  { label: "Financial profile",    subtitle: "Income, assets, liabilities, and capacity" },
+  { label: "Financial profile",    subtitle: "Enter the financial information of the policy owner. For a trust-owned policy, enter the grantor\u2019s or the premium funding source\u2019s information, not the insured\u2019s." },
   { label: "Existing coverage",    subtitle: "In-force policies and replacement intent" },
   { label: "Risk & preferences",   subtitle: "Tolerance, guarantees, and funding commitment" },
   { label: "Policy specifications",subtitle: "Target death benefit, premium, and duration" },
