@@ -468,11 +468,18 @@ function deriveOwnerRelation(
   return owner ? "different" : "same";
 }
 
-// Derive insuredSelection — returns the matched name or "Other".
+// Build the stable joint label for two insureds.
+function jointLabel(names: string[]): string | null {
+  return names.length >= 2 ? `${names[0]} & ${names[1]}` : null;
+}
+
+// Derive insuredSelection — recognizes individual names, joint label, or "Other".
 function deriveInsuredSelection(insured: string, knownNames: string[]): string {
   if (!insured) return knownNames[0] ?? "Other";
-  const match = knownNames.find((n) => n === insured);
-  return match ?? "Other";
+  if (knownNames.find((n) => n === insured)) return insured;
+  const jl = jointLabel(knownNames);
+  if (jl && insured === jl) return jl; // joint/survivorship is a first-class recognized value
+  return "Other";
 }
 
 // Derive year preset from loaded year_issued value.
@@ -551,23 +558,46 @@ function PolicyCard({
     premium_amount: deriveMoneyStatus(initialPremAmt),
   }));
 
-  // OwnerRelation — hydrate from loaded values; new policies default to "same"
-  const [ownerRelation, setOwnerRelation] = useState<OwnerRelation>(() => {
-    if (isNewPolicy) return "same";
-    return deriveOwnerRelation(
+  // OwnerRelation — for loaded policies: derive from saved values.
+  // For brand-new policies: default to "same" (isNewPolicy is only true on initial append).
+  const [ownerRelation, setOwnerRelation] = useState<OwnerRelation>(() =>
+    deriveOwnerRelation(
       initialOwnerVal ?? "",
       initialInsuredVal ?? "",
       insuredNames
-    );
-  });
+    )
+  );
 
-  // InsuredSelection — hydrate from loaded insured value
+  // One-time mount effect for new policies: set insured + owner to insured 1 defaults.
+  // Uses a ref so it only ever fires once and is inert after hydration completes.
+  const newPolicyInitRef = useRef(false);
+  useEffect(() => {
+    if (!isNewPolicy || newPolicyInitRef.current) return;
+    newPolicyInitRef.current = true;
+    const defaultInsured = insuredNames[0] ?? "";
+    if (defaultInsured) {
+      setValue(`${prefix}.insured`, defaultInsured);
+      setValue(`${prefix}.policy_owner`, defaultInsured);
+    }
+    // ownerRelation stays "same" as initialized above
+    setInsuredSelection(defaultInsured || "Other");
+    setShowOtherInsured(!defaultInsured);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Stable joint label for this card's insuredNames — used in hydration and UI.
+  const jl = jointLabel(insuredNames);
+
+  // InsuredSelection — hydrate from loaded insured value; joint label is first-class.
   const [insuredSelection, setInsuredSelection] = useState<string>(() =>
     deriveInsuredSelection(initialInsuredVal ?? "", insuredNames)
   );
   const [showOtherInsured, setShowOtherInsured] = useState<boolean>(() => {
     if (!initialInsuredVal) return false;
-    return !insuredNames.includes(initialInsuredVal);
+    // Do NOT show Other input for a known individual name or the joint label.
+    if (insuredNames.includes(initialInsuredVal)) return false;
+    if (jl && initialInsuredVal === jl) return false;
+    return true;
   });
 
   // YearPreset — hydrate from loaded year_issued
@@ -679,18 +709,18 @@ function PolicyCard({
     }
   };
 
-  // Insured selection handler — pill-based for 1 or 2 insureds
+  // Insured selection handler — pill-based for individual names, joint label, and Other.
   const handleInsuredSelect = (name: string) => {
     if (name === "Other") {
       setInsuredSelection("Other");
       setShowOtherInsured(true);
       setValue(`${prefix}.insured`, "");
-      // When switching to Other, don't auto-sync owner
+      // Do not auto-sync owner when switching to custom entry
     } else {
       setInsuredSelection(name);
       setShowOtherInsured(false);
       setValue(`${prefix}.insured`, name);
-      // Sync owner only when relation is already "same"
+      // Sync owner only when relation explicitly follows insured
       if (ownerRelation === "same") {
         setValue(`${prefix}.policy_owner`, name);
       }
@@ -764,7 +794,7 @@ function PolicyCard({
         </div>
       </button>
 
-      {/* ── Expanded editor ───────────────────────────────────────── */}
+      {/* ─��� Expanded editor ───────────────────────────────────────── */}
       {isOpen && (
         <div className="border-t border-[var(--color-border)] px-5 py-5 space-y-7">
 
@@ -807,14 +837,14 @@ function PolicyCard({
                         )}
                       >{name}</button>
                     ))}
-                    {/* Joint / survivorship — dual-insured only */}
-                    {insuredNames.length >= 2 && (
+                    {/* Joint / survivorship — dual-insured only; uses stable jl */}
+                    {jl && (
                       <button
                         type="button"
-                        onClick={() => handleInsuredSelect(`${insuredNames[0]} & ${insuredNames[1]}`)}
+                        onClick={() => handleInsuredSelect(jl)}
                         className={cn(
                           "px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors",
-                          insuredSelection === `${insuredNames[0]} & ${insuredNames[1]}`
+                          insuredSelection === jl
                             ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-white"
                             : "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
                         )}
@@ -1175,7 +1205,11 @@ export function PPStep4ExistingCoverage() {
     .filter(Boolean);
 
   useEffect(() => {
-    if (formData.existing_coverage) reset(formData.existing_coverage as ExistingCoverage);
+    if (formData.existing_coverage) {
+      reset(formData.existing_coverage as ExistingCoverage);
+      // Loaded policies are never "new" — clear the new-policy index set on every reload.
+      setNewPolicyIndices(new Set());
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.existing_coverage]);
 
@@ -1281,7 +1315,7 @@ export function PPStep4ExistingCoverage() {
         </div>
       )}
 
-      <PPStepFooter onContinue={() => handleSubmit(onValid)()} />
+      <PPStepFooter />
     </form>
   );
 }
