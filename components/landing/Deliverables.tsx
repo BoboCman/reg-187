@@ -14,14 +14,14 @@ const deliverables = [
     title: "Client-ready recommendation summary",
     body: "Generate a plain-English summary the advisor can review, edit, approve, and use with the client. The summary explains the client objective, relevant facts, recommended approach, favorable considerations, tradeoffs, assumptions, and items that may change before placement.",
     cta: "View Sample Client Summary",
-    href: "/app",
+    href: "/coming-soon",
   },
   {
     icon: FileText,
     title: "Professional case packet",
     body: "Generate a polished documentation package you can include in a carrier submission, and use for supervisory review, the client file, and internal records. Written in clear professional language, with advisor approval, disclosed scope, and versioned case history.",
     cta: "View Sample Output",
-    href: "/app",
+    href: "/coming-soon",
   },
 ];
 
