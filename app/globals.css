@@ -57,3 +57,58 @@
     -moz-appearance: textfield;
   }
 }
+
+/* ── Document renderer — print / PDF styles ─────────────────────────────── */
+@media print {
+  /* Hide all app chrome */
+  nav,
+  header,
+  aside,
+  footer,
+  [data-no-print],
+  button,
+  [role="navigation"] {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+    color: #0f1923;
+    font-size: 13pt;
+    line-height: 1.65;
+  }
+
+  /* Document shell */
+  article {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    page-break-inside: avoid;
+  }
+
+  /* Heading page-break control */
+  h1, h2, h3 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* Keep short callout blocks from splitting across pages */
+  blockquote,
+  ul,
+  ol {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* HR spacing at print */
+  hr {
+    margin: 18pt 0;
+    border-top: 1px solid #c8ced5;
+  }
+
+  /* Reading column — full width at print */
+  .document-body {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+}

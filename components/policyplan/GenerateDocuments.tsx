@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { OutputRow } from "@/components/policyplan/CaseWorkspace";
 import { FileText, RefreshCw, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DocumentRenderer } from "@/components/policyplan/document/DocumentRenderer";
 
 // Normalized status vocabulary: pending → draft → final, plus error.
 // Legacy 'complete' rows are normalized to 'draft' by the migration.
@@ -266,19 +267,22 @@ export function GenerateDocuments({
     <div className="space-y-5">
       {/* Advisor letter */}
       {output.advisor_letter && (
-        <DocumentCard
+        <DocumentRenderer
           title="Advisor Best-Interest Support Document"
           body={output.advisor_letter}
-          badge={isDraft ? "Draft" : isFinal ? "Final" : undefined}
+          variant="advisor"
+          status={isDraft ? "draft" : isFinal ? "final" : "pending"}
+          generatedAt={output.completed_at}
         />
       )}
 
       {/* Client summary */}
       {output.client_summary && (
-        <DocumentCard
+        <DocumentRenderer
           title="Client Summary"
           body={output.client_summary}
-          badge={isDraft ? "Draft" : isFinal ? "Final" : undefined}
+          variant="client"
+          status={isDraft ? "draft" : isFinal ? "final" : "pending"}
         />
       )}
 
@@ -360,40 +364,4 @@ function ErrorBanner({ message }: { message: string }) {
   );
 }
 
-function DocumentCard({
-  title,
-  body,
-  badge,
-}: {
-  title: string;
-  body: string;
-  badge?: string;
-}) {
-  return (
-    <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] overflow-hidden">
-      <div className="px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-readonly-bg)] flex items-center justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-          {title}
-        </h2>
-        {badge && (
-          <span className="text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded border border-[var(--color-border)] text-[var(--color-text-muted)]">
-            {badge}
-          </span>
-        )}
-      </div>
-      <div className="px-6 py-5">
-        {body.split(/\n{2,}/).map((paragraph, i) => (
-          <p
-            key={i}
-            className={cn(
-              "text-sm text-[var(--color-text-secondary)] leading-relaxed",
-              i > 0 && "mt-4"
-            )}
-          >
-            {paragraph.trim()}
-          </p>
-        ))}
-      </div>
-    </div>
-  );
-}
+

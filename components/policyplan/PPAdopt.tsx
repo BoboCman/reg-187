@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { OutputRow, FlagResolution } from "@/components/policyplan/CaseWorkspace";
 import { Loader2, CheckCircle2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { DocumentRenderer } from "@/components/policyplan/document/DocumentRenderer";
 
 interface Props {
   intakeId: string;
@@ -24,33 +24,6 @@ function formatDate(iso: string) {
   });
 }
 
-function DocumentPreview({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="rounded-lg border border-[var(--color-border)] overflow-hidden">
-      <div className="px-6 py-3 border-b border-[var(--color-border)] bg-[var(--color-readonly-bg)] flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-          {title}
-        </h3>
-        <span className="text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded border border-amber-300 text-amber-700 bg-amber-50">
-          Draft
-        </span>
-      </div>
-      <div className="px-6 py-5 max-h-72 overflow-y-auto">
-        {body.split(/\n{2,}/).map((paragraph, i) => (
-          <p
-            key={i}
-            className={cn(
-              "text-sm text-[var(--color-text-secondary)] leading-relaxed font-serif",
-              i > 0 && "mt-4"
-            )}
-          >
-            {paragraph.trim()}
-          </p>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export function PPAdopt({ intakeId, outputRow, onAdopted }: Props) {
   const [confirmed, setConfirmed] = useState(false);
@@ -130,17 +103,24 @@ export function PPAdopt({ intakeId, outputRow, onAdopted }: Props) {
         )}
       </div>
 
-      {/* Document previews */}
+      {/* Document previews — full markdown rendering */}
       {outputRow.advisor_letter && (
-        <DocumentPreview
+        <DocumentRenderer
           title="Advisor Best-Interest Support Document"
           body={outputRow.advisor_letter}
+          variant="advisor"
+          status="draft"
+          generatedAt={generatedAt as string | null}
+          collapsible
         />
       )}
       {outputRow.client_summary && (
-        <DocumentPreview
+        <DocumentRenderer
           title="Client Summary"
           body={outputRow.client_summary}
+          variant="client"
+          status="draft"
+          collapsible
         />
       )}
 
