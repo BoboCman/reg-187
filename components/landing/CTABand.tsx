@@ -20,7 +20,7 @@ export function CTABand() {
           {/* Dual CTA */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
             <Link
-              href="/app"
+              href="/coming-soon"
               className="inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold text-base border-2 border-blue-700 text-blue-700 hover:bg-blue-50 transition-all gap-2"
             >
               <ExternalLink className="w-4 h-4" />

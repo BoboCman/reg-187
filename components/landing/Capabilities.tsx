@@ -25,7 +25,7 @@ const capabilities = [
     bullets: [
       "Drafts the \u201cwhy\u201d behind the recommendation",
       "Summarizes favorable and unfavorable considerations",
-      "Connects product design to the client\u2019s stated objectives",
+      "Connects the documented basis to the client\u2019s stated objectives",
       "Converts case facts into advisor-reviewable client summary language",
     ],
   },
@@ -34,10 +34,9 @@ const capabilities = [
     label: "Case design fit",
     title: "Review flags",
     bullets: [
-      "Premium fit against funding source",
-      "Death benefit duration against the stated need horizon",
-      "Guarantees, riders, and non-guaranteed elements",
-      "Existing policy and replacement considerations",
+      "Desired premium against the client\u2019s liquid net worth",
+      "Stated guarantee preference against reliance on non-guaranteed values",
+      "Preference for simplicity against interest in non-guaranteed upside",
     ],
   },
   {
@@ -45,6 +44,7 @@ const capabilities = [
     label: "Advisor approval",
     title: "Human controlled",
     bullets: [
+      "The advisor resolves every flagged tension in their own words before approval",
       "The advisor reviews and edits every rationale",
       "Attestation before final output",
       "No black-box recommendation and no automatic sign-off",
@@ -53,9 +53,9 @@ const capabilities = [
   {
     icon: FileOutput,
     label: "Carrier output",
-    title: "Submission ready",
+    title: "Documentation output",
     bullets: [
-      "Configurable documentation output",
+      "Configurable client summary and case-support output",
       "Client summary and carrier support packet",
       "Built to reduce back-and-forth, missing rationale, and incomplete files",
       "Carrier and firm requirements still control",
@@ -71,7 +71,6 @@ const capabilities = [
       "Advisor approvals",
       "Client summary versions and delivery status",
       "Client disclosure timing",
-      "Underwriting change notes",
     ],
   },
 ];

@@ -23,7 +23,7 @@ export function LandingHero() {
 
           {/* Subhead */}
           <p className="text-xl text-slate-500 max-w-2xl leading-relaxed mb-4">
-            A structured workspace for intake, recommendation rationale, advisor approval, client-ready summaries, carrier-ready documentation, and versioned case records — built around the New York Reg 187 best-interest process.
+            A structured workspace for intake, recommendation rationale, advisor approval, client-ready summaries, carrier-support documentation, and versioned case records — built around the New York Reg 187 best-interest process.
           </p>
 
           {/* Supporting line */}
@@ -54,7 +54,7 @@ export function LandingHero() {
           {/* Dual CTA — primary: Schedule Demo, secondary: View Sample Client Summary */}
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <Link
-              href="/app"
+              href="/coming-soon"
               className="inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold text-base border-2 border-blue-700 text-blue-700 hover:bg-blue-50 transition-all gap-2"
             >
               <ExternalLink className="w-4 h-4" />

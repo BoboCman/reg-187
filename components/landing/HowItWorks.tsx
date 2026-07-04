@@ -9,7 +9,7 @@ const steps = [
   {
     icon: BrainCircuit,
     title: "Recommend",
-    body: "PolicyPlan turns advisor-entered answers and case details into a draft recommendation rationale, including favorable considerations, tradeoffs, assumptions, and items to review. Design emphasis is derived from the client profile, so product priorities are connected to facts, objectives, and tradeoffs.",
+    body: "PolicyPlan turns advisor-entered answers and case details into a draft recommendation rationale, including favorable considerations, tradeoffs, assumptions, and items to review. Design emphasis is derived from the client profile, so the documented basis is connected to the client\u2019s facts, objectives, and tradeoffs.",
   },
   {
     icon: FileCheck,
