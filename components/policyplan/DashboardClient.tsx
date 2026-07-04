@@ -586,7 +586,7 @@ export function DashboardClient({ cases }: { cases: CaseRow[] }) {
 
                   {/* Primary objective */}
                   <span className="text-sm text-[var(--color-text-secondary)] truncate">
-                    {OBJECTIVE_LABELS[c.primary_objective as keyof typeof OBJECTIVE_LABELS] ?? c.primary_objective || "—"}
+                    {(OBJECTIVE_LABELS[c.primary_objective as keyof typeof OBJECTIVE_LABELS] ?? c.primary_objective) || "—"}
                   </span>
 
                   {/* Status */}
