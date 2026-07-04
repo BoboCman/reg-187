@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
 import type { OutputRow } from "@/components/policyplan/CaseWorkspace";
-import { CheckCircle2, FileText, Copy } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { CheckCircle2, FileText } from "lucide-react";
+import { DocumentRenderer } from "@/components/policyplan/document/DocumentRenderer";
 
 interface Props {
   intakeId: string;
@@ -20,54 +20,6 @@ function formatDate(iso: string) {
   });
 }
 
-function FinalDocumentCard({
-  title,
-  body,
-}: {
-  title: string;
-  body: string;
-}) {
-  function handleCopy() {
-    navigator.clipboard.writeText(body).catch(() => undefined);
-  }
-
-  return (
-    <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] overflow-hidden">
-      <div className="px-6 py-3 border-b border-[var(--color-border)] bg-[var(--color-readonly-bg)] flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-          {title}
-        </h3>
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded border border-[var(--color-success)] text-[var(--color-success)] bg-[var(--color-success-light)]">
-            Final
-          </span>
-          <button
-            type="button"
-            onClick={handleCopy}
-            title="Copy to clipboard"
-            className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
-          >
-            <Copy className="w-3.5 h-3.5" />
-            Copy
-          </button>
-        </div>
-      </div>
-      <div className="px-6 py-5 max-h-96 overflow-y-auto">
-        {body.split(/\n{2,}/).map((paragraph, i) => (
-          <p
-            key={i}
-            className={cn(
-              "text-sm text-[var(--color-text-secondary)] leading-relaxed font-serif",
-              i > 0 && "mt-4"
-            )}
-          >
-            {paragraph.trim()}
-          </p>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export function PPDeliver({ intakeId: _intakeId, outputRow, intakeVersion }: Props) {
   if (!outputRow || outputRow.status !== "final") {
@@ -123,17 +75,22 @@ export function PPDeliver({ intakeId: _intakeId, outputRow, intakeVersion }: Pro
         </div>
       </div>
 
-      {/* Final documents */}
+      {/* Final documents — shared markdown renderer */}
       {outputRow.advisor_letter && (
-        <FinalDocumentCard
+        <DocumentRenderer
           title="Advisor Best-Interest Support Document"
           body={outputRow.advisor_letter}
+          variant="advisor"
+          status="final"
+          generatedAt={outputRow.adopted_at ?? outputRow.completed_at}
         />
       )}
       {outputRow.client_summary && (
-        <FinalDocumentCard
+        <DocumentRenderer
           title="Client Summary"
           body={outputRow.client_summary}
+          variant="client"
+          status="final"
         />
       )}
 
