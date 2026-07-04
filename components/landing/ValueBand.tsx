@@ -14,7 +14,7 @@ const outputs = [
   {
     icon: FileText,
     title: "Carrier & Firm Case Packet",
-    body: "A structured documentation package for carrier submission, supervisory review, internal records, and audit support.",
+    body: "A structured documentation package you can include in a carrier submission, and use for supervisory review, internal records, and audit support.",
   },
 ];
 
@@ -25,7 +25,7 @@ export function ValueBand() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">
-              One intake. Three outputs. One recommendation record.
+              One intake. Two documents. One case record.
             </h2>
           </div>
 

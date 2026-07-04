@@ -23,7 +23,7 @@ export function LandingHero() {
 
           {/* Subhead */}
           <p className="text-xl text-slate-500 max-w-2xl leading-relaxed mb-4">
-            A structured workspace for intake, recommendation rationale, advisor approval, client-ready summaries, carrier-ready documentation, and versioned case records — built around the New York Reg 187 best-interest process.
+            A structured workspace for intake, recommendation rationale, advisor approval, client-ready summaries, carrier-support documentation, and versioned case records — built around the New York Reg 187 best-interest process.
           </p>
 
           {/* Supporting line */}
