@@ -13,7 +13,7 @@ const capabilities = [
     label: "Client context",
     title: "Intake",
     bullets: [
-      "Plain-language advisor workflow",
+      "Plain-language producer workflow",
       "Captures goals, ownership, funding, and financial profile",
       "Identifies the consumer, insured, owner, trust, or business context",
     ],
@@ -21,12 +21,12 @@ const capabilities = [
   {
     icon: BrainCircuit,
     label: "Recommendation basis",
-    title: "AI-assisted rationale",
+    title: "Producer-authored rationale, AI-assisted",
     bullets: [
-      "Drafts the \u201cwhy\u201d behind the recommendation",
+      "Drafts a starting rationale from the producer\u2019s own intake answers",
       "Summarizes favorable and unfavorable considerations",
       "Connects the documented basis to the client\u2019s stated objectives",
-      "Converts case facts into advisor-reviewable client summary language",
+      "Converts case facts into producer-reviewable client summary language",
     ],
   },
   {
@@ -41,11 +41,11 @@ const capabilities = [
   },
   {
     icon: UserCog,
-    label: "Advisor approval",
+    label: "Producer approval",
     title: "Human controlled",
     bullets: [
-      "The advisor resolves every flagged tension in their own words before approval",
-      "The advisor reviews and edits every rationale",
+      "The producer resolves every flagged tension in their own words before approval",
+      "The producer reviews and edits every rationale",
       "Attestation before final output",
       "No black-box recommendation and no automatic sign-off",
     ],

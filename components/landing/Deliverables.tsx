@@ -5,21 +5,21 @@ const deliverables = [
   {
     icon: LayoutDashboard,
     title: "Interactive case workspace",
-    body: "Review the client profile, recommendation rationale, product design considerations, case flags, and documentation status in one web-based workspace. Built for advisor preparation, BGA case support, and supervisory review.",
+    body: "Review the client profile, recommendation rationale, product design considerations, case flags, and documentation status in one web-based workspace. Built for producer preparation, BGA case support, and supervisory review.",
     cta: "Explore Capabilities",
     href: "#capabilities",
   },
   {
     icon: MessageSquare,
     title: "Client-ready recommendation summary",
-    body: "Generate a plain-English summary the advisor can review, edit, approve, and use with the client. The summary explains the client objective, relevant facts, recommended approach, favorable considerations, tradeoffs, assumptions, and items that may change before placement.",
+    body: "Generate a plain-English summary the producer can review, edit, approve, and use with the client. The summary explains the client objective, relevant facts, recommended approach, favorable considerations, tradeoffs, assumptions, and items that may change before placement.",
     cta: "View Sample Client Summary",
     href: "/coming-soon",
   },
   {
     icon: FileText,
     title: "Professional case packet",
-    body: "Generate a polished documentation package you can include in a carrier submission, and use for supervisory review, the client file, and internal records. Written in clear professional language, with advisor approval, disclosed scope, and versioned case history.",
+    body: "Generate a polished documentation package you can include in a carrier submission, and use for supervisory review, the client file, and internal records. Written in clear professional language, with producer approval, disclosed scope, and versioned case history.",
     cta: "View Sample Output",
     href: "/coming-soon",
   },
@@ -35,7 +35,7 @@ export function Deliverables() {
               Documentation for every case.
             </h2>
             <p className="text-slate-500 text-xl max-w-3xl mx-auto leading-relaxed">
-              Built for the advisor conversation, the client explanation, and the compliance file.
+              Built for the producer conversation, the client explanation, and the compliance file.
             </p>
           </div>
 

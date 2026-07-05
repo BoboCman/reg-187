@@ -4,7 +4,7 @@ const audiences = [
   {
     icon: Users,
     title: "Advisors & producers",
-    body: "Move from case notes, illustration commentary, and manual write-ups to a clear, documented recommendation rationale. PolicyPlan helps advisors create a professional client-ready summary that explains why the recommendation fits, while preserving the case record behind it.",
+    body: "Move from case notes, illustration commentary, and manual write-ups to a clear, documented recommendation rationale. PolicyPlan helps producers create a professional client-ready summary that explains why the recommendation fits, while preserving the case record behind it.",
   },
   {
     icon: Briefcase,
@@ -14,7 +14,7 @@ const audiences = [
   {
     icon: Building2,
     title: "Insurance firms & broker-dealers",
-    body: "Create a consistent framework for recommendation documentation, supervisory review, advisor attestation, client-facing summaries, and case-level audit trails — without forcing every advisor into a static PDF process.",
+    body: "Create a consistent framework for recommendation documentation, supervisory review, producer attestation, client-facing summaries, and case-level audit trails, without forcing every producer into a static PDF process.",
   },
   {
     icon: LayoutGrid,

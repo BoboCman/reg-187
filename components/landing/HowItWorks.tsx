@@ -9,12 +9,12 @@ const steps = [
   {
     icon: BrainCircuit,
     title: "Recommend",
-    body: "PolicyPlan turns advisor-entered answers and case details into a draft recommendation rationale, including favorable considerations, tradeoffs, assumptions, and items to review. Design emphasis is derived from the client profile, so the documented basis is connected to the client\u2019s facts, objectives, and tradeoffs.",
+    body: "PolicyPlan drafts a starting rationale from the producer\u2019s own intake answers and case details, including favorable considerations, tradeoffs, assumptions, and items to review. The producer edits the rationale and resolves each flagged tension in their own words, so the documented basis is authored by the producer and tied to the client\u2019s facts, objectives, and tradeoffs.",
   },
   {
     icon: FileCheck,
     title: "Document",
-    body: "The advisor reviews, edits, approves, and exports a client-ready recommendation summary, a carrier-ready support packet, and a versioned case record.",
+    body: "The producer reviews, edits, approves, and exports a client-ready recommendation summary, a carrier support packet, and a versioned case record.",
   },
 ];
 
@@ -27,10 +27,10 @@ export function HowItWorks() {
             From intake to recommendation file
           </h2>
           <p className="text-slate-600 text-lg mb-2">
-            One guided workflow for the life insurance recommendation process — from client context to advisor-approved rationale, client-ready summary, carrier output, and case record.
+            One guided workflow for the life insurance recommendation process, from client context to producer-approved rationale, client-ready summary, carrier output, and case record.
           </p>
           <p className="text-slate-400 text-sm">
-            Three stages. Web-based. Advisor-controlled.
+            Three stages. Web-based. Producer-controlled.
           </p>
         </div>
 

@@ -2,7 +2,7 @@ import { CheckCircle2 } from "lucide-react";
 
 const pillars = [
   "Structured intake",
-  "Advisor approval",
+  "Producer approval",
   "Versioned records",
   "No automatic recommendation",
   "No client data used to train public AI models",
