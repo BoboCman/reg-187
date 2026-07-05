@@ -2,7 +2,7 @@ const standards = [
   {
     label: "New York Reg 187",
     value:
-      "Supports structured documentation for recommendations involving life insurance policies issued in New York, including suitability information, recommendation basis, advisor approval, and disclosure timing.",
+      "Supports structured documentation for recommendations involving life insurance policies issued in New York, including suitability information, recommendation basis, producer approval, and disclosure timing.",
   },
   {
     label: "Recommendation rationale",
@@ -10,14 +10,14 @@ const standards = [
       "Each case documents the \u201cwhy\u201d behind the recommendation, including relevant client facts, product features, favorable considerations, unfavorable considerations, and assumptions used.",
   },
   {
-    label: "Advisor attestation",
+    label: "Producer attestation",
     value:
-      "The advisor remains responsible for the recommendation. PolicyPlan drafts and organizes the rationale, but the advisor reviews, edits, approves, and attests before final output.",
+      "The producer remains responsible for the recommendation. PolicyPlan drafts and organizes the rationale, but the producer reviews, edits, approves, and attests before final output.",
   },
   {
     label: "Client-ready summary",
     value:
-      "PolicyPlan helps advisors create a plain-English summary that explains the basis for the recommendation, including the client objective, relevant facts, product rationale, favorable considerations, tradeoffs, and assumptions. The advisor reviews and approves the summary before use.",
+      "PolicyPlan helps producers create a plain-English summary that explains the basis for the recommendation, including the client objective, relevant facts, product rationale, favorable considerations, tradeoffs, and assumptions. The producer reviews and approves the summary before use.",
   },
   {
     label: "Carrier and firm procedures",
@@ -40,6 +40,9 @@ export function Standards() {
             <h2 className="text-3xl md:text-5xl font-bold text-blue-600 mb-4">
               Built to support the New York Reg 187 best-interest process
             </h2>
+            <p className="text-slate-700 text-base font-medium max-w-2xl mx-auto leading-relaxed mb-3">
+              Reg 187 is the anchor, not the boundary. The operating problem is broader. Can the firm show how the recommendation was reached?
+            </p>
             <p className="text-slate-500 text-xl max-w-3xl mx-auto leading-relaxed">
               PolicyPlan helps firms organize the facts, analysis, rationale, disclosures, and approvals that support a life insurance best-interest recommendation in New York.
             </p>

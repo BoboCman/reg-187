@@ -7,7 +7,7 @@ const rows = [
   {
     aspect: "Recommendation rationale",
     before: "Manually written, inconsistent, often delayed",
-    after: "AI-assisted draft reviewed and approved by the advisor",
+    after: "AI-assisted draft reviewed and approved by the producer",
   },
   {
     aspect: "Client explanation",
@@ -40,7 +40,7 @@ const rows = [
     after: "Revised recommendation versions and client summaries can be documented",
   },
   {
-    aspect: "Advisor experience",
+    aspect: "Producer experience",
     before: "Compliance burden",
     after: "Case design, client communication, and documentation support",
   },

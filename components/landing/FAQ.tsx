@@ -3,11 +3,11 @@ import { ChevronDown } from "lucide-react";
 const faqs = [
   {
     q: "What is PolicyPlan?",
-    a: "A web-based best-interest documentation workspace for life insurance recommendations. It helps advisors and firms capture client context, develop a recommendation rationale, create a client-ready summary, prepare carrier-ready output, and maintain a versioned case record.",
+    a: "A web-based best-interest documentation workspace for life insurance recommendations. It helps producers and firms capture client context, develop a recommendation rationale, create a client-ready summary, prepare carrier-ready output, and maintain a versioned case record.",
   },
   {
     q: "Does PolicyPlan create a client-facing recommendation summary?",
-    a: "Yes. PolicyPlan can generate a client-ready summary that explains the basis for the recommendation in clear professional language. The summary can include the client objective, relevant facts, recommended approach, favorable considerations, tradeoffs, assumptions, and items that may change before placement. The advisor reviews, edits, and approves the summary before use.",
+    a: "Yes. PolicyPlan can generate a client-ready summary that explains the basis for the recommendation in clear professional language. The summary can include the client objective, relevant facts, recommended approach, favorable considerations, tradeoffs, assumptions, and items that may change before placement. The producer reviews, edits, and approves the summary before use.",
   },
   {
     q: "Is PolicyPlan a Reg 187 form?",
@@ -15,7 +15,7 @@ const faqs = [
   },
   {
     q: "Does PolicyPlan make recommendations?",
-    a: "No. PolicyPlan drafts and organizes recommendation rationale from advisor-entered information. The advisor reviews, edits, approves, and owns the final recommendation and any client-facing summary.",
+    a: "No. PolicyPlan drafts and organizes recommendation rationale from producer-entered information. The producer reviews, edits, approves, and owns the final recommendation and any client-facing summary.",
   },
   {
     q: "Is the client summary required?",
@@ -31,7 +31,7 @@ const faqs = [
   },
   {
     q: "What cases can it support?",
-    a: "Permanent and term life, trust-owned and business-owned policies, executive benefit and key-person cases, estate liquidity, retirement supplement designs, and cases involving existing policy review or possible replacement.",
+    a: "Permanent and term life, trust-owned and business-owned policies, executive benefit and key-person cases, estate liquidity, retirement supplement designs, and cases involving existing policy review or possible replacement. PolicyPlan is designed for recommendations that need a clearer rationale record, including new sales, replacements, 1035 exchanges, financed purchases, and other compensated transactions that disturb existing coverage. Routine in-force service is different, but documentation remains a best practice when a recommendation changes the client\u2019s coverage path.",
   },
   {
     q: "Does PolicyPlan replace carrier forms?",
@@ -43,7 +43,7 @@ const faqs = [
   },
   {
     q: "Where does it fit in the sales process?",
-    a: "It is used before application, when the advisor is developing and documenting the recommendation. It also supports revised documentation if underwriting, pricing, product design, or client facts change before placement.",
+    a: "It is used before application, when the producer is developing and documenting the recommendation. It also supports revised documentation if underwriting, pricing, product design, or client facts change before placement.",
   },
   {
     q: "Can firms white-label PolicyPlan?",

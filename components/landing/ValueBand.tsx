@@ -3,13 +3,13 @@ import { LayoutDashboard, MessageSquare, FileText } from "lucide-react";
 const outputs = [
   {
     icon: LayoutDashboard,
-    title: "Advisor Workspace",
+    title: "Producer Workspace",
     body: "A guided web-based case flow for capturing client context, reviewing design considerations, drafting rationale, and approving final documentation.",
   },
   {
     icon: MessageSquare,
     title: "Client Recommendation Summary",
-    body: "A plain-English summary the advisor can use with the client to explain the objective, recommendation basis, favorable considerations, tradeoffs, and assumptions.",
+    body: "A plain-English summary the producer can use with the client to explain the objective, recommendation basis, favorable considerations, tradeoffs, and assumptions.",
   },
   {
     icon: FileText,
