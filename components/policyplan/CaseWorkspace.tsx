@@ -10,6 +10,7 @@ import { PPResolve } from "@/components/policyplan/PPResolve";
 import { PPAdopt } from "@/components/policyplan/PPAdopt";
 import { PPDeliver } from "@/components/policyplan/PPDeliver";
 import { GenerateDocuments } from "@/components/policyplan/GenerateDocuments";
+import { MobileJourneyNav } from "@/components/policyplan/MobileJourneyNav";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,13 @@ interface Props {
 }
 
 // ── Journey rail data ────────────────────────────────────────────────────────
+//
+// New 5-stage model:
+//   1 Intake
+//   2 Review & respond  (merged from old Stage 2 + Stage 3)
+//   3 Generate
+//   4 Adopt
+//   5 Deliver
 
 const CHAPTERS = [
   {
@@ -60,39 +68,41 @@ const CHAPTERS = [
   {
     label: "Analyze",
     stages: [
-      { num: 2, label: "Review" },
-      { num: 3, label: "Resolve" },
+      { num: 2, label: "Review & respond" },
     ],
   },
   {
     label: "Finalize",
     stages: [
-      { num: 4, label: "Generate" },
-      { num: 5, label: "Adopt" },
-      { num: 6, label: "Deliver" },
+      { num: 3, label: "Generate" },
+      { num: 4, label: "Adopt" },
+      { num: 5, label: "Deliver" },
     ],
   },
 ];
 
-// Map intakeStatus + outputStatus → active stage number
+// Flat list used by MobileJourneyNav
+const STAGES_FLAT = CHAPTERS.flatMap((chapter) =>
+  chapter.stages.map((stage) => ({ ...stage, chapter: chapter.label }))
+);
+
+// Map intakeStatus + outputStatus → active stage number (1–5)
 function deriveActiveStage(
   intakeStatus: IntakeStatus,
   outputRow: OutputRow | null
 ): number {
-  if (intakeStatus === "adopted") return 6;
-  if (outputRow?.status === "final") return 6;
-  if (outputRow?.status === "draft") return 5;
-  if (outputRow?.status === "pending") return 4;
-  if (intakeStatus === "resolved") return 4;
-  if (intakeStatus === "in_review") return 2; // Resolve only after review
+  if (intakeStatus === "adopted") return 5;
+  if (outputRow?.status === "final") return 5;
+  if (outputRow?.status === "draft") return 4;
+  if (outputRow?.status === "pending") return 3;
+  if (intakeStatus === "resolved") return 3;
+  // in_review, submitted, or any other pre-resolved status → Review & respond
   return 2;
 }
 
 function stageStatus(
   stageNum: number,
-  activeStage: number,
-  intakeStatus: IntakeStatus,
-  outputRow: OutputRow | null
+  activeStage: number
 ): "done" | "active" | "locked" {
   if (stageNum < activeStage) return "done";
   if (stageNum === activeStage) return "active";
@@ -117,10 +127,9 @@ function JourneyRail({
   function stageStatusLabel(stageNum: number): string | null {
     if (stageNum !== activeStage) return null;
     if (stageNum === 2) return advisorFacingStatus(intakeStatus);
-    if (stageNum === 3) return intakeStatus === "resolved" ? "Responses recorded" : null;
-    if (stageNum === 4) return outputRow?.status === "pending" ? "Building draft…" : null;
-    if (stageNum === 5) return outputRow?.status === "draft" ? "Draft ready" : null;
-    if (stageNum === 6) return outputRow?.status === "final" ? "Delivered" : null;
+    if (stageNum === 3) return outputRow?.status === "pending" ? "Building draft…" : null;
+    if (stageNum === 4) return outputRow?.status === "draft" ? "Draft ready" : null;
+    if (stageNum === 5) return outputRow?.status === "final" ? "Delivered" : null;
     return null;
   }
 
@@ -137,7 +146,7 @@ function JourneyRail({
             </p>
             <ol className="space-y-1">
               {chapter.stages.map(({ num, label }) => {
-                const status = stageStatus(num, activeStage, intakeStatus, outputRow);
+                const status = stageStatus(num, activeStage);
                 const isClickable = status === "done" || status === "active";
                 const statusNote = stageStatusLabel(num);
 
@@ -157,7 +166,6 @@ function JourneyRail({
                           : "cursor-not-allowed opacity-50"
                       )}
                     >
-                      {/* Stage indicator */}
                       <span
                         className={cn(
                           "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold border transition-colors",
@@ -169,7 +177,13 @@ function JourneyRail({
                             "bg-[var(--color-surface)] border-[var(--color-border-strong)] text-[var(--color-text-disabled)]"
                         )}
                       >
-                        {status === "done" ? <Check size={12} strokeWidth={2.5} /> : status === "locked" ? <Lock size={11} strokeWidth={2} /> : num}
+                        {status === "done" ? (
+                          <Check size={12} strokeWidth={2.5} />
+                        ) : status === "locked" ? (
+                          <Lock size={11} strokeWidth={2} />
+                        ) : (
+                          num
+                        )}
                       </span>
 
                       <span className="flex flex-col min-w-0">
@@ -268,7 +282,6 @@ function CaseHeader({
           </div>
         </div>
 
-        {/* Snapshot seal */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="text-right hidden sm:block">
             <p className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">
@@ -352,18 +365,24 @@ export function CaseWorkspace({
   const [localResolutions, setLocalResolutions] = useState<FlagResolution[] | null>(storedResolutions);
   const [outputRow, setOutputRow] = useState<OutputRow | null>(initialOutputRow);
 
-  // When resolve completes, advance state
+  // When Review & respond completes, advance to Generate (stage 3)
   function handleResolved(resolutions: FlagResolution[]) {
     setLocalResolutions(resolutions);
     setLocalIntakeStatus("resolved");
-    setCurrentPanel(4); // jump to Generate
+    setCurrentPanel(3);
   }
 
-  // When adoption completes — OutputRow is shared, no cast needed.
+  // When generation draft is ready, advance to Adopt (stage 4)
+  function handleDraftReady(updated: OutputRow | null) {
+    setOutputRow(updated);
+    if (updated?.status === "draft") setCurrentPanel(4);
+  }
+
+  // When adoption completes, advance to Deliver (stage 5)
   function handleAdopted(updatedOutput: OutputRow) {
     setOutputRow(updatedOutput);
     setLocalIntakeStatus("adopted");
-    setCurrentPanel(6);
+    setCurrentPanel(5);
   }
 
   const flags = storedFlags ?? [];
@@ -371,6 +390,8 @@ export function CaseWorkspace({
     .map((i) => i.name)
     .filter(Boolean)
     .join(" & ");
+
+  const currentActiveStage = deriveActiveStage(localIntakeStatus, outputRow);
 
   return (
     <div className="min-h-screen bg-[var(--color-background)]">
@@ -383,9 +404,9 @@ export function CaseWorkspace({
       />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex gap-8">
-        {/* Left: Journey rail */}
+        {/* Left: Journey rail (desktop) */}
         <JourneyRail
-          activeStage={deriveActiveStage(localIntakeStatus, outputRow)}
+          activeStage={currentActiveStage}
           intakeStatus={localIntakeStatus}
           outputRow={outputRow}
           currentPanel={currentPanel}
@@ -395,7 +416,15 @@ export function CaseWorkspace({
         {/* Right: Working panel */}
         <main className="flex-1 min-w-0 space-y-4">
 
-          {/* Stage 1 — Intake (always done by the time we're on this page) */}
+          {/* Mobile stage nav (hidden on md+) */}
+          <MobileJourneyNav
+            stages={STAGES_FLAT}
+            activeStage={currentActiveStage}
+            currentPanel={currentPanel}
+            onSelect={setCurrentPanel}
+          />
+
+          {/* Stage 1 — Intake */}
           {currentPanel !== 1 && (
             <StageSummaryCard
               stageNum={1}
@@ -423,75 +452,8 @@ export function CaseWorkspace({
             </div>
           )}
 
-          {/* Stage 2 — Review */}
+          {/* Stage 2 — Review & respond (merged) */}
           {currentPanel === 2 && (
-            <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-6">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                  Stage 2 — Review
-                </h2>
-                <span className="text-xs text-[var(--color-text-muted)] px-2.5 py-1 rounded border border-[var(--color-border)] bg-[var(--color-readonly-bg)]">
-                  In review
-                </span>
-              </div>
-
-              {/* Flag briefing */}
-              {flags.length === 0 ? (
-                <div className="mb-5 rounded-lg border border-[var(--color-border)] bg-[var(--color-readonly-bg)] px-5 py-4">
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)] mb-1">
-                    No automated flags
-                  </p>
-                  <p className="text-sm text-[var(--color-text-secondary)]">
-                    The automated checks did not raise any flags for this case.
-                    Advisor review is still required before proceeding.
-                  </p>
-                </div>
-              ) : (
-                <div className="mb-5 space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mb-1">
-                    {flags.length} {flags.length === 1 ? "flag" : "flags"} to address
-                  </p>
-                  {flags.map((flag) => (
-                    <div
-                      key={flag.code}
-                      className="rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-5 py-4"
-                    >
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-xs font-mono text-[var(--color-text-muted)] bg-[var(--color-readonly-bg)] px-2 py-0.5 rounded border border-[var(--color-border)]">
-                          {flag.code}
-                        </span>
-                        <span className="text-xs text-[var(--color-text-muted)] border border-[var(--color-border)] px-2 py-0.5 rounded">
-                          {flag.severity}
-                        </span>
-                      </div>
-                      <p className="text-sm text-[var(--color-text-secondary)]">
-                        {flag.description}
-                      </p>
-                      {flag.requirement && (
-                        <p className="text-xs text-[var(--color-text-muted)] mt-2 font-mono">
-                          §{flag.requirement}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Primary action */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => setCurrentPanel(3)}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-sm font-semibold transition-colors"
-                >
-                  Continue to resolve
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Stage 3 — Resolve */}
-          {currentPanel === 3 && (
             <PPResolve
               intakeId={intakeId}
               flags={flags}
@@ -500,35 +462,32 @@ export function CaseWorkspace({
             />
           )}
 
-          {/* Stage 4 — Generate */}
-          {currentPanel === 4 && (
+          {/* Stage 3 — Generate */}
+          {currentPanel === 3 && (
             <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-6">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                  Stage 4 — Generate
+                  Stage 3 — Generate
                 </h2>
               </div>
               <GenerateDocuments
                 intakeId={intakeId}
                 initialOutput={outputRow}
-                onOutputUpdate={(updated) => {
-                  setOutputRow(updated);
-                  if (updated?.status === "draft") setCurrentPanel(5);
-                }}
+                onOutputUpdate={handleDraftReady}
                 showDocumentsInline={false}
               />
             </div>
           )}
 
-          {/* Stage 5 — Adopt */}
-          {currentPanel === 5 && outputRow?.status === "draft" && (
+          {/* Stage 4 — Adopt */}
+          {currentPanel === 4 && outputRow?.status === "draft" && (
             <PPAdopt
               intakeId={intakeId}
               outputRow={outputRow}
               onAdopted={handleAdopted}
             />
           )}
-          {currentPanel === 5 && outputRow?.status !== "draft" && (
+          {currentPanel === 4 && outputRow?.status !== "draft" && (
             <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-6">
               <p className="text-sm text-[var(--color-text-muted)]">
                 Awaiting a generated draft before adoption is available.
@@ -536,8 +495,8 @@ export function CaseWorkspace({
             </div>
           )}
 
-          {/* Stage 6 — Deliver */}
-          {currentPanel === 6 && (
+          {/* Stage 5 — Deliver */}
+          {currentPanel === 5 && (
             <PPDeliver
               intakeId={intakeId}
               outputRow={outputRow}

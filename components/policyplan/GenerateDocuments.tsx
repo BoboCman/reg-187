@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { OutputRow } from "@/components/policyplan/CaseWorkspace";
-import { FileText, RefreshCw, Loader2, AlertTriangle } from "lucide-react";
+import { CheckCircle2, FileText, RefreshCw, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DocumentRenderer } from "@/components/policyplan/document/DocumentRenderer";
 
@@ -43,6 +43,11 @@ export function GenerateDocuments({
   const [triggering, setTriggering] = useState(false);
   const [triggerError, setTriggerError] = useState<string | null>(null);
 
+  // Draft-ready success state: true while showing the "Draft ready" banner
+  // before forwarding the update to the parent (which advances the panel).
+  const [draftReady, setDraftReady] = useState(false);
+  const draftReadyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Polling state
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollStartRef = useRef<number | null>(null);
@@ -78,10 +83,8 @@ export function GenerateDocuments({
       if (!data) return;
       const updated = data as OutputRow;
       setOutput(updated);
-      onOutputUpdate?.(updated);
 
-      // Stop on draft (generation done, awaiting adoption) or error.
-      // 'complete' is a legacy alias — treat it as draft.
+      // Stop on terminal statuses.
       if (
         updated.status === "draft" ||
         updated.status === "final" ||
@@ -90,8 +93,23 @@ export function GenerateDocuments({
       ) {
         stopPolling();
       }
+
+      // For draft in workspace mode: show success banner for 2 s, then forward.
+      // In standalone / inline mode: forward immediately as before.
+      const isDraftComplete =
+        updated.status === "draft" || updated.status === "complete";
+
+      if (isDraftComplete && !showDocumentsInline) {
+        setDraftReady(true);
+        draftReadyTimerRef.current = setTimeout(() => {
+          setDraftReady(false);
+          onOutputUpdate?.(updated);
+        }, 2000);
+      } else {
+        onOutputUpdate?.(updated);
+      }
     },
-    [stopPolling, onOutputUpdate]
+    [stopPolling, onOutputUpdate, showDocumentsInline]
   );
 
   // Start polling whenever output is pending.
@@ -108,6 +126,13 @@ export function GenerateDocuments({
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, [output?.id, output?.status, pollOutput]);
+
+  // Clean up draft-ready timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (draftReadyTimerRef.current) clearTimeout(draftReadyTimerRef.current);
+    };
+  }, []);
 
   // ── Trigger handler ────────────────────────────────────────────────────
 
@@ -233,6 +258,28 @@ export function GenerateDocuments({
     );
   }
 
+  // Draft ready — brief success moment before parent advances the panel.
+  if (draftReady) {
+    return (
+      <GenerateSection>
+        <div className="flex flex-col items-start gap-3">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-[var(--color-success)] shrink-0" />
+            <p className="text-base font-semibold text-[var(--color-text-primary)]">
+              Draft ready
+            </p>
+          </div>
+          <p className="text-sm text-[var(--color-text-secondary)] ml-8">
+            Your best-interest documents are ready for review.
+          </p>
+          <p className="text-xs text-[var(--color-text-muted)] ml-8">
+            Opening draft review…
+          </p>
+        </div>
+      </GenerateSection>
+    );
+  }
+
   // Draft / final — show status + optionally inline documents.
   const isDraft = output.status === "draft" || output.status === "complete";
   const isFinal = output.status === "final";
@@ -313,7 +360,7 @@ function GenerateSection({ children }: { children: React.ReactNode }) {
   return (
     <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-6">
       <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mb-4">
-        Stage 4 — Generate
+        Stage 3 — Generate
       </h2>
       {children}
     </div>

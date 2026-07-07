@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { OutputRow, FlagResolution } from "@/components/policyplan/CaseWorkspace";
 import { Loader2, CheckCircle2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { DocumentRenderer } from "@/components/policyplan/document/DocumentRenderer";
 
 interface Props {
@@ -29,6 +30,17 @@ export function PPAdopt({ intakeId, outputRow, onAdopted }: Props) {
   const [confirmed, setConfirmed] = useState(false);
   const [adopting, setAdopting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Track which documents the producer has opened (expanded).
+  // Attestation checkbox is locked until both have been opened.
+  const hasAdvisorLetter = Boolean(outputRow.advisor_letter);
+  const hasClientSummary = Boolean(outputRow.client_summary);
+  const [advisorOpened, setAdvisorOpened] = useState(false);
+  const [clientOpened, setClientOpened] = useState(false);
+
+  const requiredDocs = (hasAdvisorLetter ? 1 : 0) + (hasClientSummary ? 1 : 0);
+  const openedDocs = (hasAdvisorLetter && advisorOpened ? 1 : 0) + (hasClientSummary && clientOpened ? 1 : 0);
+  const allDocsOpened = requiredDocs === 0 || openedDocs >= requiredDocs;
 
   const generatedAt = outputRow.completed_at ?? outputRow.meta?.completed_at as string | null;
 
@@ -86,7 +98,7 @@ export function PPAdopt({ intakeId, outputRow, onAdopted }: Props) {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-              Stage 5 — Adopt
+              Stage 4 — Adopt
             </h2>
             <p className="text-sm text-[var(--color-text-secondary)] mt-0.5">
               Review the generated draft and adopt it as your recommendation.
@@ -112,6 +124,7 @@ export function PPAdopt({ intakeId, outputRow, onAdopted }: Props) {
           status="draft"
           generatedAt={generatedAt as string | null}
           collapsible
+          onExpand={() => setAdvisorOpened(true)}
         />
       )}
       {outputRow.client_summary && (
@@ -121,6 +134,7 @@ export function PPAdopt({ intakeId, outputRow, onAdopted }: Props) {
           variant="client"
           status="draft"
           collapsible
+          onExpand={() => setClientOpened(true)}
         />
       )}
 
@@ -137,13 +151,22 @@ export function PPAdopt({ intakeId, outputRow, onAdopted }: Props) {
           </p>
         </div>
 
+        {/* Soft gate — show helper text until both docs are opened */}
+        {!allDocsOpened && (
+          <p className="text-xs text-[var(--color-text-muted)] mb-4 flex items-center gap-1.5">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+            Open both documents above to unlock attestation.
+          </p>
+        )}
+
         {/* Confirmation checkbox */}
-        <label className="flex items-start gap-3 cursor-pointer mb-5">
+        <label className={cn("flex items-start gap-3 mb-5", allDocsOpened ? "cursor-pointer" : "opacity-40 cursor-not-allowed select-none")}>
           <input
             type="checkbox"
             checked={confirmed}
-            onChange={(e) => setConfirmed(e.target.checked)}
-            className="mt-0.5 h-5 w-5 rounded border-[var(--color-border-strong)] accent-[var(--color-accent)] cursor-pointer shrink-0"
+            disabled={!allDocsOpened}
+            onChange={(e) => allDocsOpened && setConfirmed(e.target.checked)}
+            className="mt-0.5 h-5 w-5 rounded border-[var(--color-border-strong)] accent-[var(--color-accent)] cursor-pointer shrink-0 disabled:cursor-not-allowed"
           />
           <span className="text-sm text-[var(--color-text-primary)] leading-relaxed">
             I confirm the above statement and adopt this document as my

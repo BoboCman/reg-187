@@ -66,7 +66,7 @@ function ZeroFlagAck({
     <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-6">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-          Stage 3 — Resolve
+          Stage 2 — Review &amp; respond
         </h2>
       </div>
 
@@ -180,10 +180,10 @@ export function PPResolve({ intakeId, flags, existingResolutions, onResolved }: 
       <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] px-6 py-4 flex items-center justify-between">
         <div>
           <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-            Stage 3 — Resolve
+            Stage 2 — Review &amp; respond
           </h2>
           <p className="text-sm text-[var(--color-text-secondary)] mt-0.5">
-            Provide a written response for each flag before generating the document.
+            Review each suitability flag and provide a written response before generating the document.
           </p>
         </div>
 
