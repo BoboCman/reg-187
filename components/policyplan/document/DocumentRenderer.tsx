@@ -16,6 +16,11 @@ interface Props {
   generatedAt?: string | null;
   /** When true the body is initially collapsed to a max-height with a show-more affordance. */
   collapsible?: boolean;
+  /**
+   * Called the first time the user expands the document.
+   * Used by PPAdopt to gate the attestation checkbox.
+   */
+  onExpand?: () => void;
   /** Extra actions rendered in the footer action zone. */
   actions?: React.ReactNode;
   className?: string;
@@ -75,10 +80,22 @@ export function DocumentRenderer({
   status,
   generatedAt,
   collapsible = false,
+  onExpand,
   actions,
   className,
 }: Props) {
   const [expanded, setExpanded] = useState(!collapsible);
+  // Track whether onExpand has already been fired (fire once only).
+  const expandFiredRef = React.useRef(false);
+
+  function handleToggleExpand() {
+    const willExpand = !expanded;
+    setExpanded(willExpand);
+    if (willExpand && onExpand && !expandFiredRef.current) {
+      expandFiredRef.current = true;
+      onExpand();
+    }
+  }
 
   function handleCopy() {
     navigator.clipboard.writeText(body).catch(() => undefined);
@@ -147,7 +164,7 @@ export function DocumentRenderer({
         <div className="flex justify-center py-3 border-t border-[var(--color-border)] print:hidden">
           <button
             type="button"
-            onClick={() => setExpanded((v) => !v)}
+            onClick={handleToggleExpand}
             className="flex items-center gap-1.5 text-xs text-[var(--color-accent)] font-medium hover:underline"
           >
             {expanded ? (
