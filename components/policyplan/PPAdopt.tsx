@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { OutputRow, FlagResolution } from "@/components/policyplan/CaseWorkspace";
 import { Loader2, CheckCircle2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { DocumentRenderer } from "@/components/policyplan/document/DocumentRenderer";
 
 interface Props {
