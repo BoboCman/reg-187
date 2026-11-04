@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { FilePlus, LogOut, LayoutDashboard, ChevronRight } from "lucide-react";
+import { LogOut, Plus } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 import { cn } from "@/lib/utils";
 
 interface AppNavProps {
@@ -10,13 +11,19 @@ interface AppNavProps {
   centerSlot?: React.ReactNode;
   /** Slot rendered on the right, before sign-out. */
   rightSlot?: React.ReactNode;
-  /** Suppress the "New intake" button (e.g. when already in the profiler). */
+  /** Suppress the "New letter" button (e.g. when already in the profiler). */
   hideNewIntake?: boolean;
 }
 
+const LINKS = [
+  { href: "/dashboard", label: "Letters", match: (p: string) => p === "/dashboard" || p.startsWith("/cases") },
+  { href: "/settings/branding", label: "Letterhead", match: (p: string) => p.startsWith("/settings") },
+];
+
 export function AppNav({ centerSlot, rightSlot, hideNewIntake }: AppNavProps) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const router = useRouter();
+  const inProfiler = pathname.startsWith("/app");
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -25,95 +32,63 @@ export function AppNav({ centerSlot, rightSlot, hideNewIntake }: AppNavProps) {
     router.refresh();
   }
 
-  const onDashboard = pathname === "/dashboard";
-  const inProfiler = pathname?.startsWith("/app");
-
   return (
-    <header className="bg-[var(--color-surface)] border-b border-[var(--color-border)] sticky top-0 z-30">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-4">
+    <header className="bg-[var(--color-surface)]/90 backdrop-blur border-b border-[var(--color-border)] sticky top-0 z-30">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-6">
+        <BrandMark href="/dashboard" size="sm" />
 
-        {/* ── Brand ── */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[10px] font-semibold tracking-widest uppercase text-[var(--color-text-disabled)] hidden sm:block">
-            IPAI
-          </span>
-          <ChevronRight className="w-3 h-3 text-[var(--color-text-disabled)] hidden sm:block" />
-          <Link
-            href="/dashboard"
-            className={cn(
-              "text-sm font-semibold transition-colors",
-              onDashboard
-                ? "text-[var(--color-text-primary)]"
-                : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
-            )}
-          >
-            PolicyPlan
-          </Link>
-        </div>
-
-        {/* ── Breadcrumb trail (when in profiler) ── */}
-        {inProfiler && (
-          <div className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)]">
-            <ChevronRight className="w-3.5 h-3.5 text-[var(--color-border-strong)]" />
-            <span className="font-medium text-[var(--color-text-secondary)]">
-              New intake
-            </span>
-          </div>
+        {!centerSlot && (
+          <nav className="hidden sm:flex items-center gap-1" aria-label="Main">
+            {LINKS.map((l) => {
+              const active = l.match(pathname);
+              return (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md text-sm transition-colors",
+                    active
+                      ? "text-[var(--color-text-primary)] font-semibold bg-[var(--color-readonly-bg)]"
+                      : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                  )}
+                >
+                  {l.label}
+                </Link>
+              );
+            })}
+          </nav>
         )}
 
-        {/* ── Center slot (e.g. step counter + progress) ── */}
-        {centerSlot && (
-          <div className="flex-1 min-w-0">{centerSlot}</div>
-        )}
+        {centerSlot ? <div className="flex-1 min-w-0">{centerSlot}</div> : <div className="flex-1" />}
 
-        {/* ── Spacer when no center slot ── */}
-        {!centerSlot && <div className="flex-1" />}
-
-        {/* ── Right side ── */}
         <div className="flex items-center gap-2 shrink-0">
-
-          {/* Right slot (e.g. step indicator) */}
           {rightSlot}
-
-          {/* Cases link — shown when inside the profiler */}
-          {inProfiler && (
-            <Link
-              href="/dashboard"
-              className="hidden sm:inline-flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors px-2 py-1.5 rounded-md hover:bg-[var(--color-readonly-bg)]"
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              Cases
-            </Link>
-          )}
-
-          {/* New intake button — shown on dashboard and case detail */}
           {!hideNewIntake && !inProfiler && (
             <Link
               href="/app"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-xs font-semibold transition-colors"
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-sm font-semibold shadow-sm transition-colors"
             >
-              <FilePlus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">New case</span>
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">New letter</span>
               <span className="sm:hidden">New</span>
             </Link>
           )}
-
-          {/* Letterhead settings */}
-          <Link
-            href="/settings/branding"
-            className="hidden sm:inline-flex text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors px-2 py-1.5 rounded-md hover:bg-[var(--color-readonly-bg)]"
-          >
-            Letterhead
-          </Link>
-
-          {/* Sign out */}
+          {inProfiler && (
+            <Link
+              href="/dashboard"
+              className="hidden sm:inline-flex text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] px-3 py-1.5 rounded-md"
+            >
+              Letters
+            </Link>
+          )}
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors px-2 py-1.5 rounded-md hover:bg-[var(--color-readonly-bg)]"
+            className="inline-flex items-center justify-center h-9 w-9 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-readonly-bg)] transition-colors"
             title="Sign out"
+            aria-label="Sign out"
           >
-            <LogOut className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Sign out</span>
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </div>

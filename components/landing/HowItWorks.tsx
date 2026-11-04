@@ -1,20 +1,20 @@
-import { ClipboardList, BrainCircuit, FileCheck } from "lucide-react";
+import { ClipboardList, FileCheck, Upload } from "lucide-react";
 
 const steps = [
   {
-    icon: ClipboardList,
-    title: "Intake",
-    body: "Capture the client's insurance need, financial profile, ownership structure, existing coverage, funding source, risk tolerance, product objectives, and case context in a structured web experience designed around the New York Reg 187 best-interest process.",
+    icon: Upload,
+    title: "Upload the illustration",
+    body: "Drop in the carrier\u2019s proposed sales illustration. PolicyPlan reads every page, removes the client\u2019s identity in the browser, and extracts the policy design, guarantees, charges, riders and ledger values.",
   },
   {
-    icon: BrainCircuit,
-    title: "Recommend",
-    body: "PolicyPlan drafts a starting rationale from the producer\u2019s own intake answers and case details, including favorable considerations, tradeoffs, assumptions, and items to review. The producer edits the rationale and resolves each flagged tension in their own words, so the documented basis is authored by the producer and tied to the client\u2019s facts, objectives, and tradeoffs.",
+    icon: ClipboardList,
+    title: "Answer a short profile",
+    body: "Capture the client\u2019s objectives, finances and the Reg 187 suitability answers in a few minutes. No re-keying of policy details that are already in the illustration.",
   },
   {
     icon: FileCheck,
-    title: "Document",
-    body: "The producer reviews, edits, approves, and exports a client-ready recommendation summary, a carrier support packet, and a versioned case record.",
+    title: "Review, sign and send",
+    body: "PolicyPlan drafts a best-interest letter grounded in the illustration and the profile, with favorable and unfavorable considerations. The producer edits, addresses each flagged point, attests and downloads a branded PDF.",
   },
 ];
 
@@ -24,10 +24,10 @@ export function HowItWorks() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-blue-600 mb-4">
-            From intake to recommendation file
+            From illustration to signed 187 letter
           </h2>
           <p className="text-slate-600 text-lg mb-2">
-            One guided workflow for the life insurance recommendation process, from client context to producer-approved rationale, client-ready summary, carrier output, and case record.
+            One guided workflow: the carrier illustration and a short client profile become a producer-approved, client-ready best-interest letter and a versioned case record.
           </p>
           <p className="text-slate-400 text-sm">
             Three stages. Web-based. Producer-controlled.

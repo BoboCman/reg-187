@@ -53,7 +53,7 @@ export function PPWizardShell() {
       />
 
       {/* Progress rail — second sticky strip below the nav */}
-      <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] sticky top-14 z-20 px-4 sm:px-6 py-4">
+      <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] sticky top-16 z-20 px-4 sm:px-6 py-4">
         <div className="max-w-5xl mx-auto">
           <PPProgressRail />
         </div>

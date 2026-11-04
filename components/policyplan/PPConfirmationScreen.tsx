@@ -22,7 +22,7 @@ export function PPConfirmationScreen({ intake }: { intake: PolicyPlanIntake }) {
             }}
             className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors font-medium"
           >
-            Start new intake
+            Start a new letter
           </button>
         }
       />

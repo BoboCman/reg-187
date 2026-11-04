@@ -1,620 +1,460 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { OBJECTIVE_LABELS } from "@/lib/policyplan/schema";
-import type { SuitabilityFlag } from "@/lib/policyplan/rules";
-import { AppNav } from "@/components/AppNav";
-import { cn } from "@/lib/utils";
 import {
-  Search,
-  ArrowUpDown,
-  ArrowDown,
-  ArrowUp,
-  FilePlus,
-  AlertTriangle,
+  AlertCircle,
+  ArrowRight,
   CheckCircle2,
-  ChevronRight,
+  Download,
+  FileText,
+  Loader2,
+  PenLine,
+  Search,
+  Sparkles,
+  Upload,
+  UserRound,
   X,
 } from "lucide-react";
+import { AppNav } from "@/components/AppNav";
+import { OBJECTIVE_LABELS } from "@/lib/policyplan/schema";
+import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+/** Where a case is in Upload > Profile > Letter, from the advisor's view. */
+export type LetterStage = "not_started" | "writing" | "review" | "approved" | "attention";
+
 export type CaseRow = {
   id: string;
   created_at: string;
+  updated_at: string;
+  client: string;
   primary_objective: string;
-  ownership_type: string;
-  insured_display: string;
-  flags: SuitabilityFlag[];
-  status: string;
+  stage: LetterStage;
+  output_id: string | null;
+  carrier: string | null;
+  product: string | null;
+  face_amount: number | null;
+  annual_premium: number | null;
+  illustration_file: string | null;
 };
 
-type SortKey = "attention" | "recent" | "oldest" | "name_asc" | "name_desc";
-type StatusFilter = "all" | "submitted" | "in_review" | "resolved" | "adopted";
-type TensionFilter = "all" | "review_needed" | "no_tensions";
-type OwnershipFilter = "all" | "individual" | "trust" | "business";
-type ObjectiveFilter = "all" | string;
+type Tab = "all" | "review" | "writing" | "approved";
+
+const STAGE: Record<LetterStage, { label: string; className: string; icon: typeof CheckCircle2 }> = {
+  review: { label: "Ready for your review", className: "bg-amber-50 text-amber-800 ring-amber-200", icon: PenLine },
+  writing: { label: "Writing the letter", className: "bg-blue-50 text-blue-700 ring-blue-200", icon: Loader2 },
+  approved: { label: "Approved", className: "bg-emerald-50 text-emerald-700 ring-emerald-200", icon: CheckCircle2 },
+  attention: { label: "Needs attention", className: "bg-red-50 text-red-700 ring-red-200", icon: AlertCircle },
+  not_started: { label: "Letter not started", className: "bg-slate-100 text-slate-600 ring-slate-200", icon: FileText },
+};
+
+// Review first, then work in progress, then the record.
+const ORDER: Record<LetterStage, number> = { attention: 0, review: 1, writing: 2, not_started: 3, approved: 4 };
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+const usd = (v: number | null) => (v == null ? null : "$" + Math.round(v).toLocaleString("en-US"));
+
+function relative(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.round(diff / 60000);
+  if (min < 1) return "Just now";
+  if (min < 60) return `${min} min ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr} hr ago`;
+  const day = Math.round(hr / 24);
+  if (day === 1) return "Yesterday";
+  if (day < 7) return `${day} days ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  submitted: "Submitted",
-  in_review: "In review",
-  resolved: "Resolved",
-  adopted: "Adopted",
-};
-
-// Needs-attention sort score: lower = more urgent
-function attentionScore(c: CaseRow): number {
-  const hasTensions = c.flags.length > 0;
-  if (hasTensions && c.status === "in_review") return 0;
-  if (hasTensions && c.status === "submitted") return 1;
-  if (hasTensions) return 2;
-  if (c.status === "in_review") return 3;
-  if (c.status === "submitted") return 4;
-  if (c.status === "resolved") return 5;
-  if (c.status === "adopted") return 6;
-  return 7;
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 }
 
-// All objective values in display order from spec
-const OBJECTIVE_FILTER_ORDER = [
-  "wealth_transfer",
-  "final_expenses",
-  "cash_accumulation",
-  "supplemental_retirement_income",
-  "estate_equalization",
-  "charitable_giving",
-  "key_person_protection",
-  "business_succession_buy_sell",
-  "income_replacement",
-  "mortgage_debt_payoff",
-  "education_funding",
-  "estate_tax_liquidity",
-  "executive_benefit",
-  "long_term_care_funding",
-] as const;
+function initials(name: string) {
+  const parts = name.replace(/&/g, " ").split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase() || "?";
+}
+
+const objectiveLabel = (o: string) => OBJECTIVE_LABELS[o as keyof typeof OBJECTIVE_LABELS] ?? "";
 
 // ---------------------------------------------------------------------------
-// Sub-components
+// Pieces
 // ---------------------------------------------------------------------------
-function StatusBadge({ status }: { status: string }) {
-  const label = STATUS_LABELS[status] ?? status;
+function StagePill({ stage }: { stage: LetterStage }) {
+  const s = STAGE[stage];
+  const Icon = s.icon;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap",
-        status === "adopted"
-          ? "bg-[var(--color-success-light)] text-[var(--color-success)]"
-          : status === "resolved"
-          ? "bg-[var(--color-accent-light)] text-[var(--color-accent)]"
-          : status === "in_review"
-          ? "bg-blue-50 text-blue-600"
-          : "bg-[var(--color-readonly-bg)] text-[var(--color-text-muted)]"
-      )}
-    >
-      {label}
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset whitespace-nowrap", s.className)}>
+      <Icon className={cn("h-3.5 w-3.5", stage === "writing" && "animate-spin")} />
+      {s.label}
     </span>
   );
 }
 
-function TensionBadge({ flags }: { flags: SuitabilityFlag[] }) {
-  if (flags.length === 0) {
+function RowAction({ c }: { c: CaseRow }) {
+  const base = "inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-md text-xs font-semibold transition-colors whitespace-nowrap";
+  if (c.stage === "approved" && c.output_id) {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-success-light)] text-[var(--color-success)] text-[11px] font-semibold whitespace-nowrap">
-        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-        No tensions
-      </span>
+      <a
+        href={`/api/policyplan/letter/${c.output_id}/pdf`}
+        className={cn(base, "relative z-10 border border-[var(--color-border-strong)] text-[var(--color-text-primary)] hover:bg-[var(--color-readonly-bg)]")}
+      >
+        <Download className="h-3.5 w-3.5" /> PDF
+      </a>
     );
   }
+  if (c.stage === "review") {
+    return <span className={cn(base, "bg-[var(--color-accent)] text-white group-hover:bg-[var(--color-accent-hover)]")}>Review</span>;
+  }
+  if (c.stage === "attention") {
+    return <span className={cn(base, "border border-red-200 text-red-700 group-hover:bg-red-50")}>Fix</span>;
+  }
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[11px] font-semibold whitespace-nowrap">
-      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-      Review needed
-      {flags.length > 1 && (
-        <span className="ml-0.5 bg-amber-200 text-amber-800 rounded-full px-1.5 py-0 text-[10px] font-bold leading-5">
-          {flags.length}
-        </span>
-      )}
+    <span className={cn(base, "text-[var(--color-text-muted)] group-hover:text-[var(--color-text-primary)]")}>
+      Open <ArrowRight className="h-3.5 w-3.5" />
     </span>
   );
 }
 
-interface FilterSelectProps {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}
-function FilterSelect({ label, value, onChange, options }: FilterSelectProps) {
+const STEPS = [
+  {
+    icon: Upload,
+    title: "Upload the illustration",
+    body: "Drop in the carrier's sales illustration. Client names are removed in your browser before anything is sent.",
+  },
+  {
+    icon: UserRound,
+    title: "Answer a short profile",
+    body: "Goals, finances and four quick Reg 187 questions. About three minutes.",
+  },
+  {
+    icon: Sparkles,
+    title: "Review and sign the letter",
+    body: "PolicyPlan drafts a best-interest letter from the illustration and profile. You edit, approve and download it on your letterhead.",
+  },
+];
+
+function HowItWorks({ onDismiss, compact }: { onDismiss?: () => void; compact?: boolean }) {
   return (
-    <select
-      aria-label={label}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={cn(
-        "h-9 pl-3 pr-8 text-sm rounded-lg border bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-ring)] focus:border-[var(--color-accent)] transition appearance-none cursor-pointer",
-        value !== options[0].value
-          ? "border-[var(--color-accent)] text-[var(--color-accent)] bg-[var(--color-accent-light)]"
-          : "border-[var(--color-border)]"
+    <section className="relative rounded-2xl border border-[var(--color-border)] bg-gradient-to-br from-white to-[var(--color-accent-light)] p-6 sm:p-8">
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="absolute right-3 top-3 rounded-md p-1.5 text-[var(--color-text-muted)] hover:bg-white hover:text-[var(--color-text-primary)]"
+          aria-label="Hide how it works"
+        >
+          <X className="h-4 w-4" />
+        </button>
       )}
-    >
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+      <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-accent)]">How it works</p>
+      <h2 className="mt-1 text-lg font-semibold text-[var(--color-text-primary)]">
+        From sales illustration to a signed Reg 187 letter in three steps
+      </h2>
+      <ol className={cn("mt-6 grid gap-6", compact ? "sm:grid-cols-3" : "md:grid-cols-3")}>
+        {STEPS.map((s, i) => {
+          const Icon = s.icon;
+          return (
+            <li key={s.title} className="flex gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[var(--color-accent)] shadow-sm ring-1 ring-[var(--color-border)]">
+                <Icon className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  <span className="mr-1.5 tabular-nums text-[var(--color-text-muted)]">{i + 1}.</span>
+                  {s.title}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-[var(--color-text-secondary)]">{s.body}</p>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
 // ---------------------------------------------------------------------------
 // DashboardClient
 // ---------------------------------------------------------------------------
-export function DashboardClient({ cases }: { cases: CaseRow[] }) {
+const HIDE_KEY = "pp.dashboard.hideHowItWorks";
+
+export function DashboardClient({
+  cases,
+  firstName,
+  hasLetterhead,
+}: {
+  cases: CaseRow[];
+  firstName: string | null;
+  hasLetterhead: boolean;
+}) {
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [tensionFilter, setTensionFilter] = useState<TensionFilter>("all");
-  const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>("all");
-  const [objectiveFilter, setObjectiveFilter] = useState<ObjectiveFilter>("all");
-  const [sortKey, setSortKey] = useState<SortKey>("attention");
+  const [tab, setTab] = useState<Tab>("all");
+  const [hideHow, setHideHow] = useState(false);
+  const [hello, setHello] = useState("Welcome back");
 
-  // Only show objective options that appear in actual data
-  const objectivesInData = useMemo(() => {
-    const seen = new Set(cases.map((c) => c.primary_objective).filter(Boolean));
-    return OBJECTIVE_FILTER_ORDER.filter((k) => seen.has(k));
-  }, [cases]);
+  useEffect(() => {
+    setHello(greeting());
+    try {
+      setHideHow(window.localStorage.getItem(HIDE_KEY) === "1");
+    } catch {
+      /* storage unavailable: keep showing it */
+    }
+  }, []);
 
-  // Summary card counts
-  const counts = useMemo(() => ({
-    needs_review: cases.filter((c) => c.flags.length > 0).length,
-    in_review: cases.filter((c) => c.status === "in_review").length,
-    submitted: cases.filter((c) => c.status === "submitted").length,
-    adopted: cases.filter((c) => c.status === "adopted").length,
-    no_tensions: cases.filter((c) => c.flags.length === 0).length,
-    total: cases.length,
-  }), [cases]);
-
-  const hasActiveFilters =
-    query !== "" ||
-    statusFilter !== "all" ||
-    tensionFilter !== "all" ||
-    ownershipFilter !== "all" ||
-    objectiveFilter !== "all" ||
-    sortKey !== "attention";
-
-  function resetFilters() {
-    setQuery("");
-    setStatusFilter("all");
-    setTensionFilter("all");
-    setOwnershipFilter("all");
-    setObjectiveFilter("all");
-    setSortKey("attention");
+  function dismissHow() {
+    setHideHow(true);
+    try {
+      window.localStorage.setItem(HIDE_KEY, "1");
+    } catch {
+      /* ignore */
+    }
   }
 
-  // Summary card click handlers
-  function applySummaryFilter(card: "needs_review" | "in_review" | "submitted" | "adopted" | "no_tensions" | "total") {
-    resetFilters();
-    if (card === "needs_review") setTensionFilter("review_needed");
-    else if (card === "in_review") setStatusFilter("in_review");
-    else if (card === "submitted") setStatusFilter("submitted");
-    else if (card === "adopted") setStatusFilter("adopted");
-    else if (card === "no_tensions") setTensionFilter("no_tensions");
-    // total: reset all (already done)
-  }
+  const counts = useMemo(
+    () => ({
+      all: cases.length,
+      review: cases.filter((c) => c.stage === "review" || c.stage === "attention").length,
+      writing: cases.filter((c) => c.stage === "writing" || c.stage === "not_started").length,
+      approved: cases.filter((c) => c.stage === "approved").length,
+    }),
+    [cases]
+  );
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
-    let result = [...cases];
+    return cases
+      .filter((c) => {
+        if (tab === "review") return c.stage === "review" || c.stage === "attention";
+        if (tab === "writing") return c.stage === "writing" || c.stage === "not_started";
+        if (tab === "approved") return c.stage === "approved";
+        return true;
+      })
+      .filter((c) =>
+        !q
+          ? true
+          : [c.client, c.carrier, c.product, objectiveLabel(c.primary_objective)].some((v) => v?.toLowerCase().includes(q))
+      )
+      .sort((a, b) => ORDER[a.stage] - ORDER[b.stage] || b.updated_at.localeCompare(a.updated_at));
+  }, [cases, query, tab]);
 
-    if (q) {
-      result = result.filter(
-        (c) =>
-          c.insured_display.toLowerCase().includes(q) ||
-          (OBJECTIVE_LABELS[c.primary_objective as keyof typeof OBJECTIVE_LABELS] ?? c.primary_objective)
-            .toLowerCase()
-            .includes(q)
-      );
-    }
-    if (statusFilter !== "all") {
-      result = result.filter((c) => c.status === statusFilter);
-    }
-    if (tensionFilter === "review_needed") {
-      result = result.filter((c) => c.flags.length > 0);
-    } else if (tensionFilter === "no_tensions") {
-      result = result.filter((c) => c.flags.length === 0);
-    }
-    if (ownershipFilter !== "all") {
-      result = result.filter(
-        (c) => c.ownership_type.toLowerCase() === ownershipFilter
-      );
-    }
-    if (objectiveFilter !== "all") {
-      result = result.filter((c) => c.primary_objective === objectiveFilter);
-    }
-
-    result.sort((a, b) => {
-      if (sortKey === "attention") {
-        const diff = attentionScore(a) - attentionScore(b);
-        if (diff !== 0) return diff;
-        return b.created_at.localeCompare(a.created_at);
-      }
-      if (sortKey === "recent") return b.created_at.localeCompare(a.created_at);
-      if (sortKey === "oldest") return a.created_at.localeCompare(b.created_at);
-      if (sortKey === "name_asc") return a.insured_display.localeCompare(b.insured_display);
-      if (sortKey === "name_desc") return b.insured_display.localeCompare(a.insured_display);
-      return 0;
-    });
-
-    return result;
-  }, [cases, query, statusFilter, tensionFilter, ownershipFilter, objectiveFilter, sortKey]);
-
-  // ---------------------------------------------------------------------------
-  // Summary cards data
-  // ---------------------------------------------------------------------------
-  const summaryCards = [
-    {
-      key: "needs_review" as const,
-      label: "Needs review",
-      subtext: "Cases with unresolved tensions",
-      count: counts.needs_review,
-      activeClass: "border-amber-300 bg-amber-50",
-      countClass: "text-amber-700",
-      isActive: tensionFilter === "review_needed" && statusFilter === "all",
-    },
-    {
-      key: "in_review" as const,
-      label: "In review",
-      subtext: "Currently being reviewed",
-      count: counts.in_review,
-      activeClass: "border-blue-200 bg-blue-50",
-      countClass: "text-blue-700",
-      isActive: statusFilter === "in_review",
-    },
-    {
-      key: "submitted" as const,
-      label: "Submitted",
-      subtext: "Ready for analysis workflow",
-      count: counts.submitted,
-      activeClass: "border-[var(--color-border)] bg-[var(--color-readonly-bg)]",
-      countClass: "text-[var(--color-text-primary)]",
-      isActive: statusFilter === "submitted",
-    },
-    {
-      key: "adopted" as const,
-      label: "Adopted",
-      subtext: "Recommendation adopted",
-      count: counts.adopted,
-      activeClass: "border-[var(--color-success)] bg-[var(--color-success-light)]",
-      countClass: "text-[var(--color-success)]",
-      isActive: statusFilter === "adopted",
-    },
-    {
-      key: "no_tensions" as const,
-      label: "No tensions",
-      subtext: "Cases with no flagged issues",
-      count: counts.no_tensions,
-      activeClass: "border-[var(--color-success)] bg-[var(--color-success-light)]",
-      countClass: "text-[var(--color-success)]",
-      isActive: tensionFilter === "no_tensions",
-    },
-    {
-      key: "total" as const,
-      label: "Total cases",
-      subtext: "All intakes on file",
-      count: counts.total,
-      activeClass: "border-[var(--color-accent)] bg-[var(--color-accent-light)]",
-      countClass: "text-[var(--color-accent)]",
-      isActive: false,
-    },
+  const showHow = cases.length < 3 || !hideHow;
+  const tabs: { key: Tab; label: string }[] = [
+    { key: "all", label: "All letters" },
+    { key: "review", label: "Needs your review" },
+    { key: "writing", label: "In progress" },
+    { key: "approved", label: "Approved" },
   ];
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-[var(--color-background)]">
-      <AppNav />
+      <AppNav hideNewIntake />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-
-        {/* ── Page header ── */}
-        <div className="flex items-start justify-between gap-4">
+      <main className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6 sm:py-10">
+        {/* ── Header ── */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Cases</h1>
-            <p className="text-sm text-[var(--color-text-muted)] mt-0.5">
-              {cases.length} {cases.length === 1 ? "intake" : "intakes"} on file
+            <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-text-primary)] sm:text-3xl">
+              {hello}
+              {firstName ? `, ${firstName}` : ""}
+            </h1>
+            <p className="mt-1.5 max-w-xl text-sm text-[var(--color-text-secondary)] sm:text-base">
+              Turn a carrier illustration and a short client profile into a New York Reg 187 best-interest letter, on your letterhead.
             </p>
           </div>
           <Link
             href="/app"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-sm font-semibold transition-colors shrink-0"
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--color-accent-hover)]"
           >
-            <FilePlus className="w-4 h-4" />
-            New intake
+            <Upload className="h-4 w-4" />
+            Start a new letter
           </Link>
         </div>
 
-        {/* ── Summary strip ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {summaryCards.map((card) => (
-            <button
-              key={card.key}
-              type="button"
-              onClick={() => applySummaryFilter(card.key)}
-              className={cn(
-                "text-left rounded-lg border px-4 py-3.5 transition-all hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-ring)]",
-                card.isActive
-                  ? card.activeClass + " ring-2 ring-[var(--color-accent-ring)]"
-                  : "border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-border-hover,var(--color-accent))]"
-              )}
-            >
-              <p className={cn("text-2xl font-bold tabular-nums leading-none mb-1", card.isActive ? card.countClass : "text-[var(--color-text-primary)]")}>
-                {card.count}
-              </p>
-              <p className="text-xs font-semibold text-[var(--color-text-primary)] leading-tight">
-                {card.label}
-              </p>
-              <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5 leading-tight">
-                {card.subtext}
-              </p>
-            </button>
-          ))}
-        </div>
-
-        {/* ── Filter bar ── */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px] max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)] pointer-events-none" />
-            <input
-              type="search"
-              placeholder="Search by client or objective"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full h-9 pl-9 pr-4 text-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-disabled)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-ring)] focus:border-[var(--color-accent)] transition"
-            />
-          </div>
-
-          {/* Status */}
-          <FilterSelect
-            label="Status"
-            value={statusFilter}
-            onChange={(v) => setStatusFilter(v as StatusFilter)}
-            options={[
-              { value: "all", label: "All statuses" },
-              { value: "submitted", label: "Submitted" },
-              { value: "in_review", label: "In review" },
-              { value: "resolved", label: "Resolved" },
-              { value: "adopted", label: "Adopted" },
-            ]}
-          />
-
-          {/* Tensions */}
-          <FilterSelect
-            label="Tensions"
-            value={tensionFilter}
-            onChange={(v) => setTensionFilter(v as TensionFilter)}
-            options={[
-              { value: "all", label: "All tensions" },
-              { value: "review_needed", label: "Review needed" },
-              { value: "no_tensions", label: "No tensions" },
-            ]}
-          />
-
-          {/* Ownership */}
-          <FilterSelect
-            label="Ownership"
-            value={ownershipFilter}
-            onChange={(v) => setOwnershipFilter(v as OwnershipFilter)}
-            options={[
-              { value: "all", label: "All ownership" },
-              { value: "individual", label: "Individual" },
-              { value: "trust", label: "Trust" },
-              { value: "business", label: "Business" },
-            ]}
-          />
-
-          {/* Primary objective */}
-          <FilterSelect
-            label="Primary objective"
-            value={objectiveFilter}
-            onChange={(v) => setObjectiveFilter(v)}
-            options={[
-              { value: "all", label: "All objectives" },
-              ...objectivesInData.map((k) => ({
-                value: k,
-                label: OBJECTIVE_LABELS[k as keyof typeof OBJECTIVE_LABELS] ?? k,
-              })),
-            ]}
-          />
-
-          {/* Sort */}
-          <FilterSelect
-            label="Sort"
-            value={sortKey}
-            onChange={(v) => setSortKey(v as SortKey)}
-            options={[
-              { value: "attention", label: "Needs attention" },
-              { value: "recent", label: "Most recent" },
-              { value: "oldest", label: "Oldest" },
-              { value: "name_asc", label: "Client name A–Z" },
-              { value: "name_desc", label: "Client name Z–A" },
-            ]}
-          />
-
-          {/* Reset */}
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="inline-flex items-center gap-1.5 h-9 px-3 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] border border-[var(--color-border)] rounded-lg bg-[var(--color-surface)] transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-              Reset filters
-            </button>
-          )}
-        </div>
-
-        {/* ── Empty: no cases at all ── */}
-        {cases.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-14 h-14 rounded-full bg-[var(--color-accent-light)] flex items-center justify-center mb-5">
-              <FilePlus className="w-6 h-6 text-[var(--color-accent)]" />
+        {/* ── Letterhead nudge ── */}
+        {!hasLetterhead && (
+          <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <PenLine className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+              <div>
+                <p className="text-sm font-semibold text-amber-900">Add your letterhead</p>
+                <p className="text-sm text-amber-800">Your name, firm, logo and disclosures appear on every letter you send.</p>
+              </div>
             </div>
-            <h2 className="text-base font-semibold text-[var(--color-text-primary)] mb-2">No cases yet</h2>
-            <p className="text-sm text-[var(--color-text-muted)] mb-6 max-w-sm">
-              Start a new intake to begin your first case.
-            </p>
             <Link
-              href="/app"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-sm font-semibold transition-colors"
+              href="/settings/branding"
+              className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-white px-4 text-sm font-semibold text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100"
             >
-              <FilePlus className="w-4 h-4" />
-              New intake
+              Set up letterhead
             </Link>
           </div>
         )}
 
-        {/* ── Empty: filters return nothing ── */}
-        {cases.length > 0 && filtered.length === 0 && (
-          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] py-16 text-center">
-            <h2 className="text-base font-semibold text-[var(--color-text-primary)] mb-1">No matching cases</h2>
-            <p className="text-sm text-[var(--color-text-muted)] mb-4">
-              No cases match the current filters.
+        {showHow && <HowItWorks onDismiss={cases.length >= 3 ? dismissHow : undefined} />}
+
+        {/* ── Empty state ── */}
+        {cases.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface)] px-6 py-14 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-accent-light)]">
+              <FileText className="h-6 w-6 text-[var(--color-accent)]" />
+            </div>
+            <h2 className="mt-4 text-base font-semibold text-[var(--color-text-primary)]">Your letters will appear here</h2>
+            <p className="mx-auto mt-1 max-w-sm text-sm text-[var(--color-text-muted)]">
+              Start with a real illustration. To see how it works first, choose “Try the sample case” on the upload screen.
             </p>
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="text-sm text-[var(--color-accent)] hover:underline font-medium"
-            >
-              Reset filters
-            </button>
-          </div>
-        )}
-
-        {/* ── Case table ── */}
-        {filtered.length > 0 && (
-          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] overflow-hidden">
-
-            {/* Table header — col order: Client | Primary objective | Status | Tensions | Ownership | Updated */}
-            <div className="grid grid-cols-[minmax(200px,1fr)_minmax(160px,1fr)_120px_140px_110px_100px_32px] gap-4 px-5 py-3 border-b border-[var(--color-border)] bg-[var(--color-readonly-bg)]">
-              {(
-                [
-                  { label: "Client", sort: "name_asc" as SortKey, desc: "name_desc" as SortKey },
-                ] as const
-              ).map(({ label }) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() =>
-                    setSortKey((prev) =>
-                      prev === "name_asc" ? "name_desc" : prev === "name_desc" ? "name_asc" : "name_asc"
-                    )
-                  }
-                  className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors text-left"
-                >
-                  {label}
-                  {sortKey === "name_asc" ? (
-                    <ArrowUp className="w-3.5 h-3.5" />
-                  ) : sortKey === "name_desc" ? (
-                    <ArrowDown className="w-3.5 h-3.5" />
-                  ) : (
-                    <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
-                  )}
-                </button>
-              ))}
-              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-                Primary objective
-              </span>
-              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-                Status
-              </span>
-              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-                Tensions
-              </span>
-              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-                Ownership
-              </span>
-              <button
-                type="button"
-                onClick={() =>
-                  setSortKey((prev) => (prev === "recent" ? "oldest" : "recent"))
-                }
-                className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors text-left"
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link
+                href="/app"
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-accent)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-accent-hover)]"
               >
-                Updated
-                {sortKey === "recent" ? (
-                  <ArrowDown className="w-3.5 h-3.5" />
-                ) : sortKey === "oldest" ? (
-                  <ArrowUp className="w-3.5 h-3.5" />
-                ) : (
-                  <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
-                )}
-              </button>
-              {/* chevron spacer */}
-              <span />
-            </div>
-
-            {/* Rows */}
-            <div className="divide-y divide-[var(--color-border)]">
-              {filtered.map((c) => (
-                <Link
-                  key={c.id}
-                  href={`/cases/${c.id}`}
-                  className="grid grid-cols-[minmax(200px,1fr)_minmax(160px,1fr)_120px_140px_110px_100px_32px] gap-4 px-5 py-4 hover:bg-[var(--color-readonly-bg)] transition-colors items-center group cursor-pointer"
-                >
-                  {/* Client */}
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent)] transition-colors">
-                      {c.insured_display || "—"}
-                    </p>
-                    <p className="text-[11px] font-mono text-[var(--color-text-disabled)] mt-0.5 truncate">
-                      {c.id.slice(0, 8)}&hellip;
-                    </p>
-                  </div>
-
-                  {/* Primary objective */}
-                  <span className="text-sm text-[var(--color-text-secondary)] truncate">
-                    {(OBJECTIVE_LABELS[c.primary_objective as keyof typeof OBJECTIVE_LABELS] ?? c.primary_objective) || "—"}
-                  </span>
-
-                  {/* Status */}
-                  <div>
-                    <StatusBadge status={c.status} />
-                  </div>
-
-                  {/* Tensions */}
-                  <div>
-                    <TensionBadge flags={c.flags} />
-                  </div>
-
-                  {/* Ownership */}
-                  <span className="text-sm text-[var(--color-text-secondary)] capitalize">
-                    {c.ownership_type || "—"}
-                  </span>
-
-                  {/* Updated */}
-                  <span className="text-sm text-[var(--color-text-muted)] whitespace-nowrap">
-                    {formatDate(c.created_at)}
-                  </span>
-
-                  {/* Row affordance */}
-                  <ChevronRight className="w-4 h-4 text-[var(--color-text-disabled)] group-hover:text-[var(--color-accent)] transition-colors" />
-                </Link>
-              ))}
+                <Upload className="h-4 w-4" /> Start a new letter
+              </Link>
             </div>
           </div>
+        ) : (
+          <section className="space-y-4">
+            {/* ── Tabs + search ── */}
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="-mx-1 flex gap-1 overflow-x-auto px-1" role="tablist" aria-label="Filter letters">
+                {tabs.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === t.key}
+                    onClick={() => setTab(t.key)}
+                    className={cn(
+                      "inline-flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-sm transition-colors",
+                      tab === t.key
+                        ? "bg-[var(--color-surface)] font-semibold text-[var(--color-text-primary)] shadow-sm ring-1 ring-[var(--color-border)]"
+                        : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                    )}
+                  >
+                    {t.label}
+                    <span
+                      className={cn(
+                        "rounded-full px-1.5 text-xs tabular-nums",
+                        t.key === "review" && counts.review > 0
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-[var(--color-readonly-bg)] text-[var(--color-text-muted)]"
+                      )}
+                    >
+                      {counts[t.key]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="relative md:w-72">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                <input
+                  type="search"
+                  placeholder="Search client, carrier or product"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] pl-9 pr-3 text-sm placeholder:text-[var(--color-text-disabled)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-ring)]"
+                />
+              </div>
+            </div>
+
+            {/* ── List ── */}
+            <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
+              <div className="hidden grid-cols-[minmax(0,1.3fr)_minmax(0,1.3fr)_190px_110px_84px] gap-4 border-b border-[var(--color-border)] bg-[var(--color-readonly-bg)] px-5 py-2.5 text-xs font-medium text-[var(--color-text-muted)] md:grid">
+                <span>Client</span>
+                <span>Proposed policy</span>
+                <span>Status</span>
+                <span>Updated</span>
+                <span />
+              </div>
+
+              {filtered.length === 0 ? (
+                <div className="px-5 py-14 text-center">
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">Nothing here</p>
+                  <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+                    {query ? "No letters match your search." : "No letters in this view yet."}
+                  </p>
+                  {(query || tab !== "all") && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuery("");
+                        setTab("all");
+                      }}
+                      className="mt-3 text-sm font-medium text-[var(--color-accent)] hover:underline"
+                    >
+                      Show all letters
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <ul className="divide-y divide-[var(--color-border)]">
+                  {filtered.map((c) => {
+                    const carrier = c.carrier?.replace(/\s+(Life\s+)?(Insurance|Assurance)(\s+Company)?(\s+of\s+.+)?$/i, "").replace(/,?\s+Inc\.?$/i, "") ?? null;
+                    const policy = c.product ?? carrier;
+                    const money = [c.product ? carrier : null, usd(c.face_amount), c.annual_premium != null ? `${usd(c.annual_premium)}/yr` : null].filter(Boolean).join(" · ");
+                    return (
+                      <li key={c.id}>
+                        <div
+                          className="group relative grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-5 py-4 transition-colors hover:bg-[var(--color-readonly-bg)] md:grid-cols-[minmax(0,1.3fr)_minmax(0,1.3fr)_190px_110px_84px]"
+                        >
+                          <Link href={`/cases/${c.id}`} className="absolute inset-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-accent-ring)]" aria-label={`Open ${c.client}`} />
+                          {/* Client */}
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-light)] text-xs font-semibold text-[var(--color-accent)]">
+                              {initials(c.client)}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)]">
+                                {c.client}
+                              </p>
+                              <p className="truncate text-xs text-[var(--color-text-muted)]">
+                                {objectiveLabel(c.primary_objective) || "Objective not set"}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Action (mobile: top right) */}
+                          <div className="justify-self-end md:hidden">
+                            <RowAction c={c} />
+                          </div>
+
+                          {/* Policy */}
+                          <div className="col-span-2 min-w-0 md:col-span-1">
+                            {policy ? (
+                              <>
+                                <p className="truncate text-sm text-[var(--color-text-primary)]">{policy}</p>
+                                {money && <p className="truncate text-xs tabular-nums text-[var(--color-text-muted)]">{money}</p>}
+                              </>
+                            ) : (
+                              <p className="truncate text-sm text-[var(--color-text-muted)]">
+                                {c.illustration_file ?? "No illustration uploaded"}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Status + updated (mobile: one line) */}
+                          <div className="col-span-2 flex items-center justify-between gap-3 md:col-span-1 md:block">
+                            <StagePill stage={c.stage} />
+                            <span className="text-xs text-[var(--color-text-muted)] md:hidden">{relative(c.updated_at)}</span>
+                          </div>
+                          <span className="hidden text-sm text-[var(--color-text-muted)] md:block">{relative(c.updated_at)}</span>
+
+                          <div className="hidden justify-self-end md:block">
+                            <RowAction c={c} />
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </section>
         )}
       </main>
     </div>
