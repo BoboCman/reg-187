@@ -33,6 +33,16 @@ export type PPFormData = {
   };
 };
 
+/** Redacted proposed-illustration text captured in the Upload step. */
+export type PPIllustration = {
+  text: string;
+  filename: string;
+  size_bytes: number;
+  page_count: number;
+  redaction_counts: Record<string, number>;
+  extracted_at: string;
+};
+
 export const PP_STEP_COUNT = 7;
 
 export const PP_STEP_META: { label: string; subtitle: string }[] = [
@@ -59,6 +69,11 @@ interface PPWizardCtx {
   setSubmittedIntake: (v: PolicyPlanIntake | null) => void;
   submittedIntakeId: string | null;
   setSubmittedIntakeId: (id: string | null) => void;
+  illustration: PPIllustration | null;
+  setIllustration: (v: PPIllustration | null) => void;
+  /** True once the advisor has finished (or explicitly skipped) the Upload step. */
+  uploadDone: boolean;
+  setUploadDone: (v: boolean) => void;
 }
 
 const Ctx = createContext<PPWizardCtx | null>(null);
@@ -69,6 +84,8 @@ export function PPWizardProvider({ children }: { children: ReactNode }) {
   const [completed, setCompleted] = useState<Set<number>>(new Set());
   const [submittedIntake, setSubmittedIntake] = useState<PolicyPlanIntake | null>(null);
   const [submittedIntakeId, setSubmittedIntakeId] = useState<string | null>(null);
+  const [illustration, setIllustration] = useState<PPIllustration | null>(null);
+  const [uploadDone, setUploadDone] = useState(false);
 
   const setStep = useCallback((n: number) => setStepRaw(n), []);
   const goNext = useCallback(() => setStepRaw((s) => Math.min(s + 1, PP_STEP_COUNT)), []);
@@ -112,6 +129,10 @@ export function PPWizardProvider({ children }: { children: ReactNode }) {
         setSubmittedIntake,
         submittedIntakeId,
         setSubmittedIntakeId,
+        illustration,
+        setIllustration,
+        uploadDone,
+        setUploadDone,
       }}
     >
       {children}

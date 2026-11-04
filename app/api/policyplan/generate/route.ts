@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   const { data: intakeRow } = await supabase
     .from("policyplan_intakes")
     .select(
-      "id, advisor_id, status, payload, emphasis, suitability_flags, flag_resolutions, liquid_net_worth"
+      "id, advisor_id, status, payload, emphasis, suitability_flags, flag_resolutions, liquid_net_worth, illustration, illustration_text"
     )
     .eq("id", intake_id)
     .eq("advisor_id", user.id)
@@ -83,8 +83,26 @@ export async function POST(request: NextRequest) {
   const payload = intakeRow.payload as Record<string, unknown>;
   const liquid_net_worth = intakeRow.liquid_net_worth;
 
+  // Letterhead for the branded letter (optional — falls back to defaults in n8n).
+  const { data: branding } = await supabase
+    .from("advisor_branding")
+    .select(
+      "advisor_name, advisor_title, advisor_credentials, firm_name, firm_address, phone, email, license_number, disclosures"
+    )
+    .eq("advisor_id", user.id)
+    .maybeSingle();
+
+  const callbackUrl =
+    process.env.POLICYPLAN_CALLBACK_URL ||
+    `${request.nextUrl.origin}/api/policyplan/callback`;
+
   const webhookBody = {
     ...payload,
+    // Upload step: redacted proposed-illustration text for ATLAS-1 / ATLAS-2
+    illustration: intakeRow.illustration ?? null,
+    illustration_text: intakeRow.illustration_text ?? null,
+    branding: branding ?? null,
+    callback_url: callbackUrl,
     output_id,
     intake_id,
     advisor_id: user.id,

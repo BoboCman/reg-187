@@ -1,0 +1,569 @@
+{
+  "name": "PolicyPlan 187 Letter",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "policyplan-letter",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "PolicyPlan webhook auth"
+        }
+      },
+      "id": "38437131-5822-463f-9c59-e0d91235685e",
+      "name": "PolicyPlan Intake",
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "eb58345d-9e1d-4e5a-a2d7-bf9df0017361"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "5b285817-9fec-46ce-8fd2-7f16ef4f38cc",
+              "leftValue": "={{ $json.body.illustration_text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "id": "4e0a83e5-8275-45b4-99ef-608c7d7681da",
+      "name": "Has illustration?",
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ca8c1e69-ea33-4f65-9a2a-510009fde60d",
+              "name": "sanitizedText",
+              "value": "={{ $json.body.illustration_text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "id": "03f76a1f-77ac-4e67-b498-e0b673f03e19",
+      "name": "Sanitized Text1",
+      "position": [
+        440,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.sanitizedText }}",
+        "options": {
+          "systemMessage": "PASTE THE ATLAS-1 SYSTEM PROMPT AND USER MESSAGE FROM THE POLICYREVIEW WORKFLOW (Technical Extraction1)."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "id": "9c1d1e7a-240f-43d3-a230-a19079eac771",
+      "name": "Technical Extraction1",
+      "position": [
+        680,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-6-sol",
+          "mode": "list",
+          "cachedResultName": "gpt-6-sol"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "id": "9b005aa1-b1a6-4ab3-bf2f-c10ec04122c2",
+      "name": "OpenAI Chat Model1",
+      "position": [
+        620,
+        580
+      ]
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "id": "97003f3c-951e-4f40-ad4c-c393e7fcc1cc",
+      "name": "Calculator46",
+      "position": [
+        780,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "throw new Error('Paste the \"Atlas Parser1\" code from the PolicyReview workflow.');"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "8f623414-c5d8-464e-892f-1d664ff2f406",
+      "name": "Atlas Parser1",
+      "position": [
+        980,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "throw new Error('Paste the \"Light Middleware Atlas Parsed\" code from the PolicyReview workflow.');"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "5867a9a2-38a0-4cb0-8896-9ab12a883b4e",
+      "name": "Light Middleware Atlas Parsed",
+      "position": [
+        1200,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.sanitizedText }}",
+        "options": {
+          "systemMessage": "PASTE THE ATLAS-2 SYSTEM PROMPT AND USER MESSAGE FROM THE POLICYREVIEW WORKFLOW (Contextual Quotes1)."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "id": "edbd2c8b-5515-491b-932b-cf43cc28ae15",
+      "name": "Contextual Quotes1",
+      "position": [
+        680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-6-sol",
+          "mode": "list",
+          "cachedResultName": "gpt-6-sol"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "id": "fc05d074-ad5a-4331-9b2d-679e3c991a44",
+      "name": "OpenAI 4o5",
+      "position": [
+        680,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "throw new Error('Paste the \"01 ATLAS-2 Parse + Validate\" code from the PolicyReview workflow.');"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "e6c38473-b978-4bbf-a079-12b643d28ef8",
+      "name": "01 ATLAS-2 Parse + Validate",
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "id": "3aa94d7a-d07c-47a0-b152-2b4a5e1fc73e",
+      "name": "Merge2",
+      "position": [
+        1420,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "throw new Error('Paste the \"Atlas Evidence Envelope\" code from the PolicyReview workflow.');"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "ee1669e5-90cd-4a02-932d-ef3a9ba659e9",
+      "name": "Atlas Evidence Envelope",
+      "position": [
+        1640,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * PolicyPlan \u2014 187 Context Prep\n * Version: 1.0.0\n * n8n Code node, mode: Run Once for All Items\n *\n * Input:  the Atlas Evidence Envelope (factSpine + atlas2Parsed), and the\n *         intake posted to the \"PolicyPlan Intake\" webhook.\n * Output: { packet, letterUserMessage } for the 187 Letter Writer.\n *\n * This node does NOT write prose. It turns codes into plain labels, computes\n * the few ratios the letter may cite, and decides deterministically which\n * tensions the letter must address. The writer may only use what is here.\n */\n\nconst NODE_VERSION = '1.0.0';\nconst env = $input.first().json || {};\nconst body = $('PolicyPlan Intake').first().json.body || {};\n\n// \u2500\u2500 helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);\nfunction get(o, path) {\n  if (!o) return undefined;\n  let cur = o;\n  for (const p of path.replace(/\\[(\\d+)\\]/g, '.$1').split('.').filter(Boolean)) {\n    if (cur == null || !Object.prototype.hasOwnProperty.call(cur, p)) return undefined;\n    cur = cur[p];\n  }\n  return cur;\n}\n// Unwrap { value } / { amount } style facts, and drop \"NOT SHOWN\" markers.\nfunction val(v) {\n  if (v == null) return null;\n  if (isObj(v)) {\n    for (const k of ['value', 'amount', 'total', 'age', 'label', 'name']) {\n      if (v[k] != null) return val(v[k]);\n    }\n    return null;\n  }\n  if (typeof v === 'string') {\n    const t = v.trim();\n    if (!t || /^not\\s*shown$/i.test(t) || /^n\\/?a$/i.test(t) || t === 'null') return null;\n    return t;\n  }\n  return v;\n}\nfunction first(o, paths) {\n  for (const p of paths) {\n    const v = val(get(o, p));\n    if (v != null) return v;\n  }\n  return null;\n}\nfunction num(v) {\n  if (v == null) return null;\n  if (typeof v === 'number') return Number.isFinite(v) ? v : null;\n  const n = Number(String(v).replace(/[$,%\\s]/g, ''));\n  return Number.isFinite(n) ? n : null;\n}\nconst n0 = (v) => num(v) ?? 0;\nconst money = (v) => (v == null ? null : '$' + Math.round(v).toLocaleString('en-US'));\nconst pct = (v) => (v == null ? null : (Math.round(v * 10) / 10) + '%');\n\n// \u2500\u2500 labels (copy layer, mirrors lib/policyplan/schema.ts) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst OBJECTIVE = {\n  income_replacement: 'Replace income for the family',\n  mortgage_debt_payoff: 'Pay off a mortgage or other debts',\n  education_funding: 'Fund education',\n  final_expenses: 'Cover final expenses',\n  cash_accumulation: 'Build cash value',\n  supplemental_retirement_income: 'Supplement retirement income',\n  long_term_care_funding: 'Help pay for long-term care',\n  estate_tax_liquidity: 'Provide cash for estate taxes',\n  wealth_transfer: 'Pass wealth to heirs',\n  estate_equalization: 'Equalize an estate among heirs',\n  charitable_giving: 'Make a charitable gift',\n  business_succession_buy_sell: 'Fund a business buy-sell or succession plan',\n  key_person_protection: 'Protect the business against loss of a key person',\n  executive_benefit: 'Provide an executive benefit',\n};\nconst RISK = {\n  financial_experience: { q: 'Experience with financial products', limited: 'Limited', moderate: 'Moderate', extensive: 'Extensive' },\n  value_variability_tolerance: { q: 'Comfort with policy values that move year to year', prefer_stability: 'Prefers stability', balanced: 'Balanced', accept_variability: 'Accepts variability' },\n  guarantee_vs_upside: { q: 'Guarantees versus upside', strongly_prefer_guarantees: 'Strongly prefers guarantees', lean_guarantees: 'Leans toward guarantees', lean_upside: 'Leans toward upside', strongly_prefer_upside: 'Strongly prefers upside' },\n  nonguaranteed_elements: { q: 'Willingness to rely on non-guaranteed elements', accept: 'Accepts them', accept_with_limits: 'Accepts them within limits', prefer_to_avoid: 'Prefers to avoid them' },\n  premium_funding_commitment: { q: 'Ability to pay more premium if needed', able_and_willing: 'Able and willing', willing_if_necessary: 'Willing if necessary', unable_or_unwilling: 'Unable or unwilling' },\n  cash_value_access_need: { q: 'When cash value may be needed', none_expected: 'No access expected', long_term: 'Long term (16+ years)', medium_term: 'Medium term', near_term: 'Near term' },\n  complexity_tolerance: { q: 'Comfort with product complexity', prefer_simple: 'Prefers simple', comfortable_with_complexity: 'Comfortable with complexity' },\n};\nconst OWNERSHIP = { individual: 'Individually owned', business: 'Business owned', trust: 'Trust owned' };\n\n// \u2500\u2500 1. client profile \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst io = body.insured_owner || {};\nconst insureds = (io.insureds || []).map((i, idx) => ({\n  label: idx === 0 ? 'Insured' : 'Second insured',\n  first_name: (i.name || '').trim().split(/\\s+/)[0] || null,\n  age: i.dob ? Math.floor((Date.now() - new Date(i.dob).getTime()) / (365.25 * 864e5)) : null,\n  gender: i.gender || null,\n  nicotine: i.nicotine_use || null,\n}));\n\nconst obj = body.objectives || {};\nconst objectives = {\n  primary: OBJECTIVE[obj.primary] || obj.primary || null,\n  secondary: (obj.selected || []).filter((o) => o !== obj.primary).map((o) => OBJECTIVE[o] || o),\n};\n\nconst cols = (body.financial && body.financial.columns) || {};\nconst colList = [cols.client_1, cols.client_2, cols.joint].filter(isObj);\nconst sum = (k) => colList.reduce((a, c) => a + n0(c[k]), 0);\nconst liquidAssets = sum('cash_cds_securities') + sum('qualified_plans');\nconst otherAssets = sum('business_interests') + sum('real_estate') + sum('residence') + sum('other_assets');\nconst liabilities = sum('mortgage_amount') + sum('revolving_debt') + sum('other_liability_amount');\nconst income = sum('annual_income');\nconst lnw = num(body.liquid_net_worth) ?? liquidAssets - liabilities;\nconst taxRate = colList.map((c) => num(c.income_tax_rate)).find((v) => v != null) ?? null;\n\nconst rp = body.risk_preferences || {};\nconst riskProfile = Object.keys(RISK).filter((k) => rp[k]).map((k) => ({ question: RISK[k].q, answer: RISK[k][rp[k]] || rp[k], code: rp[k] }));\n\nconst ec = body.existing_coverage || {};\nconst existing = (ec.policies || []).map((p) => ({\n  carrier: p.insurance_company || null,\n  type: p.policy_type || null,\n  death_benefit: num(p.death_benefit),\n  cash_surrender_value: num(p.cash_surrender_value),\n  loan_balance: num(p.policy_loan_balance),\n  premium: num(p.premium_amount),\n  purpose: p.purpose_of_policy || null,\n  being_replaced: p.under_replacement_consideration === 'yes',\n}));\nconst replacement = existing.some((p) => p.being_replaced);\n\n// \u2500\u2500 2. proposed policy (ATLAS-1 fact spine + ATLAS-2 identity) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst fs = env.factSpine || {};\nconst a2 = env.atlas2Parsed || {};\nconst policy = {\n  carrier: first(fs, ['provenance.carrier']) ?? first(a2, ['policyIdentity.carrier', 'policyIdentity.carrierName']),\n  product: first(fs, ['provenance.product']) ?? first(a2, ['policyIdentity.product', 'policyIdentity.productName']),\n  product_type: first(fs, ['chassis.type']),\n  product_subtype: first(fs, ['chassis.subtype']),\n  face_amount: num(first(fs, ['analysis_facts.coverage_identity.contractual_face.total', 'chassis.face_amount', 'chassis.specified_amount'])),\n  death_benefit_option: first(fs, ['chassis.db_option']),\n  annual_premium: num(first(fs, ['premiums.annualized', 'premiums.scheduled', 'ledger.Y1.premium_as_extracted'])),\n  premium_mode: first(fs, ['premiums.mode']),\n  premium_pattern: first(fs, ['premiums.schedule_pattern']),\n  premium_stop_year: first(fs, ['premiums.stop_year']),\n  issue_age: num(first(fs, ['provenance.issue_age', 'provenance.stated_issue_age'])),\n  gender: first(fs, ['provenance.gender']),\n  risk_class: first(fs, ['provenance.issue_class']),\n  state: first(fs, ['provenance.state']),\n  illustration_date: first(fs, ['provenance.illustration_date']),\n  illustrated_rate: first(fs, ['product_specific.iul.illustrated_rate', 'product_specific.vul.illustrated_rate_gross']),\n  no_lapse_guarantee: first(fs, ['chassis.no_lapse_guarantee', 'chassis.coverage_guarantees[0].label']),\n  no_lapse_end_age: num(first(fs, ['chassis.no_lapse_end_age'])),\n  guaranteed_coverage_through_age: num(first(fs, ['analysis_facts.coverage_support.guaranteed.coverage_shown_through.age', 'dashboard_facts.guarantee_relationship.guaranteed_values_sustain_through_age'])),\n  guaranteed_values_exhausted_age: num(first(fs, ['analysis_facts.coverage_support.guaranteed.value_exhausted.age'])),\n  maturity_age: num(first(fs, ['provenance.maturity_age', 'analysis_facts.coverage_support.ledger_end.maturity_age'])),\n  illustrated_distributions: get(fs, 'distributions.illustrated') ?? null,\n  loan_rate: first(fs, ['loans.rate_current', 'loans.rate_current_value', 'loans.current_active_rate']),\n};\nconst variableOrIndexed = /index|iul|variable|vul/i.test(String(policy.product_type || '') + ' ' + String(policy.product_subtype || ''));\n\n// Selected ATLAS-2 verbatim language the letter may quote. ATLAS-2 stores each\n// passage as { sourceText, sourcePageLabel, sourceHeading } under a named field;\n// we walk the whole object (except identity) and rank warnings first.\nconst quotes = [];\nfunction walk(node, path, depth) {\n  if (node == null || depth > 6) return;\n  if (Array.isArray(node)) { node.forEach((x, i) => walk(x, path, depth + 1)); return; }\n  if (!isObj(node)) return;\n  if (typeof node.sourceText === 'string') {\n    const t = node.sourceText.trim();\n    if (t.length >= 30 && t.length <= 1200) {\n      quotes.push({ field: path, page: node.sourcePageLabel || null, text: t });\n    }\n  }\n  for (const [k, v] of Object.entries(node)) {\n    if (k === 'sourceText') continue;\n    walk(v, path ? path + '.' + k : k, depth + 1);\n  }\n}\nfor (const [k, v] of Object.entries(a2)) if (k !== 'policyIdentity') walk(v, k, 0);\nconst PRIORITY = /warning|lapse|surrender|nonGuaranteed|guarantee|loan|cap|floor|charge|mec/i;\nquotes.sort((x, y) => (PRIORITY.test(y.field) ? 1 : 0) - (PRIORITY.test(x.field) ? 1 : 0));\nquotes.splice(40);\nquotes.forEach((q, i) => { q.ref = 'Q' + (i + 1); });\n\n// \u2500\u2500 3. derived ratios \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst prem = policy.annual_premium;\nconst derived = {\n  annual_income: income || null,\n  liquid_assets: liquidAssets || null,\n  other_assets: otherAssets || null,\n  liabilities: liabilities || null,\n  liquid_net_worth: lnw,\n  income_tax_rate: taxRate,\n  premium_to_income_pct: prem && income ? Math.round((prem / income) * 1000) / 10 : null,\n  premium_to_liquid_net_worth_pct: prem && lnw > 0 ? Math.round((prem / lnw) * 1000) / 10 : null,\n};\n\n// \u2500\u2500 4. tensions the letter MUST address (deterministic) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst tensions = [];\nconst add = (code, severity, title, detail) => tensions.push({ code, severity, title, detail });\n\nif (variableOrIndexed && ['strongly_prefer_guarantees', 'lean_guarantees'].includes(rp.guarantee_vs_upside)) {\n  add('GUARANTEE_PREFERENCE_VS_PRODUCT', rp.guarantee_vs_upside === 'strongly_prefer_guarantees' ? 'high' : 'moderate',\n    'Preference for guarantees, policy relies on non-guaranteed growth',\n    `The client ${RISK.guarantee_vs_upside[rp.guarantee_vs_upside].toLowerCase()}, and the proposed ${policy.product_type || 'policy'} depends on non-guaranteed crediting.`);\n}\nif (variableOrIndexed && rp.nonguaranteed_elements === 'prefer_to_avoid') {\n  add('NONGUARANTEED_AVOIDANCE', 'high', 'Client prefers to avoid non-guaranteed elements',\n    'The illustrated values depend on non-guaranteed rates and charges.');\n}\nif (derived.premium_to_income_pct != null && derived.premium_to_income_pct > 20) {\n  add('PREMIUM_TO_INCOME', derived.premium_to_income_pct > 35 ? 'high' : 'moderate', 'Premium is a large share of income',\n    `The annual premium of ${money(prem)} is about ${pct(derived.premium_to_income_pct)} of reported annual income.`);\n}\nif (derived.premium_to_liquid_net_worth_pct != null && derived.premium_to_liquid_net_worth_pct > 25) {\n  add('PREMIUM_TO_LIQUID_NET_WORTH', 'moderate', 'Premium is large relative to liquid net worth',\n    `The annual premium is about ${pct(derived.premium_to_liquid_net_worth_pct)} of liquid net worth.`);\n}\nif (lnw != null && lnw <= 0) {\n  add('NO_LIQUID_CUSHION', 'high', 'No liquid net worth reported', 'Liabilities equal or exceed liquid assets, so there is no cushion if premiums must rise.');\n}\nif (rp.premium_funding_commitment === 'unable_or_unwilling' && variableOrIndexed) {\n  add('FUNDING_FLEXIBILITY', 'high', 'Cannot pay more premium if needed',\n    'If credited rates fall short of the illustration, more premium may be needed to keep coverage in force.');\n}\nif (rp.cash_value_access_need === 'near_term') {\n  add('NEAR_TERM_ACCESS', 'moderate', 'Cash value may be needed soon', 'Early-year surrender charges and lower early cash values limit near-term access.');\n}\nif (rp.complexity_tolerance === 'prefer_simple' && variableOrIndexed) {\n  add('COMPLEXITY', 'low', 'Client prefers simple products', `The proposed ${policy.product_type || 'policy'} has more moving parts than a guaranteed design.`);\n}\nif (replacement) {\n  add('REPLACEMENT', 'high', 'This policy would replace existing coverage',\n    'The letter must cover what the client gives up: surrender charges, a new contestability period, changes in cost, and any lost features.');\n}\n// Tensions the app already detected (and the producer's notes on them).\nfor (const f of body.suitability_flags || []) {\n  const note = (body.flag_resolutions || {})[f.code];\n  add(f.code, f.severity === 'material' || f.severity === 'warning' ? 'high' : 'moderate', f.code.replace(/_/g, ' ').toLowerCase(),\n    f.description + (note && note.note ? ` Producer note: ${note.note}` : ''));\n}\n\n// \u2500\u2500 5. packet + writer message \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst b = body.branding || {};\nconst packet = {\n  context_version: NODE_VERSION,\n  advisor: {\n    name: b.advisor_name || null,\n    title: b.advisor_title || null,\n    credentials: b.advisor_credentials || null,\n    firm: b.firm_name || null,\n  },\n  client: {\n    insureds,\n    ownership: OWNERSHIP[io.ownership_type] || io.ownership_type || null,\n    state: io.state_of_ownership || policy.state || null,\n    premium_source: (body.financial && body.financial.expected_source_of_premium) || null,\n    notes: body.notes || null,\n  },\n  objectives,\n  risk_profile: riskProfile,\n  finances: derived,\n  existing_coverage: existing,\n  replacement,\n  proposed_policy: policy,\n  illustration_quotes: quotes,\n  tensions,\n};\n\nconst lines = [];\nlines.push('## 187 LETTER PACKET (the only source you may use)');\nlines.push('```json');\nlines.push(JSON.stringify(packet, null, 2));\nlines.push('```');\nlines.push('');\nlines.push(`Sections required: why_we_met, recommendation, why_it_fits, what_to_weigh, guaranteed_vs_illustrated${replacement ? ', replacement' : ''}, next_steps.`);\nlines.push(`Address every tension in packet.tensions inside what_to_weigh${replacement ? ' or replacement' : ''}.`);\n\nreturn [{\n  json: {\n    packet,\n    letterUserMessage: lines.join('\\n'),\n    output_id: body.output_id,\n    callback_url: body.callback_url,\n    _contextPrep: { nodeVersion: NODE_VERSION, tensionCount: tensions.length, quoteCount: quotes.length, hasFactSpine: isObj(env.factSpine), hasAtlas2: isObj(env.atlas2Parsed) },\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "0ab43fd3-05ef-40e4-b562-1b2d5e1b7887",
+      "name": "187 Context Prep",
+      "position": [
+        1860,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.letterUserMessage }}",
+        "options": {
+          "systemMessage": "# POLICYPLAN \u2014 187 LETTER WRITER v1.0\n\nYou write a best-interest recommendation letter from a life insurance advisor to their client, for a New York Regulation 187 (11 NYCRR 224) sale. The letter goes to the client before they apply. The advisor reviews and edits it, then signs it.\n\n## Voice\n\n- First person, from the advisor (\"I recommend\u2026\", \"You told me\u2026\"). Address the client as \"you\".\n- Professional and conversational, like a trusted advisor writing a careful letter. Use plain English. Explain any insurance term the first time you use it.\n- Confident but balanced. You are explaining a recommendation, not selling one. Don't use hype, superlatives or urgency, and never say \"guaranteed\" about anything the packet doesn't show as guaranteed.\n- Keep it short. Aim for 650 to 1,000 words. Use short paragraphs, and use bullets only where a list really helps.\n\n## Source rules (strict)\n\n1. The packet in the user message is your ONLY source. Never add facts, numbers, product features, rates, ages or carrier claims that aren't in it.\n2. Every dollar amount, percentage, age and year you write must appear in the packet, either directly or as a simple rounding of a packet value. If a fact you would want is missing or null, leave it out. Never guess. Never write \"N/A\" or \"not shown\".\n3. Quote illustration language only from `illustration_quotes`, word for word, and keep quotes short (one or two sentences). Cite the page when the packet gives one.\n4. Use the client's first name only. Never print surnames, dates of birth, policy numbers or the advisor's private notes word for word.\n5. This is not tax or legal advice. When tax treatment matters, say the client should confirm it with their tax advisor.\n\n## What the letter must do (224.4(f))\n\n- Explain the basis for the recommendation: how the proposed policy connects to the client's stated objectives, finances and risk answers.\n- Give the unfavorable considerations as much attention as the favorable ones. Every item in `packet.tensions` must be addressed by name in `what_to_weigh` (or in `replacement` for replacement items). Say plainly what the tension is, why the recommendation still makes sense or what would make it stop making sense, and what the client can do about it. If a tension carries a producer note, use the substance of that note.\n- Explain which values are guaranteed and which are illustrated (non-guaranteed), and what happens if credited rates or charges turn out worse than illustrated.\n- If `packet.replacement` is true, include the `replacement` section. Cover what the client gives up (surrender charges on the old policy, a new contestability and suicide period, new costs, and features or guarantees that would be lost), and note that the New York replacement disclosure forms are provided separately.\n\n## Sections (in this order, use these ids)\n\n1. `why_we_met`: the client's goals in their own terms, using the primary objective first.\n2. `recommendation`: the recommended carrier, product, face amount, premium and premium pattern, from `proposed_policy`.\n3. `why_it_fits`: tie each objective and the most important risk answers to specific features of the policy.\n4. `what_to_weigh`: the tensions and other drawbacks, such as costs, surrender charges, reliance on non-guaranteed elements, and the premium commitment.\n5. `guaranteed_vs_illustrated`: what is guaranteed and what is not, with the illustrated rate if one is given.\n6. `replacement`: only when `packet.replacement` is true.\n7. `next_steps`: what happens next (review the illustration, ask questions, the application, underwriting, the free-look period). Invite questions.\n\n## Output\n\nReturn ONLY one JSON object, with no code fences and no commentary:\n\n{\n  \"salutation\": \"Dear <first name or names>,\",\n  \"opening\": \"<one or two sentences: why you are writing and what the letter covers>\",\n  \"sections\": [\n    {\n      \"id\": \"<section id>\",\n      \"title\": \"<short heading in plain English>\",\n      \"paragraphs\": [\"<paragraph>\", \"...\"],\n      \"bullets\": [\"<optional bullet>\", \"...\"],\n      \"quotes\": [{ \"text\": \"<verbatim from illustration_quotes>\", \"source\": \"Illustration, <page>\" }]\n    }\n  ],\n  \"closing\": \"<one or two warm closing sentences, then the advisor's name, credentials and firm on separate lines if the packet provides them>\",\n  \"tensions_addressed\": [\"<code from packet.tensions>\", \"...\"]\n}\n\nUse empty arrays for `bullets` and `quotes` when you have none. `tensions_addressed` must list every code in `packet.tensions`.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput",
+      "id": "f294a147-c978-4dc8-984c-cd6d714bfed3",
+      "name": "187 Letter Writer",
+      "position": [
+        2080,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-6.1-sol",
+          "mode": "list",
+          "cachedResultName": "gpt-6.1-sol"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "id": "5b193438-e4dd-47be-98da-196f3da63e7a",
+      "name": "OpenAI Sol",
+      "position": [
+        2080,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * PolicyPlan \u2014 187 Letter QA\n * Version: 1.0.0\n * n8n Code node, mode: Run Once for All Items\n *\n * Parses the Letter Writer's JSON, checks it against the packet, and builds\n * the callback body for POST /api/policyplan/callback (see\n * lib/policyplan/letter.ts, callbackSchema). A letter that fails a soft check\n * is still delivered as a draft with qa.passed = false, so the advisor sees\n * the issue on review. A letter that can't be parsed is sent as an error.\n */\n\nconst NODE_VERSION = '1.0.0';\nconst WORKFLOW_VERSION = 'policyplan-187-letter/1.0.0';\n\nconst prep = $('187 Context Prep').first().json;\nconst packet = prep.packet || {};\nconst raw = $input.first().json || {};\nconst text = String(raw.output ?? raw.text ?? raw.response ?? '');\n\nconst TITLES = {\n  why_we_met: 'What you told me matters most',\n  recommendation: 'What I recommend',\n  why_it_fits: 'Why it fits you',\n  what_to_weigh: 'What to weigh before you decide',\n  guaranteed_vs_illustrated: 'What is guaranteed and what is not',\n  replacement: 'Replacing your current coverage',\n  next_steps: 'Next steps',\n};\nconst ORDER = Object.keys(TITLES);\n\nfunction parseJson(t) {\n  let s = t.trim().replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/, '');\n  const a = s.indexOf('{');\n  const b = s.lastIndexOf('}');\n  if (a < 0 || b <= a) throw new Error('no JSON object in writer output');\n  return JSON.parse(s.slice(a, b + 1));\n}\n\nlet letter;\ntry {\n  letter = parseJson(text);\n} catch (e) {\n  return [{ json: { callback: { status: 'error', output_id: prep.output_id, workflow_version: WORKFLOW_VERSION, error: 'writer_output_unparseable: ' + e.message } } }];\n}\n\nconst strArr = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim()) : []);\nconst sections = (Array.isArray(letter.sections) ? letter.sections : [])\n  .filter((s) => s && ORDER.includes(s.id))\n  .map((s) => ({\n    id: s.id,\n    title: typeof s.title === 'string' && s.title.trim() ? s.title.trim() : TITLES[s.id],\n    paragraphs: strArr(s.paragraphs),\n    bullets: strArr(s.bullets),\n    quotes: (Array.isArray(s.quotes) ? s.quotes : [])\n      .filter((q) => q && typeof q.text === 'string' && q.text.trim())\n      .map((q) => ({ text: q.text.trim(), ...(q.source ? { source: String(q.source) } : {}) })),\n  }))\n  .sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));\n\n// \u2500\u2500 checks \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nconst checks = [];\nconst check = (id, passed, detail) => checks.push({ id, passed: !!passed, ...(detail ? { detail } : {}) });\nconst has = (id) => sections.some((s) => s.id === id && (s.paragraphs.length || s.bullets.length));\n\nconst required = ['why_we_met', 'recommendation', 'why_it_fits', 'what_to_weigh', 'guaranteed_vs_illustrated', 'next_steps'];\nif (packet.replacement) required.push('replacement');\nconst missing = required.filter((id) => !has(id));\ncheck('required_sections', missing.length === 0, missing.length ? 'missing: ' + missing.join(', ') : undefined);\n\nconst weigh = sections.find((s) => s.id === 'what_to_weigh');\nconst weighWords = weigh ? (weigh.paragraphs.join(' ') + ' ' + weigh.bullets.join(' ')).split(/\\s+/).length : 0;\ncheck('unfavorable_considerations_present', weighWords >= 60, `what_to_weigh has ${weighWords} words`);\n\nconst tensionCodes = (packet.tensions || []).map((t) => t.code);\nconst addressed = new Set(strArr(letter.tensions_addressed));\nconst unaddressed = tensionCodes.filter((c) => !addressed.has(c));\ncheck('tensions_addressed', unaddressed.length === 0, unaddressed.length ? 'not addressed: ' + unaddressed.join(', ') : undefined);\n\n// Every number in the letter should trace to the packet.\nconst packetNums = new Set();\n(function collect(v) {\n  if (v == null) return;\n  if (typeof v === 'number') { packetNums.add(v); return; }\n  if (typeof v === 'string') { (v.match(/\\d[\\d,]*\\.?\\d*/g) || []).forEach((m) => packetNums.add(Number(m.replace(/,/g, '')))); return; }\n  if (Array.isArray(v)) return v.forEach(collect);\n  if (typeof v === 'object') Object.values(v).forEach(collect);\n})(packet);\nconst pk = [...packetNums].filter((n) => Number.isFinite(n));\nconst allText = [letter.opening, letter.closing, ...sections.flatMap((s) => [...s.paragraphs, ...s.bullets, ...s.quotes.map((q) => q.text)])].join(' ');\nconst letterNums = (allText.match(/\\$?\\d[\\d,]*\\.?\\d*%?/g) || [])\n  .map((m) => Number(m.replace(/[$,%]/g, '')))\n  .filter((n) => Number.isFinite(n) && n >= 10 && !(n >= 1900 && n <= 2100));\nconst close = (n) => pk.some((p) => p === n || (p !== 0 && Math.abs(p - n) / Math.abs(p) <= 0.01) || Math.round(p) === n || Math.round(p * 10) / 10 === n);\nconst untraced = [...new Set(letterNums.filter((n) => !close(n)))];\ncheck('numbers_trace_to_packet', untraced.length === 0, untraced.length ? 'untraced: ' + untraced.slice(0, 10).join(', ') : undefined);\n\nconst banned = /\\b(guaranteed to (grow|earn|return)|risk[- ]free|can't lose|cannot lose|no risk)\\b/i;\ncheck('no_overpromising_language', !banned.test(allText));\n\nconst qa = { passed: checks.every((c) => c.passed), node_version: NODE_VERSION, checks };\n\n// Tensions shown to the producer on review (from the packet, not the model).\nconst tensions = (packet.tensions || []).map((t) => ({ code: t.code, severity: t.severity, title: t.title, detail: t.detail }));\n\nconst p = packet.proposed_policy || {};\nconst callback = {\n  status: 'draft',\n  output_id: prep.output_id,\n  workflow_version: WORKFLOW_VERSION,\n  letter: {\n    contract_version: '1.0',\n    salutation: String(letter.salutation || 'Dear client,'),\n    opening: String(letter.opening || ''),\n    sections,\n    closing: String(letter.closing || ''),\n    policy_snapshot: {\n      carrier: p.carrier ?? null,\n      product: p.product ?? null,\n      product_type: p.product_type ?? null,\n      face_amount: p.face_amount ?? null,\n      annual_premium: p.annual_premium ?? null,\n      premium_years: p.premium_stop_year != null ? String(p.premium_stop_year) : null,\n      insured_age: p.issue_age ?? null,\n      risk_class: p.risk_class ?? null,\n      illustrated_rate: p.illustrated_rate != null ? String(p.illustrated_rate) : null,\n      illustration_date: p.illustration_date != null ? String(p.illustration_date) : null,\n    },\n    tensions,\n  },\n  extraction: {\n    proposed_policy: p,\n    finances: packet.finances || null,\n    replacement: !!packet.replacement,\n    quote_count: (packet.illustration_quotes || []).length,\n    context_version: packet.context_version || null,\n  },\n  qa,\n};\n\nif (!callback.letter.opening || !sections.length || !callback.letter.closing) {\n  return [{ json: { callback: { status: 'error', output_id: prep.output_id, workflow_version: WORKFLOW_VERSION, error: 'writer_output_incomplete' } } }];\n}\n\nreturn [{ json: { callback } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "2aef8ca2-262e-405e-a36d-e8ab57b6c486",
+      "name": "187 Letter QA",
+      "position": [
+        2380,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $('PolicyPlan Intake').first().json.body || {};\nreturn [{ json: { callback: { status: 'error', output_id: b.output_id, workflow_version: 'policyplan-187-letter/1.0.0', error: 'no_illustration' } } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "b7570c57-3c87-4acf-9f35-c4d8a4b12dd2",
+      "name": "No illustration",
+      "position": [
+        440,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('PolicyPlan Intake').first().json.body.callback_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "policyplan-callback-auth",
+              "value": "={{ $vars.POLICYPLAN_CALLBACK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.callback) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "9667b188-2e70-4d6e-ba10-7ebe99d12ed9",
+      "name": "Post to PolicyPlan",
+      "position": [
+        2620,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "PolicyPlan Intake": {
+      "main": [
+        [
+          {
+            "node": "Has illustration?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has illustration?": {
+      "main": [
+        [
+          {
+            "node": "Sanitized Text1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No illustration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitized Text1": {
+      "main": [
+        [
+          {
+            "node": "Technical Extraction1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Contextual Quotes1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Technical Extraction1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator46": {
+      "ai_tool": [
+        [
+          {
+            "node": "Technical Extraction1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Technical Extraction1": {
+      "main": [
+        [
+          {
+            "node": "Atlas Parser1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atlas Parser1": {
+      "main": [
+        [
+          {
+            "node": "Light Middleware Atlas Parsed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Light Middleware Atlas Parsed": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "OpenAI 4o5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Contextual Quotes1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contextual Quotes1": {
+      "main": [
+        [
+          {
+            "node": "01 ATLAS-2 Parse + Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "01 ATLAS-2 Parse + Validate": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Atlas Evidence Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atlas Evidence Envelope": {
+      "main": [
+        [
+          {
+            "node": "187 Context Prep",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "187 Context Prep": {
+      "main": [
+        [
+          {
+            "node": "187 Letter Writer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Sol": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "187 Letter Writer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "187 Letter Writer": {
+      "main": [
+        [
+          {
+            "node": "187 Letter QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "187 Letter QA": {
+      "main": [
+        [
+          {
+            "node": "Post to PolicyPlan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No illustration": {
+      "main": [
+        [
+          {
+            "node": "Post to PolicyPlan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
