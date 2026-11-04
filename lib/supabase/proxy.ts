@@ -42,7 +42,8 @@ export async function updateSession(request: NextRequest) {
   const isGated =
     pathname.startsWith("/app") ||
     pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/cases");
+    pathname.startsWith("/cases") ||
+    pathname.startsWith("/settings");
   if (isGated && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";

@@ -2,9 +2,11 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { policyPlanIntakeSchema } from "@/lib/policyplan/schema";
 import { CaseWorkspace } from "@/components/policyplan/CaseWorkspace";
+import { LetterWorkspace, type LetterOutput } from "@/components/policyplan/LetterWorkspace";
 
 interface Props {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ view?: string }>;
 }
 
 export async function generateMetadata({ params }: Props) {
@@ -14,8 +16,9 @@ export async function generateMetadata({ params }: Props) {
   };
 }
 
-export default async function CaseDetailPage({ params }: Props) {
+export default async function CaseDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const { view } = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -65,12 +68,37 @@ export default async function CaseDetailPage({ params }: Props) {
   const { data: outputRow } = await supabase
     .from("policyplan_outputs")
     .select(
-      "id, status, advisor_letter, client_summary, suitability_flags, flag_resolutions, adopted_by, adopted_at, adoption_confirmation, completed_at, meta"
+      "id, status, advisor_letter, client_summary, suitability_flags, flag_resolutions, adopted_by, adopted_at, adoption_confirmation, completed_at, meta, letter, qa, content_hash"
     )
     .eq("intake_id", id)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  // Cases drafted by the previous workflow (markdown letter, no structured
+  // letter) keep the old five-stage workspace. Everything else uses the
+  // Letter step of the Upload > Profile > Letter journey.
+  const isLegacy =
+    view === "legacy" ||
+    (!!outputRow && !outputRow.letter && !!outputRow.advisor_letter && outputRow.status !== "pending");
+
+  if (!isLegacy) {
+    const { data: branding } = await supabase
+      .from("advisor_branding")
+      .select("*")
+      .eq("advisor_id", user.id)
+      .maybeSingle();
+    const preparedFor =
+      parsed.data.insured_owner.insureds.map((i) => i.name.trim()).filter(Boolean).join(" and ") || null;
+    return (
+      <LetterWorkspace
+        intakeId={row.id}
+        preparedFor={preparedFor}
+        branding={branding ?? null}
+        initialOutput={(outputRow as LetterOutput | null) ?? null}
+      />
+    );
+  }
 
   return (
     <CaseWorkspace

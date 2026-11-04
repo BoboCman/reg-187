@@ -1,5 +1,5 @@
 /**
- * POLICYPLAN — 187 LETTER CONTRACT (v1.0)
+ * POLICYPLAN — 187 LETTER CONTRACT (v1.1)
  *
  * The shape the n8n "PolicyPlan 187 Letter" workflow posts back to
  * /api/policyplan/callback. The workflow's Letter QA node emits exactly this.
@@ -10,11 +10,12 @@
 
 import { z } from "zod";
 
-export const LETTER_CONTRACT_VERSION = "1.0";
+export const LETTER_CONTRACT_VERSION = "1.1";
 
 export const letterSectionIdEnum = z.enum([
   "why_we_met",
   "recommendation",
+  "how_it_works",
   "why_it_fits",
   "what_to_weigh",
   "guaranteed_vs_illustrated",
@@ -26,6 +27,7 @@ export type LetterSectionId = z.infer<typeof letterSectionIdEnum>;
 export const LETTER_SECTION_TITLES: Record<LetterSectionId, string> = {
   why_we_met: "What you told me matters most",
   recommendation: "What I recommend",
+  how_it_works: "How the policy works",
   why_it_fits: "Why it fits you",
   what_to_weigh: "What to weigh before you decide",
   guaranteed_vs_illustrated: "What is guaranteed and what is not",
@@ -36,6 +38,7 @@ export const LETTER_SECTION_TITLES: Record<LetterSectionId, string> = {
 const quoteSchema = z.object({
   text: z.string().min(1),
   source: z.string().optional(), // e.g. "Illustration p. 4"
+  ref: z.string().optional(), // ATLAS-2 evidence ref, e.g. "Q3"
 });
 
 export const letterSectionSchema = z.object({
@@ -46,6 +49,18 @@ export const letterSectionSchema = z.object({
   quotes: z.array(quoteSchema).default([]),
 });
 export type LetterSection = z.infer<typeof letterSectionSchema>;
+
+const money = z.number().nullish();
+const milestoneSchema = z.object({
+  year: z.number(),
+  age: z.number().nullish(),
+  cumulative_premium: money,
+  sv_guaranteed: money,
+  db_guaranteed: money,
+  sv_illustrated: money,
+  db_illustrated: money,
+});
+export type LetterMilestone = z.infer<typeof milestoneSchema>;
 
 export const policySnapshotSchema = z
   .object({
@@ -59,6 +74,9 @@ export const policySnapshotSchema = z
     risk_class: z.string().nullish(),
     illustrated_rate: z.string().nullish(),
     illustration_date: z.string().nullish(),
+    // Deterministic from the ATLAS-1 extraction (Letter QA), not model text.
+    facts: z.array(z.object({ label: z.string(), value: z.string() })).default([]),
+    milestones: z.array(milestoneSchema).default([]),
   })
   .partial();
 export type PolicySnapshot = z.infer<typeof policySnapshotSchema>;

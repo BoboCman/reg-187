@@ -42,3 +42,12 @@ The source for the PolicyPlan nodes lives in `n8n/src/`:
 - `187-letter-qa.js` checks the letter and builds the callback body (`lib/policyplan/letter.ts`, `callbackSchema`).
 
 After you edit any of them, run `python3 n8n/build.py` and re-import the workflow.
+
+To update a workflow that is already live without re-importing, paste each file into its node instead: `187-context-prep.js` into the **187 Context Prep** code, `187-letter-writer.system.md` into the **187 Letter Writer** system message, and `187-letter-qa.js` into the **187 Letter QA** code. Save, then retry a run.
+
+### v1.1 (letter grounded in the illustration)
+
+- Context Prep reads the ATLAS-2 evidence registry, so the writer gets the carrier's own wording (v1.0 found none because ATLAS-2 stores plain strings).
+- Context Prep adds `policy_features` (crediting, riders, surrender charges, premium totals, guaranteed vs illustrated path, loans, MEC status) and `illustrated_values` (ledger milestones) from ATLAS-1, plus three policy-aware tensions.
+- The writer adds a "How the policy works" section and must quote the illustration at least three times.
+- Letter QA removes any quote that isn't verbatim, and adds a deterministic "Your policy at a glance" table to `policy_snapshot`, which the app prints after "How the policy works".

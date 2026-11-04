@@ -93,10 +93,18 @@ export function AppNav({ centerSlot, rightSlot, hideNewIntake }: AppNavProps) {
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-xs font-semibold transition-colors"
             >
               <FilePlus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">New intake</span>
+              <span className="hidden sm:inline">New case</span>
               <span className="sm:hidden">New</span>
             </Link>
           )}
+
+          {/* Letterhead settings */}
+          <Link
+            href="/settings/branding"
+            className="hidden sm:inline-flex text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors px-2 py-1.5 rounded-md hover:bg-[var(--color-readonly-bg)]"
+          >
+            Letterhead
+          </Link>
 
           {/* Sign out */}
           <button
