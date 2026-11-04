@@ -30,7 +30,7 @@ type AttestationDefaults = {
 };
 
 export function PPStep7Attestation() {
-  const { formData, patch, markComplete, setSubmittedIntake, setSubmittedIntakeId } = usePPWizard();
+  const { formData, patch, markComplete, setSubmittedIntake, setSubmittedIntakeId, illustration } = usePPWizard();
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pendingPayload, setPendingPayload] = useState<PolicyPlanIntake | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -96,6 +96,16 @@ export function PPStep7Attestation() {
           emphasis,
           suitability_flags,
           liquid_net_worth,
+          illustration: illustration
+            ? {
+                filename: illustration.filename,
+                size_bytes: illustration.size_bytes,
+                page_count: illustration.page_count,
+                redaction_counts: illustration.redaction_counts,
+                extracted_at: illustration.extracted_at,
+              }
+            : null,
+          illustration_text: illustration?.text ?? null,
         })
         .select("id")
         .single();
