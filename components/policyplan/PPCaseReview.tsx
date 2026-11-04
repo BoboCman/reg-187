@@ -382,7 +382,8 @@ export function PPCaseReview({
         </div>
       </SectionCard>
 
-      {/* Attestation */}
+      {/* Attestation (older intakes only — the client signature was dropped) */}
+      {intake.attestation && (
       <SectionCard title="Attestation">
         <Row label="Signed by" value={intake.attestation.owner_signature} />
         <Row label="Date" value={intake.attestation.signed_date} />
@@ -393,6 +394,7 @@ export function PPCaseReview({
           />
         )}
       </SectionCard>
+      )}
     </div>
   );
 }

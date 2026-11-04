@@ -6,6 +6,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { riskPreferencesSchema, type RiskPreferences } from "@/lib/policyplan/schema";
 import { usePPWizard } from "@/lib/policyplan/wizard-context";
 import { PPStepFooter } from "@/components/policyplan/PPStepWrapper";
+import { useSubmitIntake } from "@/lib/policyplan/use-submit-intake";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Pencil } from "lucide-react";
 
@@ -320,7 +321,8 @@ function AnsweredRow({
 const ADVANCE_DELAY_MS = 320;
 
 export function PPStep5RiskPreferences() {
-  const { formData, patch, markComplete, goNext } = usePPWizard();
+  const { formData, patch, markComplete } = usePPWizard();
+  const { submit, isSaving, error: saveError } = useSubmitIntake();
 
   const {
     control,
@@ -421,7 +423,8 @@ export function PPStep5RiskPreferences() {
     setSubmitError(null);
     patch({ risk_preferences: data });
     markComplete(5);
-    goNext();
+    // Last profile card: save the case and start the letter.
+    submit({ risk_preferences: data });
   };
 
   const onInvalid = () => {
@@ -440,12 +443,12 @@ export function PPStep5RiskPreferences() {
       <GroupProgressRail statuses={groupStatuses} activeGroupIdx={activeGroupIdx} />
 
       {/* Submit error banner */}
-      {submitError && (
+      {(submitError || saveError) && (
         <div
           className="mb-5 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]"
           role="alert"
         >
-          {submitError}
+          {submitError || saveError}
         </div>
       )}
 
@@ -528,7 +531,10 @@ export function PPStep5RiskPreferences() {
         </>
       )}
 
-      <PPStepFooter continueDisabled={!allComplete} />
+      <PPStepFooter
+        continueDisabled={!allComplete || isSaving}
+        continueLabel={isSaving ? "Starting your letter…" : "Generate the letter"}
+      />
     </form>
   );
 }

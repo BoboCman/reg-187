@@ -405,9 +405,13 @@ export const policyPlanIntakeSchema = z.object({
   financial: financialSchema, // 3
   existing_coverage: existingCoverageSchema, // 4
   risk_preferences: riskPreferencesSchema, // 5
-  policy_specs: policySpecsSchema, // 6
+  // The proposed illustration now supplies the specifications; kept optional
+  // so older intakes (and the sample case) still validate.
+  policy_specs: policySpecsSchema.optional(),
   notes: z.string().optional(),
-  attestation: attestationSchema, // 7
+  // Client signature was dropped (2026-10-23); the producer attests on the
+  // letter instead. Kept optional so older intakes still validate.
+  attestation: attestationSchema.optional(),
 });
 
 /* ----------------------------------------------------------------------------

@@ -22,6 +22,7 @@ export function PPStep2Objectives() {
     formData.objectives?.primary ?? null
   );
   const [error, setError] = useState<string | null>(null);
+  const [notes, setNotes] = useState(formData.notes ?? "");
 
   // Re-sync when sample case is loaded
   useEffect(() => {
@@ -66,7 +67,7 @@ export function PPStep2Objectives() {
       );
       return;
     }
-    patch({ objectives: result.data as Objectives });
+    patch({ objectives: result.data as Objectives, notes: notes.trim() || undefined });
     markComplete(2);
     goNext();
   };
@@ -162,6 +163,20 @@ export function PPStep2Objectives() {
           )}
         </div>
       )}
+
+      <PPSectionCard title="In the client's own words" className="mt-6">
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          maxLength={1000}
+          placeholder="For example: “I want Sarah and the kids to stay in the house, and I'd like something I can borrow from in retirement.”"
+          className="w-full rounded border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-ring)]"
+        />
+        <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+          Optional. The letter opens with this, so a sentence or two in the client&apos;s voice helps.
+        </p>
+      </PPSectionCard>
 
       <PPStepFooter onContinue={handleContinue} />
     </div>
