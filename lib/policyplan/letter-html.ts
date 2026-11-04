@@ -47,6 +47,27 @@ function fmtDate(iso: string) {
     : d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
+const usd = (v: number | null | undefined) => (v == null ? "—" : "$" + Math.round(v).toLocaleString("en-US"));
+
+/** "At a glance" facts and illustrated values, straight from the extraction. */
+function snapshotHtml(letter: Letter): string {
+  const snap = letter.policy_snapshot ?? {};
+  const facts = snap.facts ?? [];
+  const rows = snap.milestones ?? [];
+  if (!facts.length && !rows.length) return "";
+  const head = [
+    snap.face_amount != null ? `${usd(snap.face_amount)} face amount` : null,
+    snap.annual_premium != null ? `${usd(snap.annual_premium)} a year` : null,
+  ].filter(Boolean).join(" · ");
+  const factRows = facts.map((f) => `<tr><th>${esc(f.label)}</th><td>${esc(f.value)}</td></tr>`).join("");
+  const ledger = rows.length
+    ? `<table class="ledger"><thead><tr><th rowspan="2">Year</th><th rowspan="2">Age</th><th rowspan="2">Total premium paid</th><th colspan="2">Guaranteed</th><th colspan="2">Illustrated${snap.illustrated_rate ? ` at ${esc(snap.illustrated_rate)}%` : ""}</th></tr><tr><th>Surrender value</th><th>Death benefit</th><th>Surrender value</th><th>Death benefit</th></tr></thead><tbody>${rows
+        .map((m) => `<tr><td>${m.year}</td><td>${m.age ?? "—"}</td><td>${usd(m.cumulative_premium)}</td><td>${m.db_guaranteed == null && m.sv_guaranteed == null ? "Ended" : usd(m.sv_guaranteed)}</td><td>${m.db_guaranteed == null && m.sv_guaranteed == null ? "—" : usd(m.db_guaranteed)}</td><td>${usd(m.sv_illustrated)}</td><td>${usd(m.db_illustrated)}</td></tr>`)
+        .join("")}</tbody></table><p class="note">From the carrier illustration${snap.illustration_date ? ` dated ${esc(snap.illustration_date)}` : ""}. Illustrated values assume non-guaranteed rates and charges continue unchanged and are not guaranteed. "Ended" means coverage has stopped on guaranteed assumptions.</p>`
+    : "";
+  return `<section class="glance"><h2>Your policy at a glance</h2>${head ? `<p class="lead">${esc(head)}</p>` : ""}${factRows ? `<table class="facts">${factRows}</table>` : ""}${ledger}</section>`;
+}
+
 export function buildLetterHtml(letter: Letter, branding: LetterBranding | null, opts: LetterHtmlOptions): string {
   const b = branding ?? {};
   const primary = color(b.brand_primary_color, "#1a3a6b");
@@ -56,7 +77,7 @@ export function buildLetterHtml(letter: Letter, branding: LetterBranding | null,
   const contact = [b.firm_address, b.phone, b.email].filter(Boolean).map(esc).join(" &nbsp;·&nbsp; ");
   const signer = [b.advisor_name, b.advisor_credentials].filter(Boolean).map(esc).join(", ");
 
-  const sections = letter.sections
+  const sectionList = letter.sections
     .map((s) => {
       const paras = s.paragraphs.map((p) => `<p>${esc(p)}</p>`).join("");
       const bullets = s.bullets.length ? `<ul>${s.bullets.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
@@ -64,8 +85,15 @@ export function buildLetterHtml(letter: Letter, branding: LetterBranding | null,
         .map((q) => `<blockquote>“${esc(q.text)}”${q.source ? `<cite>${esc(q.source)}</cite>` : ""}</blockquote>`)
         .join("");
       return `<section><h2>${esc(s.title)}</h2>${paras}${bullets}${quotes}</section>`;
-    })
-    .join("");
+    });
+  // The glance table follows "How the policy works" (or the recommendation).
+  const anchor = Math.max(
+    letter.sections.findIndex((s) => s.id === "how_it_works"),
+    letter.sections.findIndex((s) => s.id === "recommendation"),
+  );
+  const glance = snapshotHtml(letter);
+  if (glance) sectionList.splice(anchor >= 0 ? anchor + 1 : sectionList.length, 0, glance);
+  const sections = sectionList.join("");
 
   // The model's closing may already include the signature lines; keep the
   // first paragraph only and render the signature from branding.
@@ -96,6 +124,14 @@ export function buildLetterHtml(letter: Letter, branding: LetterBranding | null,
   .sign .role { color: ${secondary}; font-size: 9.5pt; }
   .approval { margin-top: 14px; font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: ${secondary}; }
   footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #d9e2ec; font-family: Arial, Helvetica, sans-serif; font-size: 7.5pt; color: #7b8794; white-space: pre-line; }
+  .glance table { width: 100%; border-collapse: collapse; font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; margin: 6px 0 8px; page-break-inside: avoid; }
+  .glance .lead { font-family: Arial, Helvetica, sans-serif; font-weight: 700; color: ${primary}; }
+  .glance .facts th { text-align: left; width: 32%; color: ${secondary}; font-weight: 600; padding: 3px 8px 3px 0; vertical-align: top; }
+  .glance .facts td { padding: 3px 0; border-bottom: 1px solid #edf1f5; }
+  .glance .ledger th { background: #f5f7fa; color: ${primary}; font-weight: 700; padding: 4px 5px; border: 1px solid #d9e2ec; text-align: center; }
+  .glance .ledger td { padding: 3px 5px; border: 1px solid #e4e9ef; text-align: right; }
+  .glance .ledger td:first-child, .glance .ledger td:nth-child(2) { text-align: center; }
+  .glance .note { font-family: Arial, Helvetica, sans-serif; font-size: 7.5pt; color: ${secondary}; }
   .draft { position: fixed; top: 40%; left: 0; right: 0; text-align: center; font: 700 88pt Arial, sans-serif; color: rgba(197, 48, 48, 0.08); transform: rotate(-24deg); pointer-events: none; }
 </style></head>
 <body><div class="page">

@@ -1,6 +1,6 @@
 /**
  * PolicyPlan — 187 Letter QA
- * Version: 1.0.0
+ * Version: 1.1.0
  * n8n Code node, mode: Run Once for All Items
  *
  * Parses the Letter Writer's JSON, checks it against the packet, and builds
@@ -10,8 +10,8 @@
  * the issue on review. A letter that can't be parsed is sent as an error.
  */
 
-const NODE_VERSION = '1.0.0';
-const WORKFLOW_VERSION = 'policyplan-187-letter/1.0.0';
+const NODE_VERSION = '1.1.0';
+const WORKFLOW_VERSION = 'policyplan-187-letter/1.1.0';
 
 const prep = $('187 Context Prep').first().json;
 const packet = prep.packet || {};
@@ -21,6 +21,7 @@ const text = String(raw.output ?? raw.text ?? raw.response ?? '');
 const TITLES = {
   why_we_met: 'What you told me matters most',
   recommendation: 'What I recommend',
+  how_it_works: 'How the policy works',
   why_it_fits: 'Why it fits you',
   what_to_weigh: 'What to weigh before you decide',
   guaranteed_vs_illustrated: 'What is guaranteed and what is not',
@@ -54,7 +55,7 @@ const sections = (Array.isArray(letter.sections) ? letter.sections : [])
     bullets: strArr(s.bullets),
     quotes: (Array.isArray(s.quotes) ? s.quotes : [])
       .filter((q) => q && typeof q.text === 'string' && q.text.trim())
-      .map((q) => ({ text: q.text.trim(), ...(q.source ? { source: String(q.source) } : {}) })),
+      .map((q) => ({ text: q.text.trim().replace(/^["“]|["”]$/g, ''), ...(q.source ? { source: String(q.source) } : {}) })),
   }))
   .sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
 
@@ -63,8 +64,25 @@ const checks = [];
 const check = (id, passed, detail) => checks.push({ id, passed: !!passed, ...(detail ? { detail } : {}) });
 const has = (id) => sections.some((s) => s.id === id && (s.paragraphs.length || s.bullets.length));
 
+// Quotes must be verbatim illustration language. Drop any that aren't, so
+// the client never sees a paraphrase presented as carrier wording.
+const norm = (t) => String(t).replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/\s+/g, ' ').trim().toLowerCase();
+const evidenceText = (packet.illustration_quotes || []).map((q) => norm(q.text));
+const dropped = [];
+for (const s of sections) {
+  s.quotes = s.quotes.filter((q) => {
+    const ok = evidenceText.some((e) => e.includes(norm(q.text).replace(/…$/, '')));
+    if (!ok) dropped.push(q.text.slice(0, 60));
+    return ok;
+  });
+}
+const quoteCount = sections.reduce((a, s) => a + s.quotes.length, 0);
+check('quotes_verbatim', dropped.length === 0, dropped.length ? 'removed non-verbatim: ' + dropped.join(' | ') : undefined);
+check('quotes_used', quoteCount >= Math.min(2, evidenceText.length), `${quoteCount} verbatim quotes`);
+
 const required = ['why_we_met', 'recommendation', 'why_it_fits', 'what_to_weigh', 'guaranteed_vs_illustrated', 'next_steps'];
 if (packet.replacement) required.push('replacement');
+if (packet.policy_features) required.push('how_it_works');
 const missing = required.filter((id) => !has(id));
 check('required_sections', missing.length === 0, missing.length ? 'missing: ' + missing.join(', ') : undefined);
 
@@ -104,12 +122,34 @@ const qa = { passed: checks.every((c) => c.passed), node_version: NODE_VERSION, 
 const tensions = (packet.tensions || []).map((t) => ({ code: t.code, severity: t.severity, title: t.title, detail: t.detail }));
 
 const p = packet.proposed_policy || {};
+const pf = packet.policy_features || {};
+const cr = pf.crediting || {};
+const facts = [];
+const fact = (label, value) => { if (value != null && value !== '') facts.push({ label, value: String(value) }); };
+const usd = (v) => (v == null ? null : '$' + Math.round(v).toLocaleString('en-US'));
+fact('Death benefit option', p.death_benefit_option);
+if (cr.index_strategy) fact('Index strategy', cr.index_strategy);
+if (cr.participation_rate_current != null) fact('Participation rate', `${cr.participation_rate_current}% current, ${cr.participation_rate_guaranteed ?? '—'}% guaranteed`);
+if (cr.floor_percent != null) fact('Floor', `${cr.floor_percent}%`);
+if (cr.cap) {
+  const m = String(cr.cap).match(/Current:\s*([^;]+);\s*Guaranteed:\s*(.+)/i);
+  fact('Cap', m ? (m[1].trim() === m[2].trim() ? m[1].trim() : `${m[1].trim()} current, ${m[2].trim()} guaranteed`) : cr.cap);
+}
+const g = pf.guaranteed_basis || {};
+if (g.lapse_protection_through_age != null) fact(g.lapse_protection_name || 'Lapse protection', `Through age ${g.lapse_protection_through_age}, if premiums are paid as illustrated`);
+const sc = pf.surrender_charges || {};
+if (sc.charge_year_1 != null) fact('Surrender charge', `${usd(sc.charge_year_1)} in year 1${sc.charges_end_after_year ? `, none after year ${sc.charges_end_after_year}` : ''}`);
+const pr = pf.premiums || {};
+if (pr.cumulative_premium_all_years != null) fact('Total scheduled premium', `${usd(pr.cumulative_premium_all_years)}${pr.last_premium_age ? ` through age ${pr.last_premium_age}` : ''}`);
+const rid = (pf.riders || {}).included || [];
+if (rid.length) fact('Riders included', rid.join('; '));
+if ((pf.tax || {}).mec_status) fact('Tax status', /not a mec/i.test(pf.tax.mec_status) ? 'Not a modified endowment contract (MEC)' : pf.tax.mec_status);
 const callback = {
   status: 'draft',
   output_id: prep.output_id,
   workflow_version: WORKFLOW_VERSION,
   letter: {
-    contract_version: '1.0',
+    contract_version: '1.1',
     salutation: String(letter.salutation || 'Dear client,'),
     opening: String(letter.opening || ''),
     sections,
@@ -125,6 +165,12 @@ const callback = {
       risk_class: p.risk_class ?? null,
       illustrated_rate: p.illustrated_rate != null ? String(p.illustrated_rate) : null,
       illustration_date: p.illustration_date != null ? String(p.illustration_date) : null,
+      facts,
+      milestones: (packet.illustrated_values || []).map((m) => ({
+        year: m.year, age: m.age, cumulative_premium: m.cumulative_premium,
+        sv_guaranteed: m.sv_guaranteed, db_guaranteed: m.db_guaranteed,
+        sv_illustrated: m.sv_illustrated, db_illustrated: m.db_illustrated,
+      })),
     },
     tensions,
   },
@@ -133,6 +179,7 @@ const callback = {
     finances: packet.finances || null,
     replacement: !!packet.replacement,
     quote_count: (packet.illustration_quotes || []).length,
+    quotes_used: quoteCount,
     context_version: packet.context_version || null,
   },
   qa,

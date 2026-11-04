@@ -29,6 +29,8 @@ const QA_LABELS: Record<string, string> = {
   tensions_addressed: "A flagged point isn't addressed in the letter",
   numbers_trace_to_packet: "A number in the letter doesn't match the illustration or profile",
   no_overpromising_language: "The letter uses language that may overpromise",
+  quotes_verbatim: "A quote didn't match the illustration word for word, so it was removed",
+  quotes_used: "The letter quotes little or no illustration language",
 };
 
 const ATTEST =
