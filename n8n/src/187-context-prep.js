@@ -238,11 +238,20 @@ if (replacement) {
   add('REPLACEMENT', 'high', 'This policy would replace existing coverage',
     'The letter must cover what the client gives up: surrender charges, a new contestability period, changes in cost, and any lost features.');
 }
-// Tensions the app already detected (and the producer's notes on them).
+// Tensions the app detected from the profile alone. Skip one when a
+// policy-aware tension above already covers the same ground.
+const APP_FLAG = {
+  GUARANTEE_VS_NONGUARANTEED_RELIANCE: { title: 'Preference for guarantees', covered: ['GUARANTEE_PREFERENCE_VS_PRODUCT', 'NONGUARANTEED_AVOIDANCE'] },
+  SIMPLICITY_VS_COMPLEXITY: { title: 'Preference for simplicity', covered: ['COMPLEXITY'] },
+  AFFORDABILITY_FLOOR: { title: 'Affordability', covered: ['PREMIUM_TO_INCOME', 'PREMIUM_TO_LIQUID_NET_WORTH', 'NO_LIQUID_CUSHION', 'FUNDING_FLEXIBILITY'] },
+  GUARANTEE_COST_DURATION_TENSION: { title: 'Cost of guaranteeing coverage for life', covered: [] },
+};
+const fired = new Set(tensions.map((t) => t.code));
 for (const f of body.suitability_flags || []) {
-  const note = (body.flag_resolutions || {})[f.code];
-  add(f.code, f.severity === 'material' || f.severity === 'warning' ? 'high' : 'moderate', f.code.replace(/_/g, ' ').toLowerCase(),
-    f.description + (note && note.note ? ` Producer note: ${note.note}` : ''));
+  const meta = APP_FLAG[f.code] || {};
+  if ((meta.covered || []).some((c) => fired.has(c))) continue;
+  const title = meta.title || f.code.charAt(0) + f.code.slice(1).toLowerCase().replace(/_/g, ' ');
+  add(f.code, f.severity === 'material' || f.severity === 'warning' ? 'high' : 'moderate', title, f.description);
 }
 
 // ── 5. packet + writer message ─────────────────────────────────────────────
