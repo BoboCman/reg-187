@@ -26,6 +26,8 @@ export interface LetterHtmlOptions {
   draft?: boolean;
   approvedBy?: string | null;
   approvedAt?: string | null;
+  /** Overrides the DRAFT watermark text (e.g. "SAMPLE"). */
+  watermark?: string | null;
 }
 
 const esc = (s: unknown) =>
@@ -135,7 +137,7 @@ export function buildLetterHtml(letter: Letter, branding: LetterBranding | null,
   .draft { position: fixed; top: 40%; left: 0; right: 0; text-align: center; font: 700 88pt Arial, sans-serif; color: rgba(197, 48, 48, 0.08); transform: rotate(-24deg); pointer-events: none; }
 </style></head>
 <body><div class="page">
-  ${opts.draft ? '<div class="draft">DRAFT</div>' : ""}
+  ${opts.draft || opts.watermark ? `<div class="draft">${esc(opts.watermark || "DRAFT")}</div>` : ""}
   <header>
     <div>${logo ? `<img src="${logo}" alt="">` : ""}</div>
     <div class="firm">

@@ -1,76 +1,46 @@
-import {
-  UserCheck,
-  BrainCircuit,
-  AlertTriangle,
-  UserCog,
-  FileOutput,
-  FolderOpen,
-} from "lucide-react";
+import { ScanSearch, Sigma, Scale, UserCog } from "lucide-react";
 
 const capabilities = [
   {
-    icon: UserCheck,
-    label: "Client context",
-    title: "Intake",
+    icon: ScanSearch,
+    label: "Reads the illustration",
+    title: "Every page, every number",
     bullets: [
-      "Plain-language producer workflow",
-      "Captures goals, ownership, funding, and financial profile",
-      "Identifies the consumer, insured, owner, trust, or business context",
+      "Extracts the design, premiums, guarantees, charges, riders and ledger values",
+      "Works with any carrier\u2019s sales illustration",
+      "Client names are removed in the browser before anything is sent",
     ],
   },
   {
-    icon: BrainCircuit,
-    label: "Recommendation basis",
-    title: "Producer-authored rationale, AI-assisted",
+    icon: Sigma,
+    label: "Grounded",
+    title: "No invented facts",
     bullets: [
-      "Drafts a starting rationale from the producer\u2019s own intake answers",
-      "Summarizes favorable and unfavorable considerations",
-      "Connects the documented basis to the client\u2019s stated objectives",
-      "Converts case facts into producer-reviewable client summary language",
+      "The letter may only use the profile and the illustration",
+      "Quotes the carrier\u2019s own wording, checked word for word",
+      "Every dollar figure, age and rate is checked against the source",
     ],
   },
   {
-    icon: AlertTriangle,
-    label: "Case design fit",
-    title: "Review flags",
+    icon: Scale,
+    label: "Balanced",
+    title: "Flags what to weigh",
     bullets: [
-      "Desired premium against the client\u2019s liquid net worth",
-      "Stated guarantee preference against reliance on non-guaranteed values",
-      "Preference for simplicity against interest in non-guaranteed upside",
+      "Premium against income and liquid net worth",
+      "Guarantee preference against reliance on non-guaranteed values",
+      "Total premium against the death benefit, and coverage on guaranteed assumptions",
+      "Replacement considerations when existing coverage is involved",
     ],
   },
   {
     icon: UserCog,
-    label: "Producer approval",
-    title: "Human controlled",
+    label: "Producer-controlled",
+    title: "The producer signs",
     bullets: [
-      "The producer resolves every flagged tension in their own words before approval",
-      "The producer reviews and edits every rationale",
-      "Attestation before final output",
-      "No black-box recommendation and no automatic sign-off",
-    ],
-  },
-  {
-    icon: FileOutput,
-    label: "Carrier output",
-    title: "Documentation output",
-    bullets: [
-      "Configurable client summary and case-support output",
-      "Client summary and carrier support packet",
-      "Built to reduce back-and-forth, missing rationale, and incomplete files",
-      "Carrier and firm requirements still control",
-    ],
-  },
-  {
-    icon: FolderOpen,
-    label: "Audit trail",
-    title: "Versioned record",
-    bullets: [
-      "Intake history",
-      "Recommendation versions",
-      "Advisor approvals",
-      "Client summary versions and delivery status",
-      "Client disclosure timing",
+      "Edit any sentence before approval",
+      "Address every flagged point in your own words",
+      "Attest, approve and download a branded PDF",
+      "No automatic recommendation and no automatic sign-off",
     ],
   },
 ];
@@ -82,14 +52,14 @@ export function Capabilities() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold text-blue-600 mb-4">
-              Built around the actual life insurance sales process
+              What makes the letter defensible
             </h2>
             <p className="text-slate-500 text-xl max-w-3xl mx-auto leading-relaxed">
-              Every case moves through a structured best-interest workflow that supports recommendation quality, documentation consistency, and supervisory review.
+              A best-interest letter is only as good as its facts. PolicyPlan reads the carrier illustration, keeps the writing tied to it, and leaves the judgment to the producer.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid md:grid-cols-2 gap-5">
             {capabilities.map((cap, i) => {
               const Icon = cap.icon;
               return (

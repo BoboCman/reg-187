@@ -8,7 +8,8 @@ import { Deliverables } from "@/components/landing/Deliverables";
 import { WhoItsFor } from "@/components/landing/WhoItsFor";
 import { ComparisonTable } from "@/components/landing/ComparisonTable";
 import { Standards } from "@/components/landing/Standards";
-import { PositioningBand } from "@/components/landing/PositioningBand";
+import { WhyStandard } from "@/components/landing/WhyStandard";
+import { LifetimeReview } from "@/components/landing/LifetimeReview";
 import { FAQ } from "@/components/landing/FAQ";
 import { CTABand } from "@/components/landing/CTABand";
 import { LandingFooter } from "@/components/landing/LandingFooter";
@@ -20,14 +21,15 @@ export default function LandingPage() {
       <main>
         <LandingHero />
         <TrustBand />
-        <ValueBand />
         <HowItWorks />
-        <Capabilities />
         <Deliverables />
+        <ValueBand />
+        <WhyStandard />
+        <Capabilities />
         <WhoItsFor />
         <ComparisonTable />
+        <LifetimeReview />
         <Standards />
-        <PositioningBand />
         <FAQ />
         <CTABand />
       </main>

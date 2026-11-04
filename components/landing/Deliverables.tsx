@@ -1,68 +1,64 @@
-import Link from "next/link";
-import { LayoutDashboard, MessageSquare, FileText, ArrowRight } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 
-const deliverables = [
-  {
-    icon: LayoutDashboard,
-    title: "Interactive case workspace",
-    body: "Review the client profile, recommendation rationale, product design considerations, case flags, and documentation status in one web-based workspace. Built for producer preparation, BGA case support, and supervisory review.",
-    cta: "Explore Capabilities",
-    href: "#capabilities",
-  },
-  {
-    icon: MessageSquare,
-    title: "Client-ready recommendation summary",
-    body: "Generate a plain-English summary the producer can review, edit, approve, and use with the client. The summary explains the client objective, relevant facts, recommended approach, favorable considerations, tradeoffs, assumptions, and items that may change before placement.",
-    cta: "View Sample Client Summary",
-    href: "/coming-soon",
-  },
-  {
-    icon: FileText,
-    title: "Professional case packet",
-    body: "Generate a polished documentation package you can include in a carrier submission, and use for supervisory review, the client file, and internal records. Written in clear professional language, with producer approval, disclosed scope, and versioned case history.",
-    cta: "View Sample Output",
-    href: "/coming-soon",
-  },
+const points = [
+  "Written in the producer\u2019s voice, to the client, before they apply",
+  "Favorable and unfavorable considerations given equal weight",
+  "How the policy works, in plain English, with the carrier\u2019s own wording",
+  "A guaranteed-versus-illustrated table at key ages",
+  "Your letterhead, your disclosures, your signature",
 ];
 
 export function Deliverables() {
   return (
-    <section className="py-24 bg-white">
+    <section id="sample" className="py-24 bg-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-bold text-blue-600 mb-4">
-              Documentation for every case.
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-12 items-center">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600 mb-3">The deliverable</p>
+            <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-5 tracking-tight">
+              A letter your client will actually read.
             </h2>
-            <p className="text-slate-500 text-xl max-w-3xl mx-auto leading-relaxed">
-              Built for the producer conversation, the client explanation, and the compliance file.
+            <p className="text-slate-500 text-lg leading-relaxed mb-8">
+              Most best-interest documentation is written for the file. PolicyPlan&apos;s letter is written for the client, and it holds up in the file too.
             </p>
+            <ul className="space-y-3 mb-10">
+              {points.map((p) => (
+                <li key={p} className="flex items-start gap-3 text-slate-600">
+                  <Check className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+                  <span>{p}</span>
+                </li>
+              ))}
+            </ul>
+            <a
+              href="/sample-letter"
+              target="_blank"
+              rel="noopener"
+              className="group inline-flex items-center px-6 py-3 rounded-lg font-semibold bg-blue-700 hover:bg-blue-800 text-white transition-all"
+            >
+              Open the sample letter
+              <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
+            </a>
+            <p className="text-xs text-slate-400 mt-3">A fictional survivorship case for a family trust.</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            {deliverables.map((d, i) => {
-              const Icon = d.icon;
-              return (
-                <div
-                  key={i}
-                  className="bg-white border border-slate-200 rounded-2xl p-8 text-center hover:shadow-sm transition-shadow flex flex-col items-center"
-                >
-                  <div className="bg-blue-50 text-blue-600 rounded-full p-5 mb-5">
-                    <Icon className="w-7 h-7" />
-                  </div>
-                  <h3 className="text-base font-bold text-slate-800 mb-3">{d.title}</h3>
-                  <p className="text-slate-500 leading-relaxed text-sm mb-6">{d.body}</p>
-                  <Link
-                    href={d.href}
-                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors mt-auto"
-                  >
-                    {d.cta}
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
+          <a
+            href="/sample-letter"
+            target="_blank"
+            rel="noopener"
+            aria-label="Open the sample letter"
+            className="block relative rounded-2xl border border-slate-200 bg-slate-100 p-4 sm:p-6 shadow-xl shadow-slate-200/60 hover:shadow-2xl transition-shadow"
+          >
+            <div className="relative h-[520px] overflow-hidden rounded-lg bg-white ring-1 ring-slate-200">
+              <iframe
+                src="/sample-letter"
+                title="Sample best-interest letter"
+                tabIndex={-1}
+                loading="lazy"
+                className="pointer-events-none absolute left-0 top-0 h-[1040px] w-[200%] origin-top-left scale-50 border-0"
+              />
+              <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white to-transparent" />
+            </div>
+          </a>
         </div>
       </div>
     </section>

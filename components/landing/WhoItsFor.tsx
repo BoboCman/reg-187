@@ -1,25 +1,23 @@
-import { Users, Briefcase, Building2, LayoutGrid } from "lucide-react";
+import { Users, Briefcase, Building2 } from "lucide-react";
 
 const audiences = [
   {
-    icon: Users,
-    title: "Advisors & producers",
-    body: "Move from case notes, illustration commentary, and manual write-ups to a clear, documented recommendation rationale. PolicyPlan helps producers create a professional client-ready summary that explains why the recommendation fits, while preserving the case record behind it.",
-  },
-  {
     icon: Briefcase,
     title: "BGAs & IMOs",
-    body: "Support complex permanent life cases with a repeatable best-interest workflow. For BGAs and IMOs, the issue is not just convenience. When case designers or specialists help tailor recommendations for a specific consumer, that support should be documented clearly. PolicyPlan helps record the facts, rationale, participants, approvals, client summary, and case changes behind the recommendation.",
+    lead: "Offer the 187 standard on every case you place.",
+    body: "Give your producers a signed best-interest letter for each case, carrier-agnostic and on their own letterhead. It sets your agency apart when recruiting producers, and it documents the facts and trade-offs behind the designs your case team helps shape.",
+  },
+  {
+    icon: Users,
+    title: "Producers & advisors",
+    lead: "Explain the recommendation once, in writing, in minutes.",
+    body: "Stop writing rationale by hand after the application. Upload the illustration, answer a short profile, edit the draft and sign it. Your client gets a clear letter before they apply, and you keep the record.",
   },
   {
     icon: Building2,
-    title: "Insurance firms & broker-dealers",
-    body: "Create a consistent framework for recommendation documentation, supervisory review, producer attestation, client-facing summaries, and case-level audit trails, without forcing every producer into a static PDF process.",
-  },
-  {
-    icon: LayoutGrid,
-    title: "Carrier distribution teams",
-    body: "Receive more complete case documentation from distribution partners. PolicyPlan organizes the facts, rationale, tradeoffs, approvals, client summary, and supporting documentation behind the recommendation process.",
+    title: "Broker-dealers & firms",
+    lead: "One process for every state.",
+    body: "Run every life recommendation to the strictest standard in the country, instead of one process for New York and another everywhere else. Each letter carries the producer's attestation and approval date for supervisory review.",
   },
 ];
 
@@ -33,11 +31,11 @@ export function WhoItsFor() {
               Built for life insurance distribution
             </h2>
             <p className="text-slate-500 text-xl max-w-3xl mx-auto leading-relaxed">
-              Designed for the professionals who make, support, review, and submit life insurance recommendations.
+              Start with the agencies that design and place cases, and the producers they support.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-5">
+          <div className="grid md:grid-cols-3 gap-5">
             {audiences.map((a, i) => {
               const Icon = a.icon;
               return (
@@ -48,7 +46,8 @@ export function WhoItsFor() {
                   <div className="bg-blue-50 text-blue-600 rounded-full p-4 w-fit mb-5">
                     <Icon className="w-6 h-6" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-800 mb-3">{a.title}</h3>
+                  <h3 className="text-lg font-bold text-slate-800 mb-1">{a.title}</h3>
+                  <p className="text-sm font-semibold text-blue-700 mb-3">{a.lead}</p>
                   <p className="text-slate-500 leading-relaxed text-sm">{a.body}</p>
                 </div>
               );

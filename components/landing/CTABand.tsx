@@ -11,17 +11,17 @@ export function CTABand() {
         <div className="max-w-3xl mx-auto text-center">
 
           <h2 className="text-3xl md:text-4xl font-bold text-blue-600 mb-4">
-            See the recommendation workflow in action
+            See a letter built from your own case
           </h2>
           <p className="text-slate-500 text-lg leading-relaxed max-w-2xl mx-auto mb-10">
-            A short walkthrough of the case flow, producer approval process, client-ready recommendation summary, versioned record, and carrier support packet.
+            A 30-minute walkthrough: we upload one of your illustrations and you see the signed letter at the end.
           </p>
 
           {/* Pilot block — Edit 3a */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl px-8 py-7 mb-10 text-left max-w-xl mx-auto">
             <h3 className="text-base font-bold text-slate-800 mb-2">Test it in a 90-day pilot</h3>
             <p className="text-slate-500 text-sm leading-relaxed">
-              Run PolicyPlan with a defined cohort of producers, on your own cases, with a shared scorecard and a clear go/no-go at the end. Stand-alone for the pilot. Integrated later only if the data proves the workflow deserves it.
+              A signed best-interest letter on every case for 90 days, with a defined group of producers, your own cases, a shared scorecard and a clear go or no-go at the end.
             </p>
           </div>
 

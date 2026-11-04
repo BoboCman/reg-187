@@ -1,20 +1,20 @@
-import { LayoutDashboard, MessageSquare, FileText } from "lucide-react";
+import { FileSignature, Table2, ShieldCheck } from "lucide-react";
 
 const outputs = [
   {
-    icon: LayoutDashboard,
-    title: "Producer Workspace",
-    body: "A guided web-based case flow for capturing client context, reviewing design considerations, drafting rationale, and approving final documentation.",
+    icon: FileSignature,
+    title: "The best-interest letter",
+    body: "A client-ready letter in the producer's voice: the goals, the recommendation, how the policy works, what to weigh, and what is and isn't guaranteed. Branded with the producer's letterhead and signed by the producer.",
   },
   {
-    icon: MessageSquare,
-    title: "Client Recommendation Summary",
-    body: "A plain-English summary the producer can use with the client to explain the objective, recommendation basis, favorable considerations, tradeoffs, and assumptions.",
+    icon: Table2,
+    title: "The policy at a glance",
+    body: "Key facts and a guaranteed-versus-illustrated values table, taken straight from the carrier illustration, so the client sees the same numbers the letter discusses.",
   },
   {
-    icon: FileText,
-    title: "Carrier & Firm Case Packet",
-    body: "A structured documentation package you can include in a carrier submission, and use for supervisory review, internal records, and audit support.",
+    icon: ShieldCheck,
+    title: "The approval record",
+    body: "Every flagged point and how the producer addressed it, the producer's attestation, the approval date, and a fingerprint of the exact letter the client received.",
   },
 ];
 
@@ -25,7 +25,7 @@ export function ValueBand() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">
-              One intake. Two documents. One case record.
+              One illustration. One letter. One record.
             </h2>
           </div>
 

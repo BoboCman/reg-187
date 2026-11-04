@@ -27,7 +27,7 @@ export function HowItWorks() {
             From illustration to signed 187 letter
           </h2>
           <p className="text-slate-600 text-lg mb-2">
-            One guided workflow: the carrier illustration and a short client profile become a producer-approved, client-ready best-interest letter and a versioned case record.
+            One guided workflow: the carrier illustration and a short client profile become a producer-approved, client-ready best-interest letter and an approval record.
           </p>
           <p className="text-slate-400 text-sm">
             Three stages. Web-based. Producer-controlled.
