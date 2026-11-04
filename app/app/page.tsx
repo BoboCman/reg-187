@@ -3,7 +3,7 @@ import { PPWizardShell } from "@/components/policyplan/PPWizardShell";
 
 export const metadata = {
   title: "PolicyPlan — New Business Intake",
-  description: "Seven-step best-interest life insurance intake for advisors.",
+  description: "Upload the proposed illustration, answer a five-card client profile, and get a Reg 187 letter.",
 };
 
 export default function AppPage() {

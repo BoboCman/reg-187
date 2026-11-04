@@ -6,23 +6,10 @@ import { PPConfirmationScreen } from "@/components/policyplan/PPConfirmationScre
 import { AppNav } from "@/components/AppNav";
 import { PPUploadIllustration } from "@/components/policyplan/PPUploadIllustration";
 
-import { PPStep1InsuredOwner } from "@/components/policyplan/steps/PPStep1InsuredOwner";
 import { PPStep2Objectives } from "@/components/policyplan/steps/PPStep2Objectives";
 import { PPStep3Financial } from "@/components/policyplan/steps/PPStep3Financial";
-import { PPStep4ExistingCoverage } from "@/components/policyplan/steps/PPStep4ExistingCoverage";
-import { PPStep5RiskPreferences } from "@/components/policyplan/steps/PPStep5RiskPreferences";
-import { PPStep6PolicySpecs } from "@/components/policyplan/steps/PPStep6PolicySpecs";
-import { PPStep7Attestation } from "@/components/policyplan/steps/PPStep7Attestation";
 
-const STEPS = [
-  PPStep1InsuredOwner,
-  PPStep2Objectives,
-  PPStep3Financial,
-  PPStep4ExistingCoverage,
-  PPStep5RiskPreferences,
-  PPStep6PolicySpecs,
-  PPStep7Attestation,
-];
+const STEPS = [PPStep2Objectives, PPStep3Financial];
 
 export function PPWizardShell() {
   const { step, submittedIntake, uploadDone } = usePPWizard();
@@ -60,7 +47,7 @@ export function PPWizardShell() {
         hideNewIntake
         rightSlot={
           <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
-            Step {step} of {PP_STEP_COUNT}
+            Client profile · {step} of {PP_STEP_COUNT}
           </span>
         }
       />
@@ -75,6 +62,7 @@ export function PPWizardShell() {
       {/* Step content */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <div className="mb-8">
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-accent)]">Step 2 of 3 · Client profile</p>
           <h1 className="text-2xl font-semibold text-[var(--color-text-primary)] text-balance">
             {meta.label}
           </h1>

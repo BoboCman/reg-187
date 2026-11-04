@@ -13,16 +13,16 @@ interface StepFooterProps {
 }
 
 export function PPStepFooter({ onContinue, continueDisabled, isLastStep, continueLabel }: StepFooterProps) {
-  const { step, goBack } = usePPWizard();
+  const { step, goBack, setUploadDone } = usePPWizard();
   const last = isLastStep ?? step === PP_STEP_COUNT;
 
   return (
     <div className="mt-10 pt-6 border-t border-[var(--color-border)] flex items-center justify-between gap-4">
       <div>
-        {step > 1 && (
+        {(
           <button
             type="button"
-            onClick={goBack}
+            onClick={step > 1 ? goBack : () => setUploadDone(false)}
             className="px-5 py-2.5 rounded border border-[var(--color-border-strong)] text-sm font-medium text-[var(--color-text-secondary)] bg-[var(--color-surface)] hover:bg-[var(--color-background)] transition-colors min-h-[44px]"
           >
             Back

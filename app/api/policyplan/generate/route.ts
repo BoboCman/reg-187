@@ -50,12 +50,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  // Gate: only allow generation for cases in 'resolved' status.
-  if (intakeRow.status !== "resolved") {
+  // Gate: the letter can be generated as soon as the profile is submitted.
+  // Tensions are now resolved inline on the letter review, not beforehand.
+  if (!["submitted", "in_review", "resolved"].includes(intakeRow.status)) {
     return NextResponse.json(
-      { error: "not_resolved", message: "Case must be resolved before generating." },
+      { error: "not_generatable", message: "This case can no longer be regenerated." },
       { status: 409 }
     );
+  }
+
+  // Don't start a second run while one is in flight.
+  const { data: inflight } = await supabase
+    .from("policyplan_outputs")
+    .select("id")
+    .eq("intake_id", intake_id)
+    .eq("status", "pending")
+    .maybeSingle();
+  if (inflight) {
+    return NextResponse.json({ status: "generating", output_id: inflight.id }, { status: 200 });
   }
 
   // ── 4. Create pending output row (copying frozen snapshot) ────────────────

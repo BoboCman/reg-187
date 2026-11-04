@@ -11,6 +11,8 @@ import {
 import { usePPWizard } from "@/lib/policyplan/wizard-context";
 import { cn } from "@/lib/utils";
 import { PPStepFooter, PPSectionCard } from "@/components/policyplan/PPStepWrapper";
+import { PPQuickTap } from "@/components/policyplan/PPQuickTap";
+import type { RiskPreferences } from "@/lib/policyplan/schema";
 
 export function PPStep2Objectives() {
   const { formData, patch, markComplete, goNext, goBack } = usePPWizard();
@@ -22,6 +24,13 @@ export function PPStep2Objectives() {
     formData.objectives?.primary ?? null
   );
   const [error, setError] = useState<string | null>(null);
+  const [notes, setNotes] = useState(formData.notes ?? "");
+  const [rp, setRp] = useState<Partial<RiskPreferences>>(formData.risk_preferences ?? {});
+  const setTap = <K extends keyof RiskPreferences>(k: K, v: RiskPreferences[K]) => {
+    setRp((prev) => ({ ...prev, [k]: v }));
+    setError(null);
+  };
+  const tapsDone = !!(rp.nonguaranteed_elements && rp.premium_funding_commitment && rp.cash_value_access_need);
 
   // Re-sync when sample case is loaded
   useEffect(() => {
@@ -29,7 +38,8 @@ export function PPStep2Objectives() {
       setSelected(new Set(formData.objectives.selected ?? []));
       setPrimary(formData.objectives.primary ?? null);
     }
-  }, [formData.objectives]);
+    if (formData.risk_preferences) setRp(formData.risk_preferences);
+  }, [formData.objectives, formData.risk_preferences]);
 
   const toggle = (obj: Objective) => {
     setSelected((prev) => {
@@ -66,8 +76,16 @@ export function PPStep2Objectives() {
       );
       return;
     }
-    patch({ objectives: result.data as Objectives });
-    markComplete(2);
+    if (!tapsDone) {
+      setError("Answer the three quick questions under “How the client feels”.");
+      return;
+    }
+    patch({
+      objectives: result.data as Objectives,
+      notes: notes.trim() || undefined,
+      risk_preferences: rp as RiskPreferences,
+    });
+    markComplete(1);
     goNext();
   };
 
@@ -162,6 +180,60 @@ export function PPStep2Objectives() {
           )}
         </div>
       )}
+
+      <PPSectionCard title="In the client's own words" className="mt-6">
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          maxLength={1000}
+          placeholder="For example: “I want Sarah and the kids to stay in the house, and I'd like something I can borrow from in retirement.”"
+          className="w-full rounded border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-ring)]"
+        />
+        <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+          Optional. The letter opens with this, so a sentence or two in the client&apos;s voice helps.
+        </p>
+      </PPSectionCard>
+
+      <PPSectionCard title="How the client feels" className="mt-6">
+        <div className="divide-y divide-[var(--color-border)]">
+          <PPQuickTap
+            question="Is the client comfortable if some policy values aren't guaranteed?"
+            hint="Illustrated values can come in lower than shown."
+            options={[
+              { value: "accept", label: "Comfortable" },
+              { value: "accept_with_limits", label: "Within limits" },
+              { value: "prefer_to_avoid", label: "Wants guarantees" },
+            ]}
+            value={rp.nonguaranteed_elements}
+            onChange={(v) => setTap("nonguaranteed_elements", v)}
+            invalid={!!error && !rp.nonguaranteed_elements}
+          />
+          <PPQuickTap
+            question="Could they pay more premium later if the policy needed it?"
+            options={[
+              { value: "able_and_willing", label: "Yes" },
+              { value: "willing_if_necessary", label: "If necessary" },
+              { value: "unable_or_unwilling", label: "No" },
+            ]}
+            value={rp.premium_funding_commitment}
+            onChange={(v) => setTap("premium_funding_commitment", v)}
+            invalid={!!error && !rp.premium_funding_commitment}
+          />
+          <PPQuickTap
+            question="When might they need to use the cash value?"
+            options={[
+              { value: "none_expected", label: "Not planned" },
+              { value: "long_term", label: "10+ years" },
+              { value: "medium_term", label: "5 to 10 years" },
+              { value: "near_term", label: "Under 5 years" },
+            ]}
+            value={rp.cash_value_access_need}
+            onChange={(v) => setTap("cash_value_access_need", v)}
+            invalid={!!error && !rp.cash_value_access_need}
+          />
+        </div>
+      </PPSectionCard>
 
       <PPStepFooter onContinue={handleContinue} />
     </div>
