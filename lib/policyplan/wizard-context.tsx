@@ -43,14 +43,11 @@ export type PPIllustration = {
   extracted_at: string;
 };
 
-export const PP_STEP_COUNT = 5;
+export const PP_STEP_COUNT = 2;
 
 export const PP_STEP_META: { label: string; subtitle: string }[] = [
-  { label: "Who",               subtitle: "Who is insured and who will own the policy." },
-  { label: "Why",               subtitle: "What the coverage is for, in order of importance." },
-  { label: "Money",             subtitle: "The owner\u2019s income, assets and debts. For a trust-owned policy, use the grantor\u2019s or the premium payer\u2019s finances." },
-  { label: "Existing coverage", subtitle: "Policies already in force, and whether any will be replaced." },
-  { label: "Comfort with risk", subtitle: "How the client feels about guarantees, variability and paying more if needed." },
+  { label: "Goals", subtitle: "What the coverage is for, and how the client feels about risk." },
+  { label: "Finances", subtitle: "The owner\u2019s income, assets and debts. For a trust-owned policy, use the grantor\u2019s or the premium payer\u2019s finances." },
 ];
 
 interface PPWizardCtx {
@@ -104,7 +101,7 @@ export function PPWizardProvider({ children }: { children: ReactNode }) {
       notes: intake.notes,
       attestation: intake.attestation,
     });
-    setCompleted(new Set([1, 2, 3, 4, 5]));
+    setCompleted(new Set([1, 2]));
   }, []);
 
   const markComplete = useCallback((s: number) => {

@@ -11,6 +11,8 @@ import {
 } from "@/lib/policyplan/schema";
 import { usePPWizard } from "@/lib/policyplan/wizard-context";
 import { PPStepFooter } from "@/components/policyplan/PPStepWrapper";
+import { PPQuickTap } from "@/components/policyplan/PPQuickTap";
+import { useSubmitIntake } from "@/lib/policyplan/use-submit-intake";
 import { MoneyInput, PercentInput } from "@/components/ui/inputs";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/utils";
@@ -882,7 +884,12 @@ function PPProfileTabs({
  * ─────────────────────────────────────────────────────────────────────────── */
 
 export function PPStep3Financial() {
-  const { formData, patch, markComplete, goNext } = usePPWizard();
+  const { formData, patch, markComplete } = usePPWizard();
+  const { submit, isSaving, error: saveError } = useSubmitIntake();
+  const [replacing, setReplacing] = useState<"yes" | "no" | undefined>(
+    formData.existing_coverage?.replacing ??
+      (formData.existing_coverage?.policies?.some((p) => p.under_replacement_consideration === "yes") ? "yes" : formData.existing_coverage ? "no" : undefined)
+  );
   const hasSecondInsured = (formData.insured_owner?.insureds?.length ?? 1) > 1;
 
   const { control, handleSubmit, reset, register } = useForm<Financial>({
@@ -916,9 +923,16 @@ export function PPStep3Financial() {
   }, [tabs, activeTab]);
 
   const onValid = (data: Financial) => {
-    patch({ financial: data });
-    markComplete(3);
-    goNext();
+    if (!replacing) return;
+    const existing_coverage = {
+      has_existing_coverage: formData.existing_coverage?.has_existing_coverage ?? replacing,
+      replacing,
+      policies: formData.existing_coverage?.policies ?? [],
+    } as const;
+    patch({ financial: data, existing_coverage });
+    markComplete(2);
+    // Last profile card: save the case and start the letter.
+    submit({ financial: data, existing_coverage });
   };
 
   return (
@@ -954,7 +968,30 @@ export function PPStep3Financial() {
         </div>
       ))}
 
-      <PPStepFooter onContinue={handleSubmit(onValid)} />
+      <div className="mt-6 bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] px-5 py-5">
+        <PPQuickTap
+          question="Will this policy replace, or be paid for from, an existing policy?"
+          hint="If yes, the letter adds a section on what the client gives up by replacing."
+          options={[
+            { value: "no", label: "No" },
+            { value: "yes", label: "Yes" },
+          ]}
+          value={replacing}
+          onChange={setReplacing}
+        />
+      </div>
+
+      {saveError && (
+        <div role="alert" className="mt-4 rounded border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
+          {saveError}
+        </div>
+      )}
+
+      <PPStepFooter
+        onContinue={handleSubmit(onValid)}
+        continueDisabled={!replacing || isSaving}
+        continueLabel={isSaving ? "Starting your letter…" : "Generate the letter"}
+      />
     </form>
   );
 }

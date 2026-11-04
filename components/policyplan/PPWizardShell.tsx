@@ -6,19 +6,10 @@ import { PPConfirmationScreen } from "@/components/policyplan/PPConfirmationScre
 import { AppNav } from "@/components/AppNav";
 import { PPUploadIllustration } from "@/components/policyplan/PPUploadIllustration";
 
-import { PPStep1InsuredOwner } from "@/components/policyplan/steps/PPStep1InsuredOwner";
 import { PPStep2Objectives } from "@/components/policyplan/steps/PPStep2Objectives";
 import { PPStep3Financial } from "@/components/policyplan/steps/PPStep3Financial";
-import { PPStep4ExistingCoverage } from "@/components/policyplan/steps/PPStep4ExistingCoverage";
-import { PPStep5RiskPreferences } from "@/components/policyplan/steps/PPStep5RiskPreferences";
 
-const STEPS = [
-  PPStep1InsuredOwner,
-  PPStep2Objectives,
-  PPStep3Financial,
-  PPStep4ExistingCoverage,
-  PPStep5RiskPreferences,
-];
+const STEPS = [PPStep2Objectives, PPStep3Financial];
 
 export function PPWizardShell() {
   const { step, submittedIntake, uploadDone } = usePPWizard();

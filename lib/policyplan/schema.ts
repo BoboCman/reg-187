@@ -77,33 +77,17 @@ export const insuredSchema = z.object({
   nicotine_use: yesNo.optional(),
 });
 
-export const insuredOwnerSchema = z
-  .object({
-    insureds: z.array(insuredSchema).min(1).max(2), // single or joint/survivorship
-    policy_owner: z.string().optional(),
-    state_of_ownership: z.string().length(2).optional(),
-    ownership_type: ownershipEnum.default("individual"),
-    business_type: businessTypeEnum.optional(),
-    trust_type: trustTypeEnum.optional(),
-    grantor_trust: yesNo.optional(),
-    gst_exempt: yesNo.optional(),
-  })
-  .superRefine((v, ctx) => {
-    if (v.ownership_type === "business" && !v.business_type) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["business_type"],
-        message: "business_type is required when ownership_type is 'business'.",
-      });
-    }
-    if (v.ownership_type === "trust" && !v.trust_type) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["trust_type"],
-        message: "trust_type is required when ownership_type is 'trust'.",
-      });
-    }
-  });
+export const insuredOwnerSchema = z.object({
+  insureds: z.array(insuredSchema).min(1).max(2), // single or joint/survivorship
+  policy_owner: z.string().optional(),
+  state_of_ownership: z.string().length(2).optional(),
+  ownership_type: ownershipEnum.default("individual"),
+  // Detail is optional in the short profile; the letter only needs the type.
+  business_type: businessTypeEnum.optional(),
+  trust_type: trustTypeEnum.optional(),
+  grantor_trust: yesNo.optional(),
+  gst_exempt: yesNo.optional(),
+});
 
 /* ============================================================================
  * REGION 2 — OBJECTIVES  (the need — leads the substantive flow)
@@ -263,20 +247,13 @@ export const existingPolicySchema = z.object({
   under_replacement_consideration: yesNo.optional(),
 });
 
-export const existingCoverageSchema = z
-  .object({
-    has_existing_coverage: yesNo,
-    policies: z.array(existingPolicySchema).max(3).default([]),
-  })
-  .superRefine((v, ctx) => {
-    if (v.has_existing_coverage === "yes" && v.policies.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["policies"],
-        message: "List at least one policy when existing coverage is 'yes'.",
-      });
-    }
-  });
+export const existingCoverageSchema = z.object({
+  has_existing_coverage: yesNo,
+  // Short profile: one question. "yes" switches on the letter's replacement
+  // section. Policy details come from an in-force upload in v2.
+  replacing: yesNo.optional(),
+  policies: z.array(existingPolicySchema).max(3).default([]),
+});
 
 /* ============================================================================
  * REGION 5 — RISK & PREFERENCES  (posture, before specs)
@@ -286,45 +263,47 @@ export const existingCoverageSchema = z
  * funding commitment, cash-value access need, and complexity tolerance.
  * ========================================================================== */
 
+// All optional since 2026-11-04: the short profile asks only the funding,
+// non-guaranteed and cash-access questions; older intakes carry all seven.
 export const riskPreferencesSchema = z.object({
   // Experience with financial / insurance products
-  financial_experience: z.enum(["limited", "moderate", "extensive"]),
+  financial_experience: z.enum(["limited", "moderate", "extensive"]).optional(),
   // Tolerance for year-to-year variability in policy values
   value_variability_tolerance: z.enum([
     "prefer_stability",
     "balanced",
     "accept_variability",
-  ]),
+  ]).optional(),
   // Guaranteed outcomes vs. non-guaranteed upside
   guarantee_vs_upside: z.enum([
     "strongly_prefer_guarantees",
     "lean_guarantees",
     "lean_upside",
     "strongly_prefer_upside",
-  ]),
+  ]).optional(),
   // Reg 187 224.3(g): willingness to accept non-guaranteed elements
   // (variability in premium, cash value, death benefit, fees)
   nonguaranteed_elements: z.enum([
     "accept",
     "accept_with_limits",
     "prefer_to_avoid",
-  ]),
+  ]).optional(),
   // Willingness and ability to fund a higher premium than illustrated if
   // needed to keep coverage in force (the funding-commitment factor)
   premium_funding_commitment: z.enum([
     "able_and_willing",
     "willing_if_necessary",
     "unable_or_unwilling",
-  ]),
+  ]).optional(),
   // Expected need to access cash value, and when
   cash_value_access_need: z.enum([
     "none_expected",
     "long_term",
     "medium_term",
     "near_term",
-  ]),
+  ]).optional(),
   // Comfort with product complexity / transparency
-  complexity_tolerance: z.enum(["prefer_simple", "comfortable_with_complexity"]),
+  complexity_tolerance: z.enum(["prefer_simple", "comfortable_with_complexity"]).optional(),
 });
 
 /* ============================================================================

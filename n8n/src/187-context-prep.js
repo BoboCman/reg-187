@@ -83,7 +83,7 @@ const RISK = {
   guarantee_vs_upside: { q: 'Guarantees versus upside', strongly_prefer_guarantees: 'Strongly prefers guarantees', lean_guarantees: 'Leans toward guarantees', lean_upside: 'Leans toward upside', strongly_prefer_upside: 'Strongly prefers upside' },
   nonguaranteed_elements: { q: 'Willingness to rely on non-guaranteed elements', accept: 'Accepts them', accept_with_limits: 'Accepts them within limits', prefer_to_avoid: 'Prefers to avoid them' },
   premium_funding_commitment: { q: 'Ability to pay more premium if needed', able_and_willing: 'Able and willing', willing_if_necessary: 'Willing if necessary', unable_or_unwilling: 'Unable or unwilling' },
-  cash_value_access_need: { q: 'When cash value may be needed', none_expected: 'No access expected', long_term: 'Long term (16+ years)', medium_term: 'Medium term', near_term: 'Near term' },
+  cash_value_access_need: { q: 'When cash value may be needed', none_expected: 'No access planned', long_term: 'In 10 or more years', medium_term: 'In 5 to 10 years', near_term: 'Within 5 years' },
   complexity_tolerance: { q: 'Comfort with product complexity', prefer_simple: 'Prefers simple', comfortable_with_complexity: 'Comfortable with complexity' },
 };
 const OWNERSHIP = { individual: 'Individually owned', business: 'Business owned', trust: 'Trust owned' };
@@ -128,7 +128,9 @@ const existing = (ec.policies || []).map((p) => ({
   purpose: p.purpose_of_policy || null,
   being_replaced: p.under_replacement_consideration === 'yes',
 }));
-const replacement = existing.some((p) => p.being_replaced);
+// Short profile asks one question (existing_coverage.replacing); older
+// intakes flag replacement per policy.
+const replacement = ec.replacing === 'yes' || existing.some((p) => p.being_replaced);
 
 // ── 2. proposed policy (ATLAS-1 fact spine + ATLAS-2 identity) ─────────────
 const fs = env.factSpine || {};

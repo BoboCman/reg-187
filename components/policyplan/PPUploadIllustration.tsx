@@ -4,6 +4,8 @@ import { CheckCircle2, FileText, Loader2, Lock, UploadCloud, X } from "lucide-re
 import { usePDFProcessor, getRedactionCounts } from "@/hooks/usePDFProcessor";
 import { usePPWizard } from "@/lib/policyplan/wizard-context";
 import { Button } from "@/components/ui/button";
+import { PPQuickTap } from "@/components/policyplan/PPQuickTap";
+import { PP_SAMPLE_CASE } from "@/lib/policyplan/sample-case";
 import { cn } from "@/lib/utils";
 
 /**
@@ -12,12 +14,15 @@ import { cn } from "@/lib/utils";
  * only the redacted text is kept and later sent to the letter workflow.
  */
 export function PPUploadIllustration() {
-  const { illustration, setIllustration, setUploadDone, formData, patch } = usePPWizard();
+  const { illustration, setIllustration, setUploadDone, formData, patch, loadSample } = usePPWizard();
   const { processFile, progress, isProcessing, error, reset } = usePDFProcessor();
 
   const existing = formData.insured_owner?.insureds ?? [];
   const [name1, setName1] = useState(existing[0]?.name ?? "");
   const [name2, setName2] = useState(existing[1]?.name ?? "");
+  const [ownership, setOwnership] = useState<"individual" | "trust" | "business">(
+    formData.insured_owner?.ownership_type ?? "individual"
+  );
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -44,16 +49,16 @@ export function PPUploadIllustration() {
   );
 
   function onContinue() {
-    // Carry the names into the profile so the advisor doesn't type them twice.
-    const insureds = formData.insured_owner?.insureds ?? [];
-    if (insureds.length === 0 && names.length > 0) {
-      patch({
-        insured_owner: {
-          ...formData.insured_owner,
-          insureds: names.map((name) => ({ name })),
-        },
-      });
-    }
+    // Names and ownership are the whole "who" of the short profile; age, sex
+    // and rating class come from the illustration.
+    const prev = formData.insured_owner?.insureds ?? [];
+    patch({
+      insured_owner: {
+        ...formData.insured_owner,
+        ownership_type: ownership,
+        insureds: names.map((name, i) => ({ ...prev[i], name })),
+      },
+    });
     setUploadDone(true);
   }
 
@@ -92,6 +97,16 @@ export function PPUploadIllustration() {
             />
           </label>
         </div>
+        <PPQuickTap
+          question="Who will own the policy?"
+          options={[
+            { value: "individual", label: "The insured" },
+            { value: "trust", label: "A trust" },
+            { value: "business", label: "A business" },
+          ]}
+          value={ownership}
+          onChange={setOwnership}
+        />
       </section>
 
       {!illustration ? (
@@ -193,13 +208,26 @@ export function PPUploadIllustration() {
       </p>
 
       <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => setUploadDone(true)}
-          className="text-sm text-[var(--color-text-muted)] underline-offset-4 hover:underline"
-        >
-          Skip for now
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => {
+              loadSample(PP_SAMPLE_CASE);
+              setUploadDone(true);
+            }}
+            className="text-sm text-[var(--color-text-muted)] underline-offset-4 hover:underline"
+          >
+            Try the sample case
+          </button>
+          <button
+            type="button"
+            onClick={onContinue}
+            disabled={names.length === 0}
+            className="text-sm text-[var(--color-text-muted)] underline-offset-4 hover:underline disabled:opacity-40"
+          >
+            Skip the upload
+          </button>
+        </div>
         <Button type="button" onClick={onContinue} disabled={!illustration}>
           Continue to client profile
         </Button>
