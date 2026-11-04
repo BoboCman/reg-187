@@ -22,11 +22,11 @@ export function LandingNav() {
 
         {/* Center links */}
         <div className="hidden lg:flex items-center gap-7 text-sm text-slate-500">
-          <a href="#capabilities" className="hover:text-slate-900 transition-colors">Capabilities</a>
           <a href="#how-it-works" className="hover:text-slate-900 transition-colors">How It Works</a>
-          <a href="#who-its-for" className="hover:text-slate-900 transition-colors">Who It&apos;s For</a>
-          <a href="#comparison" className="hover:text-slate-900 transition-colors">Before &amp; After</a>
-          <a href="#standards" className="hover:text-slate-900 transition-colors">Standards</a>
+          <a href="/sample-letter" target="_blank" rel="noopener" className="hover:text-slate-900 transition-colors">Sample Letter</a>
+          <a href="#why-187" className="hover:text-slate-900 transition-colors">Why the 187 Standard</a>
+          <a href="#who-its-for" className="hover:text-slate-900 transition-colors">For BGAs</a>
+          <a href="#faq" className="hover:text-slate-900 transition-colors">FAQ</a>
         </div>
 
         {/* Right CTA */}

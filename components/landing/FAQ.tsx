@@ -3,57 +3,45 @@ import { ChevronDown } from "lucide-react";
 const faqs = [
   {
     q: "What is PolicyPlan?",
-    a: "A web-based best-interest documentation workspace for life insurance recommendations. It helps producers and firms capture client context, develop a recommendation rationale, create a client-ready summary, prepare carrier-ready output, and maintain a versioned case record.",
+    a: "A web app that turns a carrier\u2019s sales illustration and a short client profile into a client-ready best-interest letter. The producer reviews, edits, addresses each flagged point, attests and downloads it as a branded PDF.",
   },
   {
-    q: "Does PolicyPlan create a client-facing recommendation summary?",
-    a: "Yes. PolicyPlan can generate a client-ready summary that explains the basis for the recommendation in clear professional language. The summary can include the client objective, relevant facts, recommended approach, favorable considerations, tradeoffs, assumptions, and items that may change before placement. The producer reviews, edits, and approves the summary before use.",
+    q: "Does it work outside New York?",
+    a: "Yes. The letter is built to New York\u2019s Reg 187 standard, and you can use it for any case in any state. Outside New York, most states hold life sales to a suitability standard; using the stricter standard everywhere gives you one process and a stronger record. It does not change what your state, carrier or firm requires.",
   },
   {
-    q: "Is PolicyPlan a Reg 187 form?",
-    a: "No. It is not a single static form. It is a structured workflow that supports the New York Reg 187 best-interest process, including intake, rationale drafting, advisor approval, client summary generation, carrier documentation, and a case-level audit trail.",
+    q: "Does PolicyPlan make the recommendation?",
+    a: "No. The producer chooses the policy. PolicyPlan reads the illustration, drafts the letter explaining the producer\u2019s recommendation, and flags points to weigh. The producer edits, approves and owns every word.",
   },
   {
-    q: "Does PolicyPlan make recommendations?",
-    a: "No. PolicyPlan drafts and organizes recommendation rationale from producer-entered information. The producer reviews, edits, approves, and owns the final recommendation and any client-facing summary.",
+    q: "Which illustrations work?",
+    a: "Sales illustrations from any carrier, as a PDF. PolicyPlan reads every page, including the ledger, the guarantee language, riders and surrender charges.",
   },
   {
-    q: "Is the client summary required?",
-    a: "PolicyPlan does not determine what any specific firm, carrier, or regulator requires in a particular case. The client summary is designed to help advisors communicate the basis for the recommendation and preserve a clearer record of the recommendation process. Firm and carrier procedures still control.",
+    q: "What happens to client data?",
+    a: "The PDF is read in your browser, and the client\u2019s names are removed before any text is sent. Client data is not used to train public AI models.",
   },
   {
-    q: "Can the client summary be customized?",
-    a: "Yes. Firms can configure summary format, required sections, disclosures, approval steps, and output language to align with internal procedures and carrier submission expectations.",
+    q: "How long does a letter take?",
+    a: "About three minutes to upload and answer the profile, a few minutes for the draft, then as long as the producer wants to spend editing.",
   },
   {
-    q: "Who is PolicyPlan for?",
-    a: "Life insurance advisors, BGAs, IMOs, insurance firms, broker-dealers, RIAs, and carrier distribution teams that need a more consistent way to document life insurance recommendations.",
+    q: "Does it handle replacements?",
+    a: "The letter covers replacement considerations when the client is replacing or funding from existing coverage. Regulation 60 and carrier replacement forms still apply. A side-by-side comparison with the in-force illustration is planned.",
   },
   {
-    q: "What cases can it support?",
-    a: "Permanent and term life, trust-owned and business-owned policies, executive benefit and key-person cases, estate liquidity, retirement supplement designs, and cases involving existing policy review or possible replacement. PolicyPlan is designed for recommendations that need a clearer rationale record, including new sales, replacements, 1035 exchanges, financed purchases, and other compensated transactions that disturb existing coverage. Routine in-force service is different, but documentation remains a best practice when a recommendation changes the client\u2019s coverage path.",
+    q: "Can the letter carry our firm\u2019s branding and disclosures?",
+    a: "Yes. Each producer sets their letterhead, logo, colors, license number and firm disclosures once, and every letter uses them.",
   },
   {
     q: "Does PolicyPlan replace carrier forms?",
-    a: "No. Carrier requirements still apply. PolicyPlan creates a structured case record and configurable output that support carrier-specific submission workflows.",
-  },
-  {
-    q: "Does PolicyPlan replace New York Regulation 60 replacement forms?",
-    a: "No. Regulation 60 requirements still apply where a replacement is involved. PolicyPlan supports the best-interest recommendation record, including replacement considerations, but it does not replace carrier, firm, or New York Regulation 60 forms unless a firm or carrier has approved that workflow.",
-  },
-  {
-    q: "Where does it fit in the sales process?",
-    a: "It is used before application, when the producer is developing and documenting the recommendation. It also supports revised documentation if underwriting, pricing, product design, or client facts change before placement.",
-  },
-  {
-    q: "Can firms white-label PolicyPlan?",
-    a: "Yes. It can be configured for firms that want to offer a branded best-interest workflow to advisors, producer groups, or distribution partners.",
+    a: "No. Carrier, broker-dealer, BGA and firm requirements still apply.",
   },
 ];
 
 export function FAQ() {
   return (
-    <section className="py-24 bg-slate-50">
+    <section id="faq" className="py-24 bg-slate-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-16">
@@ -61,7 +49,7 @@ export function FAQ() {
               Frequently asked questions
             </h2>
             <p className="text-slate-500 text-xl max-w-2xl mx-auto leading-relaxed">
-              Common questions about PolicyPlan and the New York Reg 187 best-interest process.
+              Common questions about PolicyPlan and the 187 standard.
             </p>
           </div>
 

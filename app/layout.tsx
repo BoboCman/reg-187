@@ -9,9 +9,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "PolicyPlan — Best-interest documentation for life insurance recommendations",
+  title: "PolicyPlan — Every client deserves a best-interest letter",
   description:
-    "PolicyPlan is a structured workspace for life insurance intake, recommendation rationale, advisor approval, and carrier-ready documentation, built around the New York Reg 187 best-interest process.",
+    "Upload the carrier illustration, answer a three-minute client profile, and sign a client-ready best-interest letter built to New York's Reg 187 standard. For every case, in every state.",
 };
 
 export const viewport: Viewport = {

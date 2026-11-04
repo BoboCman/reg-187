@@ -1,48 +1,28 @@
 const rows = [
   {
-    aspect: "Intake",
-    before: "Static PDFs, notes, and incomplete fact-finding",
-    after: "Structured web-based intake aligned to the case type",
-  },
-  {
     aspect: "Recommendation rationale",
-    before: "Manually written, inconsistent, often delayed",
-    after: "AI-assisted draft reviewed and approved by the producer",
+    before: "Written by hand after the application, if at all",
+    after: "Drafted from the illustration and profile, edited and signed by the producer",
   },
   {
     aspect: "Client explanation",
-    before: "Verbal explanation, email summary, or no consistent deliverable",
-    after: "Client-ready recommendation summary explaining the \u201cwhy\u201d",
+    before: "A verbal walkthrough of a 40-page illustration",
+    after: "A plain-English letter the client reads before applying",
   },
   {
-    aspect: "Sales timing",
-    before: "Documentation completed after the case is already moving",
-    after: "Recommendation summary prepared before application",
+    aspect: "Policy facts",
+    before: "Re-keyed from the illustration, with errors",
+    after: "Read from the illustration and checked against it",
   },
   {
-    aspect: "Case design review",
-    before: "Product fit and tradeoffs live in the advisor\u2019s head",
-    after: "Key assumptions, risks, and considerations are organized",
+    aspect: "Trade-offs",
+    before: "Live in the producer\u2019s head",
+    after: "Flagged, addressed in writing, and kept with the approval",
   },
   {
-    aspect: "Carrier submission",
-    before: "Different packets and attachments per case",
-    after: "Configurable carrier-ready output from one case record",
-  },
-  {
-    aspect: "Supervision",
-    before: "Hard to reconstruct who said what and when",
-    after: "Versioned record with approvals, timestamps, and summary history",
-  },
-  {
-    aspect: "Underwriting changes",
-    before: "Original rationale often not updated",
-    after: "Revised recommendation versions and client summaries can be documented",
-  },
-  {
-    aspect: "Producer experience",
-    before: "Compliance burden",
-    after: "Case design, client communication, and documentation support",
+    aspect: "Outside New York",
+    before: "A lower suitability bar and an inconsistent process",
+    after: "The same 187 standard on every case, in every state",
   },
 ];
 
@@ -56,7 +36,7 @@ export function ComparisonTable() {
               PolicyPlan: before and after
             </h2>
             <p className="text-slate-500 text-xl max-w-3xl mx-auto leading-relaxed">
-              Replace static forms and manual narratives with a structured recommendation process.
+              From hand-written rationale to a signed letter on every case.
             </p>
           </div>
 

@@ -2,27 +2,22 @@ const standards = [
   {
     label: "New York Reg 187",
     value:
-      "Supports structured documentation for recommendations involving life insurance policies issued in New York, including suitability information, recommendation basis, producer approval, and disclosure timing.",
+      "The letter follows the structure Reg 187 (11 NYCRR 224) expects of a recommendation: the client\u2019s suitability information, the basis for the recommendation, and both favorable and unfavorable considerations.",
   },
   {
-    label: "Recommendation rationale",
+    label: "Other states",
     value:
-      "Each case documents the \u201cwhy\u201d behind the recommendation, including relevant client facts, product features, favorable considerations, unfavorable considerations, and assumptions used.",
+      "Most states hold life insurance sales to a suitability standard. PolicyPlan applies the New York best-interest standard everywhere, so a firm can run one process. It does not change what any state requires.",
   },
   {
     label: "Producer attestation",
     value:
-      "The producer remains responsible for the recommendation. PolicyPlan drafts and organizes the rationale, but the producer reviews, edits, approves, and attests before final output.",
-  },
-  {
-    label: "Client-ready summary",
-    value:
-      "PolicyPlan helps producers create a plain-English summary that explains the basis for the recommendation, including the client objective, relevant facts, product rationale, favorable considerations, tradeoffs, and assumptions. The producer reviews and approves the summary before use.",
+      "The producer remains responsible for the recommendation. PolicyPlan drafts and organizes; the producer edits, addresses each flagged point, attests and approves before anything is final.",
   },
   {
     label: "Carrier and firm procedures",
     value:
-      "Carrier requirements still control. PolicyPlan helps organize and export the recommendation record in formats that can be configured to support carrier-specific workflows. It does not replace carrier, broker-dealer, BGA, or firm-specific procedures.",
+      "Carrier, broker-dealer, BGA and firm requirements still control, including New York Regulation 60 replacement forms.",
   },
   {
     label: "Scope and limitations",
@@ -38,13 +33,13 @@ export function Standards() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold text-blue-600 mb-4">
-              Built to support the New York Reg 187 best-interest process
+              Standards and scope
             </h2>
             <p className="text-slate-700 text-base font-medium max-w-2xl mx-auto leading-relaxed mb-3">
-              Reg 187 is the anchor, not the boundary. The operating problem is broader. Can the firm show how the recommendation was reached?
+              Reg 187 is the bar, not the boundary.
             </p>
             <p className="text-slate-500 text-xl max-w-3xl mx-auto leading-relaxed">
-              PolicyPlan helps firms organize the facts, analysis, rationale, disclosures, and approvals that support a life insurance best-interest recommendation in New York.
+              What the letter is built to, and what it is not.
             </p>
           </div>
 

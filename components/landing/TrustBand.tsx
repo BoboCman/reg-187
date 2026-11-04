@@ -1,9 +1,9 @@
 import { CheckCircle2 } from "lucide-react";
 
 const pillars = [
-  "Structured intake",
-  "Producer approval",
-  "Versioned records",
+  "Producer-signed",
+  "Client names removed before upload",
+  "Every figure traced to the illustration",
   "No automatic recommendation",
   "No client data used to train public AI models",
 ];
@@ -14,7 +14,7 @@ export function TrustBand() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center gap-4">
           <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.18em]">
-            Built for professional case documentation
+            Built for professional, defensible recommendations
           </p>
           <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
             {pillars.map((p) => (
