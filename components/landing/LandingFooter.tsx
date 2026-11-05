@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
+import { SCOPE_TEXT } from "./Scope";
 
 const FPAI_URL = "https://financialplanner-ai.com";
 
@@ -50,6 +51,7 @@ export function LandingFooter() {
 
           </div>
 
+          <p className="mb-8 text-xs leading-relaxed text-slate-400">{SCOPE_TEXT}</p>
           {/* Bottom bar */}
           <div className="border-t border-slate-200 pt-8 text-center">
             <p className="text-sm text-slate-500">

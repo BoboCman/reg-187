@@ -1,67 +1,33 @@
 import Link from "next/link";
-import { ArrowRight, ShieldCheck, Users, Building2, Briefcase, FileText } from "lucide-react";
+import { ArrowRight, FileText } from "lucide-react";
 
-const CALENDLY_URL = "https://calendly.com/financialplanner-ai-support/30min";
+export const CALENDLY_URL = "https://calendly.com/financialplanner-ai-support/30min";
 
 export function LandingHero() {
   return (
-    <section className="py-32 bg-white">
+    <section className="bg-white pt-20 pb-16 sm:pt-28 sm:pb-24">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col items-center text-center max-w-4xl mx-auto">
-
-          {/* Eyebrow badge */}
-          <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-sm font-medium mb-10 border border-blue-100">
-            <ShieldCheck className="w-4 h-4" />
-            Built to the NY Reg 187 standard · For every case, in every state
-          </div>
-
-          {/* H1 */}
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-slate-900 tracking-tight leading-[1.05] mb-6 text-balance">
-            Every client deserves a{" "}
-            <span className="text-blue-600">best-interest letter.</span>
+        <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
+          <p className="mb-8 text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">PolicyPlan · Illustration Companion</p>
+          <h1 className="mb-6 text-balance text-4xl font-bold leading-[1.08] tracking-tight text-slate-900 sm:text-5xl md:text-6xl">
+            A clearer way to explain a life insurance proposal.
           </h1>
-
-          {/* Subhead */}
-          <p className="text-xl text-slate-500 max-w-2xl leading-relaxed mb-12">
-            Upload the carrier illustration, answer a three-minute client profile, and sign a client-ready letter built to New York&apos;s Reg 187 standard, the strictest in the country. For every case, in every state.
+          <p className="mb-10 max-w-2xl text-lg leading-relaxed text-slate-600 sm:text-xl">
+            Upload the carrier&apos;s sales illustration, capture the client&apos;s main objective, and prepare a concise, evidence-backed companion that helps explain the design, the assumptions, and what matters before a decision.
           </p>
-
-          {/* Audience chips */}
-          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-slate-500 mb-12">
-            <span className="flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-blue-600" />
-              BGAs &amp; IMOs
-            </span>
-            <span className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-blue-600" />
-              Producers &amp; advisors
-            </span>
-            <span className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-blue-600" />
-              Broker-dealers &amp; firms
-            </span>
-          </div>
-
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <a
-              href={CALENDLY_URL}
-              className="group inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold text-base bg-blue-700 hover:bg-blue-800 text-white transition-all"
-            >
-              Schedule Demo
-              <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
-            </a>
-            <a
-              href="/sample-letter"
-              target="_blank"
-              rel="noopener"
-              className="inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold text-base border-2 border-blue-700 text-blue-700 hover:bg-blue-50 transition-all"
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              See a Sample Letter
+          <div className="flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row sm:gap-4">
+            <Link href="/sample-companion" className="group inline-flex w-full items-center justify-center rounded-lg bg-blue-700 px-8 py-4 text-base font-semibold text-white transition-all hover:bg-blue-800 sm:w-auto">
+              <FileText className="mr-2 h-4 w-4" />
+              See a Sample Companion
+            </Link>
+            <a href={CALENDLY_URL} className="group inline-flex w-full items-center justify-center rounded-lg border-2 border-blue-700 px-8 py-4 text-base font-semibold text-blue-700 transition-all hover:bg-blue-50 sm:w-auto">
+              Request a Pilot
+              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </a>
           </div>
-
+          <p className="mt-10 text-sm text-slate-500">
+            Carrier illustration stays authoritative <span aria-hidden="true">·</span> Producer reviews before sharing <span aria-hidden="true">·</span> No automated policy recommendation
+          </p>
         </div>
       </div>
     </section>
