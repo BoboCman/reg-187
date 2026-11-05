@@ -9,13 +9,13 @@ import { api, errorMessage } from "./api";
 
 type Kind = "proposed_sales" | "in_force" | "not_sure";
 
-async function sha256Hex(buf: ArrayBuffer) {
+export async function sha256Hex(buf: ArrayBuffer) {
   const d = await crypto.subtle.digest("SHA-256", buf);
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /** Name tokens that survived both screens (a leak blocks the upload). */
-function leakedNames(text: string, names: string[]) {
+export function leakedNames(text: string, names: string[]) {
   const lower = text.toLowerCase();
   return names.flatMap((n) => n.split(/\s+/)).map((t) => t.replace(/[^A-Za-z'\-]/g, "")).filter((t) => t.length >= 3 && new RegExp(`\\b${t.replace(/[-']/g, "\\$&")}\\b`, "i").test(lower));
 }

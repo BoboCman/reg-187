@@ -49,6 +49,7 @@ import {
   storyWriterSchema,
   writerToText,
   type StoryDraft,
+  type StoryInputs,
 } from "./story";
 import { buildStoryHtml } from "./story-render";
 
@@ -237,6 +238,8 @@ export const illustrationSubmitSchema = z
       })
       .strict(),
     extractor: z.string().max(40).default("pdfjs-worker"),
+    // Story cases: the form answers, sent with the PDF so one submit runs the whole job.
+    story_inputs: z.unknown().optional(),
   })
   .strict();
 
@@ -249,6 +252,12 @@ export async function submitIllustration(store: CompanionStore, gw: WorkflowGate
   // A replacement illustration is a new revision; prior approvals are superseded.
   if (c.illustration_text) c = await bumpRevision(store, c, "illustration_replaced", userId, { evidence: null, extraction: null, fact_corrections: [] });
 
+  let storyRequest: StoryInputs | null = null;
+  if (body.story_inputs !== undefined) {
+    storyRequest = storyInputsSchema.parse(body.story_inputs);
+    if (((c.case_meta ?? {}) as { story_key?: string }).story_key !== storyRequest.story_key) throw new ServiceError("wrong_story", 409);
+  }
+
   const pages = splitPages(body.text);
   const meta = {
     page_count: body.page_count,
@@ -260,6 +269,7 @@ export async function submitIllustration(store: CompanionStore, gw: WorkflowGate
     extractor: body.extractor,
     received_at: new Date().toISOString(),
     filename_stored: false,
+    ...(storyRequest ? { story_request: storyRequest } : {}),
   };
   c = await setPhase(store, c, "document_received", { illustration: meta, illustration_text: null }, userId);
 
@@ -365,7 +375,7 @@ const callbackSchema = z
   })
   .strict();
 
-export async function handleCallback(store: CompanionStore, env: Env, raw: string, headers: { timestamp: string | null; signature: string | null }) {
+export async function handleCallback(store: CompanionStore, env: Env, raw: string, headers: { timestamp: string | null; signature: string | null }, gw?: WorkflowGateway) {
   if (!env.callbackSecret) throw new ServiceError("not_configured", 503);
   if (!verifySignature(env.callbackSecret, headers.timestamp, headers.signature, raw)) throw new ServiceError("unauthorized", 401);
   let json: unknown;
@@ -377,7 +387,10 @@ export async function handleCallback(store: CompanionStore, env: Env, raw: strin
   const body = callbackSchema.parse(json);
   const c = await store.getCase(body.case_id);
   if (!c || c.case_type !== "illustration_companion") throw new ServiceError("not_found", 404);
-  if (body.stage === "extract") return onExtraction(store, c, body);
+  if (body.stage === "extract") {
+    const r = await onExtraction(store, c, body);
+    return r.phase === "extracted_needs_review" && gw ? autoStory(store, gw, env, c.id) : r;
+  }
   if (body.stage === "story") return onStory(store, c, body);
   return onWriter(store, c, body);
 }
@@ -785,12 +798,38 @@ export async function sourcePage(store: CompanionStore, userId: string, caseId: 
 
 /* ── 11 · PolicyPlan Stories (pre-sale) ───────────────────────────────── */
 
+/**
+ * One submit runs the whole job: when the illustration was sent with the form
+ * answers, the story is generated as soon as the reading is done. If something
+ * stops it (a core fact not found, a blocker), the reason is kept so the
+ * advisor sees it next to the facts and can generate by hand.
+ */
+async function autoStory(store: CompanionStore, gw: WorkflowGateway, env: Env, caseId: string) {
+  const c = await store.getCase(caseId);
+  const ill = (c?.illustration ?? {}) as { story_request?: unknown; story_auto?: unknown };
+  if (!c || !ill.story_request || ill.story_auto) return { ok: true, phase: c ? phaseOf(c) : "extracted_needs_review" };
+  let auto: { status: "sent" | "stopped"; at: string; error?: string; message?: string };
+  try {
+    await requestStory(store, gw, env, c.advisor_id, c.id, { revision: c.companion_revision, inputs: ill.story_request });
+    auto = { status: "sent", at: new Date().toISOString() };
+  } catch (e) {
+    const err = e instanceof ServiceError ? e : null;
+    const detail = (err?.detail ?? {}) as { message?: string };
+    auto = { status: "stopped", at: new Date().toISOString(), error: err?.code ?? "error", ...(detail.message ? { message: String(detail.message).slice(0, 300) } : {}) };
+  }
+  const now = await store.getCase(caseId);
+  if (now) await store.updateCase(now.id, { illustration: { ...((now.illustration ?? {}) as object), story_auto: auto } });
+  return { ok: true, phase: now ? phaseOf(now) : "extracted_needs_review", story: auto.status };
+}
+
 /** What the one-screen form needs: the riders read from the illustration, cover defaults and the last inputs used. */
 function storyFormState(c: CaseRow, packet: EvidencePacket | null, outputs: OutputRow[], branding: CompanionBranding | null) {
   const meta = (c.case_meta ?? {}) as { story_key?: string };
   if (!meta.story_key) return null;
   const last = [...outputs].sort((a, b) => b.created_at.localeCompare(a.created_at)).map((o) => (o.companion as { inputs?: unknown } | null)?.inputs).find(Boolean);
-  const parsed = last ? storyInputsSchema.safeParse(last) : null;
+  const ill = (c.illustration ?? {}) as { story_request?: unknown; story_auto?: { status: string; error?: string; message?: string } };
+  const lastOrRequest = last ?? ill.story_request;
+  const parsed = lastOrRequest ? storyInputsSchema.safeParse(lastOrRequest) : null;
   return {
     story_key: meta.story_key,
     riders: packet ? riderNames(packet) : [],
@@ -802,6 +841,7 @@ function storyFormState(c: CaseRow, packet: EvidencePacket | null, outputs: Outp
       has_logo: !!branding?.logo_base64,
     },
     last_inputs: parsed?.success ? parsed.data : null,
+    auto: ill.story_request ? (ill.story_auto ?? { status: "waiting" }) : null,
   };
 }
 
