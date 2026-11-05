@@ -1,18 +1,21 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, Building2, Check, CheckCircle2, Download, ExternalLink, Loader2, Lock, Sparkles } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Building2, Check, CheckCircle2, ChevronDown, Download, ExternalLink, FileText, Loader2, Lock, ShieldCheck, Sparkles, UploadCloud } from "lucide-react";
 import { AppNav } from "@/components/AppNav";
 import { GOAL_LABELS, STORY_CATALOG } from "@/lib/companion/story-catalog";
-
-type StoryGoal = keyof typeof GOAL_LABELS;
+import { usePDFProcessor, getRedactionCounts } from "@/hooks/usePDFProcessor";
+import { screenText } from "@/lib/companion/privacy";
+import { US_STATES } from "@/lib/companion/contracts";
 import { cn } from "@/lib/utils";
 import { api, errorMessage, type CaseView } from "./api";
-import { UploadStep } from "./UploadStep";
+import { leakedNames, sha256Hex } from "./UploadStep";
 import { FactsStep } from "./FactsStep";
 
+type StoryGoal = keyof typeof GOAL_LABELS;
 type StoryDraft = NonNullable<NonNullable<CaseView["output"]>["story"]>;
 type Cover = { title: string; subtitle: string; prepared_for: string; advisor_name: string; firm_name: string };
+export type BrandingDefaults = { advisor_name: string; firm_name: string; has_logo: boolean };
 
 const POLL = new Set(["extraction_pending", "analysis_pending", "document_received"]);
 const GOALS = Object.keys(GOAL_LABELS) as StoryGoal[];
@@ -21,6 +24,14 @@ const STORY_ACK =
 const field = "h-10 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm focus:border-[var(--color-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-ring)]";
 const card = "rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 sm:p-6";
 const usd = (v: unknown) => (typeof v === "number" ? "$" + Math.round(v).toLocaleString("en-US") : null);
+
+function coverPayload(cover: Cover) {
+  return Object.fromEntries(Object.entries(cover).map(([k, v]) => [k, v.trim() || undefined]));
+}
+function subtitleOk(s: string) {
+  const lines = s.split(/\r?\n/);
+  return lines.length <= 2 && lines.every((l) => l.length <= 70);
+}
 
 /* ── Story picker ─────────────────────────────────────────────────────── */
 
@@ -70,7 +81,13 @@ export function StoryPicker() {
 
 /* ── Workspace ────────────────────────────────────────────────────────── */
 
-export function StoryWorkspace({ initial, storyKey }: { initial: CaseView | null; storyKey: "apartment" }) {
+const STOP_TEXT: Record<string, string> = {
+  core_facts_unresolved: "We read the illustration, but the carrier, product or death benefit could not be matched to the pages. Check the facts below, then create the report.",
+  workflow_unavailable: "The story service did not respond. Create the report again below.",
+  story_blocked: "This illustration can't be told as this story yet.",
+};
+
+export function StoryWorkspace({ initial, storyKey, branding }: { initial: CaseView | null; storyKey: "apartment"; branding?: BrandingDefaults | null }) {
   const [view, setView] = useState<CaseView | null>(initial);
   const [caseId, setCaseId] = useState<string | null>(initial?.id ?? null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -93,7 +110,8 @@ export function StoryWorkspace({ initial, storyKey }: { initial: CaseView | null
     [caseId],
   );
 
-  const pending = !!view && (POLL.has(view.phase) || view.output?.status === "pending");
+  const phase = view?.phase ?? "created";
+  const pending = !!view && (POLL.has(phase) || view.output?.status === "pending");
   useEffect(() => {
     if (!pending) return;
     const t = setInterval(() => refresh(), 4000);
@@ -101,11 +119,15 @@ export function StoryWorkspace({ initial, storyKey }: { initial: CaseView | null
   }, [pending, refresh]);
 
   const draft = view?.output?.story ?? null;
-  const ready = !!view?.evidence && !POLL.has(view.phase) && !view.phase.startsWith("blocked_");
-  const showUpload = !view || replacing || view.phase.startsWith("blocked_") || (!view.evidence && !POLL.has(view.phase) && view.phase !== "failed_retryable");
+  const auto = view?.story?.auto ?? null;
+  // The intake (PDF + form) until a readable illustration is in; then progress, then the report.
+  const intake = !view || replacing || phase.startsWith("blocked_") || (!view.evidence && !POLL.has(phase) && phase !== "failed_retryable");
+  const waitingForAuto = !!view?.evidence && auto?.status === "waiting" && phase === "extracted_needs_review";
+  const working = !intake && !draft && (pending || waitingForAuto);
+  const stopped = !intake && !draft && !working;
   const meta = (view?.case_meta ?? {}) as { case_label?: string; sales_jurisdiction?: string };
-  const step = !view?.evidence ? 2 : !draft ? 3 : 4;
-  const STEPS = ["Story", "Illustration", "Goals and branding", "Report"];
+  const step = intake ? 2 : draft ? 3 : working ? 3 : 2;
+  const STEPS = ["Story", "Policy and goals", "Report"];
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] pb-24">
@@ -119,17 +141,12 @@ export function StoryWorkspace({ initial, storyKey }: { initial: CaseView | null
             <h1 className="mt-1 text-2xl font-semibold tracking-tight">{story.name}</h1>
             <p className="text-sm text-[var(--color-text-muted)]">{[meta.case_label, meta.sales_jurisdiction, view ? `Revision ${view.revision}` : null].filter(Boolean).join(" · ") || story.designs}</p>
           </div>
-          {pending && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-[var(--color-text-muted)]">
-              <Loader2 className="h-4 w-4 animate-spin" /> {view?.phase === "analysis_pending" ? "Writing the story…" : "Reading the illustration…"}
-            </span>
-          )}
         </div>
 
-        <ol className="grid grid-cols-4 gap-1 sm:gap-2" aria-label="Steps">
+        <ol className="grid grid-cols-3 gap-1 sm:gap-2" aria-label="Steps">
           {STEPS.map((label, idx) => {
             const i = idx + 1;
-            const ok = i < step || (i === 4 && draft?.validation && view?.output?.status === "final");
+            const ok = i < step || (i === 3 && view?.output?.status === "final");
             return (
               <li key={label} className={cn("flex items-center gap-2 rounded-lg border px-2 py-2 sm:px-3", i === step ? "border-[var(--color-accent)] bg-[var(--color-surface)] shadow-sm" : "border-transparent")}>
                 <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold", ok ? "bg-emerald-600 text-white" : i === step ? "bg-[var(--color-accent)] text-white" : "bg-[var(--color-readonly-bg)] text-[var(--color-text-muted)]")}>
@@ -142,42 +159,279 @@ export function StoryWorkspace({ initial, storyKey }: { initial: CaseView | null
         </ol>
 
         {loadErr && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{loadErr}</p>}
-        {view?.phase.startsWith("blocked_") && (
+        {view && phase.startsWith("blocked_") && !replacing && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {view.phase === "blocked_privacy" ? "Nothing was sent: personal details were still present after redaction. Check the names and upload again." : "This document is not supported (in-force, scanned or unreadable). Upload the carrier's proposed sales illustration."}
+            {phase === "blocked_privacy" ? "Nothing was sent: a client name was still present after redaction. Check the names and submit again." : "This document is not supported (in-force, scanned or unreadable). Attach the carrier's proposed sales illustration."}
           </p>
         )}
 
-        {showUpload ? (
-          <UploadStep
+        {intake ? (
+          <StoryIntake
             storyKey={storyKey}
             caseId={caseId}
+            initial={view?.story?.last_inputs ?? null}
             defaultJurisdiction={meta.sales_jurisdiction}
+            branding={branding ?? (view?.story ? { advisor_name: view.story.cover_defaults.advisor_name, firm_name: view.story.cover_defaults.firm_name, has_logo: view.story.cover_defaults.has_logo } : null)}
             onCreated={(id) => {
               setCaseId(id);
               window.history.replaceState(null, "", `/companion/${id}`);
             }}
-            onSubmitted={() => {
+            onSubmitted={(id) => {
               setReplacing(false);
-              const id = window.location.pathname.split("/").pop();
-              if (id && id !== "new") refresh(id);
+              if (id) refresh(id);
             }}
           />
+        ) : working ? (
+          view && <Progress view={view} />
         ) : (
-          view && <WeRead view={view} onChange={() => refresh()} onReplace={() => setReplacing(true)} />
+          view && (
+            <>
+              {stopped && (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  {view.output?.status === "error" || phase === "failed_retryable"
+                    ? view.evidence
+                      ? "The story could not be written this time. Create the report again below."
+                      : "Reading the illustration did not finish. Try again below."
+                    : auto?.status === "stopped"
+                      ? (auto.message ? `${STOP_TEXT.story_blocked} ${auto.message}` : STOP_TEXT[auto.error ?? ""] ?? STOP_TEXT.workflow_unavailable)
+                      : "Check what we read, then create the report."}
+                </p>
+              )}
+              <WeRead view={view} startOpen={stopped && auto?.error === "core_facts_unresolved"} onChange={() => refresh()} onReplace={() => setReplacing(true)} />
+              {stopped && view.evidence && <StoryForm key={`${view.id}:${view.revision}`} view={view} onGenerated={() => refresh()} />}
+              {draft && <ReportReview view={view} draft={draft} onChange={() => refresh()} />}
+              {draft && (
+                <details className={cn(card, "group")}>
+                  <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold">
+                    Change goals, riders or cover
+                    <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                  </summary>
+                  <div className="mt-4">
+                    <StoryForm key={`${view.id}:${view.revision}`} view={view} embedded onGenerated={() => refresh()} />
+                  </div>
+                </details>
+              )}
+            </>
+          )
         )}
-
-        {view && !showUpload && <StoryForm key={`${view.id}:${view.revision}`} view={view} ready={ready} onGenerated={() => refresh()} />}
-        {view && draft && <ReportReview view={view} draft={draft} onChange={() => refresh()} />}
       </main>
     </div>
   );
 }
 
+/* ── Intake: attach the policy, answer the questions, submit once ─────── */
+
+function StoryIntake({
+  storyKey,
+  caseId,
+  initial,
+  defaultJurisdiction,
+  branding,
+  onCreated,
+  onSubmitted,
+}: {
+  storyKey: "apartment";
+  caseId: string | null;
+  initial: NonNullable<CaseView["story"]>["last_inputs"] | null;
+  defaultJurisdiction?: string | null;
+  branding: BrandingDefaults | null;
+  onCreated: (id: string) => void;
+  onSubmitted: (id: string | null) => void;
+}) {
+  const { processFile, progress, isProcessing } = usePDFProcessor();
+  const [file, setFile] = useState<File | null>(null);
+  const [drag, setDrag] = useState(false);
+  const [names, setNames] = useState(["", ""]);
+  const [jurisdiction, setJurisdiction] = useState(defaultJurisdiction ?? "");
+  const [label, setLabel] = useState("");
+  const [goals, setGoals] = useState<StoryGoal[]>(initial?.goals ?? []);
+  const [beneficiary, setBeneficiary] = useState(initial?.beneficiary ?? "");
+  const [cover, setCover] = useState<Cover>({
+    title: initial?.cover.title ?? "Your Policy Story",
+    subtitle: initial?.cover.subtitle ?? "",
+    prepared_for: initial?.cover.prepared_for ?? "",
+    advisor_name: initial?.cover.advisor_name ?? branding?.advisor_name ?? "",
+    firm_name: initial?.cover.firm_name ?? branding?.firm_name ?? "",
+  });
+  const [stage, setStage] = useState<null | "redacting" | "sending">(null);
+  const [error, setError] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+
+  const cleanNames = names.map((n) => n.trim()).filter(Boolean);
+  const missing = [!file && "attach the illustration", !cleanNames.length && "enter the name on the illustration", !caseId && !jurisdiction && "choose the state of sale"].filter(Boolean) as string[];
+  const ready = !missing.length && subtitleOk(cover.subtitle) && !stage;
+
+  async function submit() {
+    if (!file) return;
+    setError(null);
+    setStage("redacting");
+    let id = caseId;
+    try {
+      if (file.type && file.type !== "application/pdf") throw new Error("Attach the carrier illustration as a PDF.");
+      if (file.size > 10 * 1024 * 1024) throw new Error("The PDF is larger than 10 MB.");
+      const fingerprint = await sha256Hex(await file.arrayBuffer());
+      const result = await processFile(file, { enableRedaction: true, namesToRedact: cleanNames });
+      const screened = screenText(result.cleanText, cleanNames);
+      const leaks = leakedNames(screened.text, cleanNames);
+      const warnings = result.warnings.map((w) => String(w.type ?? "warning")).filter((t) => t !== "name_leak_detected");
+      if (leaks.length) warnings.push(`name_leak:${leaks.length}`);
+      const removed: Record<string, number> = { ...getRedactionCounts(result.redactionLog) };
+      for (const r of screened.removed) removed[r.kind] = (removed[r.kind] ?? 0) + r.count;
+
+      setStage("sending");
+      if (!id) {
+        const c = await api<{ id: string }>("/api/companion/cases", "POST", {
+          sales_jurisdiction: jurisdiction,
+          ...(label.trim() ? { case_label: label.trim() } : {}),
+          story_key: storyKey,
+        });
+        id = c.id;
+        onCreated(id);
+      }
+      await api(`/api/companion/cases/${id}/illustration`, "POST", {
+        text: screened.text,
+        page_count: Number(result.metadata?.pageCount ?? 0),
+        document_fingerprint: fingerprint,
+        file_size: file.size,
+        kind_confirmed: "proposed_sales",
+        privacy: { removed, worker_warnings: warnings.slice(0, 20), names_screened: Math.min(cleanNames.length, 10) },
+        extractor: "pdfjs-worker",
+        story_inputs: { story_key: storyKey, goals, riders: [], beneficiary: beneficiary.trim() || undefined, cover: coverPayload(cover) },
+      });
+      onSubmitted(id);
+    } catch (e) {
+      setError(errorMessage(e));
+      onSubmitted(id);
+    } finally {
+      setStage(null);
+    }
+  }
+
+  return (
+    <>
+      <section className={cn(card, "space-y-4")}>
+        <div>
+          <h2 className="text-base font-semibold">1 · Attach the policy</h2>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">The carrier&apos;s proposed sales illustration, as the original PDF.</p>
+        </div>
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDrag(true);
+          }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDrag(false);
+            const f = e.dataTransfer.files?.[0];
+            if (f) setFile(f);
+          }}
+          onClick={() => input.current?.click()}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && input.current?.click()}
+          className={cn(
+            "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-7 text-center transition-colors",
+            drag ? "border-[var(--color-accent)] bg-[var(--color-accent-light)]" : file ? "border-emerald-300 bg-emerald-50/40" : "border-[var(--color-border-strong)] hover:bg-[var(--color-readonly-bg)]",
+          )}
+        >
+          {file ? <FileText className="h-7 w-7 text-emerald-700" /> : <UploadCloud className="h-7 w-7 text-[var(--color-text-muted)]" />}
+          <p className="mt-2 text-sm font-medium">{file ? file.name : "Drop the PDF here or choose a file"}</p>
+          <p className="text-xs text-[var(--color-text-muted)]">{file ? `${(file.size / 1024).toFixed(0)} KB · click to change` : "PDF, up to 10 MB"}</p>
+          <input ref={input} type="file" accept="application/pdf" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[0, 1].map((i) => (
+            <label key={i} className="block text-sm">
+              <span className="text-[var(--color-text-secondary)]">{i === 0 ? "Name on the illustration" : "Second insured (if any)"}</span>
+              <input className={cn(field, "mt-1")} autoComplete="off" value={names[i]} onChange={(e) => setNames((n) => n.map((x, j) => (j === i ? e.target.value : x)))} placeholder={i === 0 ? "As printed on the PDF" : "Optional"} />
+            </label>
+          ))}
+        </div>
+        <p className="flex items-start gap-2 text-xs text-[var(--color-text-muted)]">
+          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Names are used only in this browser to remove the client&apos;s identity before anything is sent. The PDF never leaves this device.
+        </p>
+        {!caseId && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm">
+              <span className="text-[var(--color-text-secondary)]">State of sale</span>
+              <select className={cn(field, "mt-1")} value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)}>
+                <option value="">Choose…</option>
+                {US_STATES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="text-[var(--color-text-secondary)]">Your label (optional)</span>
+              <input className={cn(field, "mt-1")} maxLength={60} placeholder="e.g. Case 14, not the client's name" value={label} onChange={(e) => setLabel(e.target.value)} />
+            </label>
+          </div>
+        )}
+      </section>
+
+      <section className={cn(card, "space-y-6")}>
+        <h2 className="text-base font-semibold">2 · Goals and branding</h2>
+        <StoryFields goals={goals} setGoals={setGoals} beneficiary={beneficiary} setBeneficiary={setBeneficiary} cover={cover} setCover={setCover} hasLogo={!!branding?.has_logo} riders={null} />
+        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      </section>
+
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <p className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
+            <ShieldCheck className="hidden h-4 w-4 shrink-0 sm:block" />
+            {stage === "redacting"
+              ? `Removing names · page ${progress.currentPage || 1}${progress.totalPages ? ` of ${progress.totalPages}` : ""}`
+              : stage === "sending"
+                ? "Sending the screened text…"
+                : missing.length
+                  ? `To submit, ${missing.join(", ")}.`
+                  : "Names are removed in this browser, then the report is written. About two minutes."}
+          </p>
+          <button type="button" onClick={submit} disabled={!ready} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-[var(--color-accent)] px-5 text-sm font-semibold text-white disabled:opacity-50">
+            {stage || isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            Create report
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ── Progress after submit ────────────────────────────────────────────── */
+
+function Progress({ view }: { view: CaseView }) {
+  const reading = view.phase === "document_received" || view.phase === "extraction_pending";
+  const rows: [string, "done" | "now" | "next"][] = [
+    ["Names removed in your browser", "done"],
+    ["Reading the illustration", reading ? "now" : "done"],
+    ["Writing the story", reading ? "next" : "now"],
+    ["Report ready for your review", "next"],
+  ];
+  return (
+    <section className={cn(card, "space-y-4")}>
+      <div>
+        <h2 className="text-base font-semibold">Creating your report</h2>
+        <p className="text-sm text-[var(--color-text-muted)]">This takes about two minutes. You can leave this page; the report will be here when you come back.</p>
+      </div>
+      <ol className="space-y-2.5">
+        {rows.map(([label, s]) => (
+          <li key={label} className="flex items-center gap-3 text-sm">
+            {s === "done" ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : s === "now" ? <Loader2 className="h-5 w-5 animate-spin text-[var(--color-accent)]" /> : <span className="h-5 w-5 rounded-full border-2 border-[var(--color-border)]" />}
+            <span className={cn(s === "next" && "text-[var(--color-text-muted)]", s === "now" && "font-medium")}>{label}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 /* ── "We read" strip with the facts behind a toggle ──────────────────── */
 
-function WeRead({ view, onChange, onReplace }: { view: CaseView; onChange: () => void; onReplace: () => void }) {
-  const [open, setOpen] = useState(false);
+function WeRead({ view, startOpen, onChange, onReplace }: { view: CaseView; startOpen?: boolean; onChange: () => void; onReplace: () => void }) {
+  const [open, setOpen] = useState(!!startOpen);
   const ev = view.evidence;
   if (!ev) return <FactsStep view={view} onChange={onChange} />;
   const f = new Map(ev.facts.map((x) => [x.fact_id, x]));
@@ -216,19 +470,166 @@ function WeRead({ view, onChange, onReplace }: { view: CaseView; onChange: () =>
   );
 }
 
-/* ── The one-screen form ──────────────────────────────────────────────── */
+/* ── Shared form fields: goals, riders, beneficiary, cover ────────────── */
 
-function StoryForm({ view, ready, onGenerated }: { view: CaseView; ready: boolean; onGenerated: () => void }) {
+function StoryFields({
+  goals,
+  setGoals,
+  beneficiary,
+  setBeneficiary,
+  cover,
+  setCover,
+  hasLogo,
+  riders,
+}: {
+  goals: StoryGoal[];
+  setGoals: React.Dispatch<React.SetStateAction<StoryGoal[]>>;
+  beneficiary: string;
+  setBeneficiary: (v: string) => void;
+  cover: Cover;
+  setCover: React.Dispatch<React.SetStateAction<Cover>>;
+  hasLogo: boolean;
+  /** null before the illustration is read: riders are then all shown, and can be hidden on the review screen. */
+  riders: { list: string[]; shown: Record<string, boolean>; setShown: React.Dispatch<React.SetStateAction<Record<string, boolean>>> } | null;
+}) {
+  const set = (k: keyof Cover) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setCover((c) => ({ ...c, [k]: e.target.value }));
+  const subtitleLines = cover.subtitle.split(/\r?\n/);
+  const okSub = subtitleOk(cover.subtitle);
+  return (
+    <>
+      <div>
+        <p className="text-sm font-semibold">What is this policy for?</p>
+        <p className="text-sm text-[var(--color-text-muted)]">Optional, up to 3. The story connects to the first one.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {GOALS.map((g) => {
+            const on = goals.includes(g);
+            return (
+              <button
+                key={g}
+                type="button"
+                aria-pressed={on}
+                disabled={!on && goals.length >= 3}
+                onClick={() => setGoals((list) => (on ? list.filter((x) => x !== g) : [...list, g]))}
+                className={cn("h-9 rounded-full px-4 text-sm ring-1 ring-inset disabled:opacity-40", on ? "bg-[var(--color-accent-light)] font-medium text-[var(--color-accent)] ring-[var(--color-accent)]" : "ring-[var(--color-border)] hover:bg-[var(--color-readonly-bg)]")}
+              >
+                {GOAL_LABELS[g]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-5 md:grid-cols-2">
+        <fieldset className="rounded-lg border border-[var(--color-border)] p-4">
+          <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Riders on report</legend>
+          {!riders ? (
+            <p className="text-sm text-[var(--color-text-secondary)]">Every rider in the illustration prints with one plain line on what it does. You can hide any of them on the review screen.</p>
+          ) : riders.list.length ? (
+            <>
+              <p className="mb-2 text-xs text-[var(--color-text-muted)]">
+                {riders.list.filter((r) => riders.shown[r] !== false).length} of {riders.list.length} shown, each with one plain line on what it does
+              </p>
+              <div className="space-y-1.5">
+                {riders.list.map((r) => (
+                  <label key={r} className="flex items-start gap-2 text-sm">
+                    <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[var(--color-accent)]" checked={riders.shown[r] !== false} onChange={(e) => riders.setShown((s) => ({ ...s, [r]: e.target.checked }))} />
+                    {r}
+                  </label>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-[var(--color-text-muted)]">No riders were found in the illustration.</p>
+          )}
+        </fieldset>
+        <div className="rounded-lg border border-[var(--color-border)] p-4">
+          <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]" htmlFor="beneficiary">
+            Beneficiary (optional)
+          </label>
+          <input id="beneficiary" className={cn(field, "mt-2")} maxLength={120} placeholder="e.g. Spouse, or a trust name" value={beneficiary} onChange={(e) => setBeneficiary(e.target.value)} />
+          <p className="mt-2 flex items-start gap-1.5 text-xs text-[var(--color-text-muted)]">
+            <Lock className="mt-0.5 h-3 w-3 shrink-0" /> Printed on the report. Never sent to the AI.
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-[var(--color-border)]">
+        <div className="border-b border-[var(--color-border)] bg-[var(--color-readonly-bg)] px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide">Report cover</p>
+          <p className="text-xs text-[var(--color-text-muted)]">Pre-filled, edit anything. Nothing here is sent to the AI.</p>
+        </div>
+        <div className="grid gap-5 p-4 md:grid-cols-[1fr_240px]">
+          <div className="space-y-3">
+            <label className="block text-sm">
+              <span className="text-[var(--color-text-secondary)]">Report title</span>
+              <input className={cn(field, "mt-1")} maxLength={60} value={cover.title} onChange={set("title")} />
+            </label>
+            <label className="block text-sm">
+              <span className="flex justify-between text-[var(--color-text-secondary)]">
+                Subtitle <span className={cn("text-xs", okSub ? "text-[var(--color-text-muted)]" : "text-red-600")}>2 lines max</span>
+              </span>
+              <textarea className="mt-1 h-16 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm" placeholder={"Leave blank to use the product type, e.g.\nIndexed Universal Life"} value={cover.subtitle} onChange={set("subtitle")} />
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm">
+                <span className="text-[var(--color-text-secondary)]">Prepared for</span>
+                <input className={cn(field, "mt-1")} maxLength={80} value={cover.prepared_for} onChange={set("prepared_for")} />
+              </label>
+              <label className="block text-sm">
+                <span className="text-[var(--color-text-secondary)]">Advisor (optional)</span>
+                <input className={cn(field, "mt-1")} maxLength={80} value={cover.advisor_name} onChange={set("advisor_name")} />
+              </label>
+            </div>
+            <label className="block text-sm">
+              <span className="text-[var(--color-text-secondary)]">Firm name</span>
+              <input className={cn(field, "mt-1")} maxLength={80} value={cover.firm_name} onChange={set("firm_name")} />
+            </label>
+            <p className="text-xs text-[var(--color-text-muted)]">
+              {hasLogo ? "Your firm logo from Settings prints on the cover." : "Add a firm logo and disclosures in "}
+              {!hasLogo && (
+                <Link href="/settings/branding" className="underline">
+                  Settings
+                </Link>
+              )}
+            </p>
+          </div>
+          <div aria-label="Cover preview">
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Cover preview</p>
+            <div className="aspect-[8.5/11] overflow-hidden rounded-md border border-[var(--color-border)] bg-white p-3 text-[#0F1E33] shadow-sm">
+              <div className="h-1 bg-[#2B5C9E]" />
+              <p className="mt-3 truncate text-[9px] font-bold">{cover.firm_name || "Your firm"}</p>
+              <p className="mt-6 text-[13px] font-extrabold uppercase leading-tight text-[#1F4E8C]">{cover.title || "Your Policy Story"}</p>
+              {(cover.subtitle ? subtitleLines : ["Product type from the illustration"]).slice(0, 2).map((l, i) => (
+                <p key={i} className="truncate text-[8px] text-[#3B4A5E]">
+                  {l}
+                </p>
+              ))}
+              <div className="mt-3 border-t border-[#D8DFEA] pt-2">
+                <p className="text-[6px] font-bold uppercase tracking-widest text-[#2F6DB5]">Prepared for</p>
+                <p className="truncate text-[9px] font-bold">{cover.prepared_for || "—"}</p>
+              </div>
+              <p className="mt-2 text-[6px] text-[#6B7A8F]">Product · Carrier · Illustration date</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ── Create again (after the illustration is read) ────────────────────── */
+
+function StoryForm({ view, embedded, onGenerated }: { view: CaseView; embedded?: boolean; onGenerated: () => void }) {
   const st = view.story;
   const last = st?.last_inputs ?? null;
   const defaults = st?.cover_defaults;
-  const [goals, setGoals] = useState<StoryGoal[]>(last?.goals ?? []);
   const riderList = st?.riders ?? [];
-  const [shown, setShown] = useState<Record<string, boolean>>(() => Object.fromEntries(riderList.map((r) => [r, last ? last.riders.find((x) => x.name === r)?.show ?? true : true])));
+  const [goals, setGoals] = useState<StoryGoal[]>(last?.goals ?? []);
+  const [shown, setShown] = useState<Record<string, boolean>>(() => Object.fromEntries(riderList.map((r) => [r, last && last.riders.length ? last.riders.find((x) => x.name === r)?.show ?? true : true])));
   const [beneficiary, setBeneficiary] = useState(last?.beneficiary ?? "");
   const [cover, setCover] = useState<Cover>({
     title: last?.cover.title ?? defaults?.title ?? "",
-    subtitle: last?.cover.subtitle ?? defaults?.subtitle ?? "",
+    subtitle: last?.cover.subtitle ?? "",
     prepared_for: last?.cover.prepared_for ?? "",
     advisor_name: last?.cover.advisor_name ?? defaults?.advisor_name ?? "",
     firm_name: last?.cover.firm_name ?? defaults?.firm_name ?? "",
@@ -236,28 +637,6 @@ function StoryForm({ view, ready, onGenerated }: { view: CaseView; ready: boolea
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const writing = view.phase === "analysis_pending" || view.output?.status === "pending";
-  const hasDraft = !!view.output?.story;
-
-  // Cover defaults can arrive after the form mounts (the illustration is still being read).
-  // Fill any field the advisor has not typed in yet.
-  const seeded = useRef<Partial<Record<keyof Cover, string>>>({ title: cover.title, subtitle: cover.subtitle, advisor_name: cover.advisor_name, firm_name: cover.firm_name });
-  useEffect(() => {
-    if (last || !defaults) return;
-    setCover((c) => {
-      const next = { ...c };
-      for (const k of ["title", "subtitle", "advisor_name", "firm_name"] as const) {
-        const d = defaults[k];
-        if (d && c[k] === (seeded.current[k] ?? "") && c[k] !== d) { next[k] = d; seeded.current[k] = d; }
-      }
-      return next;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaults?.title, defaults?.subtitle, defaults?.advisor_name, defaults?.firm_name]);
-
-  useEffect(() => {
-    setShown((s) => ({ ...Object.fromEntries(riderList.map((r) => [r, true])), ...s }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [riderList.join("|")]);
 
   async function generate() {
     setBusy(true);
@@ -270,7 +649,7 @@ function StoryForm({ view, ready, onGenerated }: { view: CaseView; ready: boolea
           goals,
           riders: riderList.map((name) => ({ name, show: shown[name] !== false })),
           beneficiary: beneficiary.trim() || undefined,
-          cover: Object.fromEntries(Object.entries(cover).map(([k, v]) => [k, v.trim() || undefined])),
+          cover: coverPayload(cover),
         },
       });
       onGenerated();
@@ -281,140 +660,19 @@ function StoryForm({ view, ready, onGenerated }: { view: CaseView; ready: boolea
     }
   }
 
-  const set = (k: keyof Cover) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setCover((c) => ({ ...c, [k]: e.target.value }));
-  const subtitleLines = cover.subtitle.split(/\r?\n/);
-  const subtitleOk = subtitleLines.length <= 2 && subtitleLines.every((l) => l.length <= 70);
-
   return (
-    <>
-      <section className={cn(card, "space-y-6")}>
-        <div>
-          <h2 className="text-base font-semibold">What is this policy for?</h2>
-          <p className="text-sm text-[var(--color-text-muted)]">Optional, up to 3. The story connects to the first one.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {GOALS.map((g) => {
-              const on = goals.includes(g);
-              return (
-                <button
-                  key={g}
-                  type="button"
-                  aria-pressed={on}
-                  disabled={!on && goals.length >= 3}
-                  onClick={() => setGoals((list) => (on ? list.filter((x) => x !== g) : [...list, g]))}
-                  className={cn("h-9 rounded-full px-4 text-sm ring-1 ring-inset disabled:opacity-40", on ? "bg-[var(--color-accent-light)] font-medium text-[var(--color-accent)] ring-[var(--color-accent)]" : "ring-[var(--color-border)] hover:bg-[var(--color-readonly-bg)]")}
-                >
-                  {GOAL_LABELS[g]}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="grid gap-5 md:grid-cols-2">
-          <fieldset className="rounded-lg border border-[var(--color-border)] p-4">
-            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Riders on report</legend>
-            {riderList.length ? (
-              <>
-                <p className="mb-2 text-xs text-[var(--color-text-muted)]">
-                  {riderList.filter((r) => shown[r] !== false).length} of {riderList.length} shown, each with one plain line on what it does
-                </p>
-                <div className="space-y-1.5">
-                  {riderList.map((r) => (
-                    <label key={r} className="flex items-start gap-2 text-sm">
-                      <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[var(--color-accent)]" checked={shown[r] !== false} onChange={(e) => setShown((s) => ({ ...s, [r]: e.target.checked }))} />
-                      {r}
-                    </label>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-[var(--color-text-muted)]">{ready ? "No riders were found in the illustration." : "Riders appear here once the illustration is read."}</p>
-            )}
-          </fieldset>
-          <div className="rounded-lg border border-[var(--color-border)] p-4">
-            <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]" htmlFor="beneficiary">
-              Beneficiary (optional)
-            </label>
-            <input id="beneficiary" className={cn(field, "mt-2")} maxLength={120} placeholder="e.g. Spouse, or a trust name" value={beneficiary} onChange={(e) => setBeneficiary(e.target.value)} />
-            <p className="mt-2 flex items-start gap-1.5 text-xs text-[var(--color-text-muted)]">
-              <Lock className="mt-0.5 h-3 w-3 shrink-0" /> Printed on the report. Never sent to the AI.
-            </p>
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-[var(--color-border)]">
-          <div className="border-b border-[var(--color-border)] bg-[var(--color-readonly-bg)] px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide">Report cover</p>
-            <p className="text-xs text-[var(--color-text-muted)]">Pre-filled, edit anything. Nothing here is sent to the AI.</p>
-          </div>
-          <div className="grid gap-5 p-4 md:grid-cols-[1fr_240px]">
-            <div className="space-y-3">
-              <label className="block text-sm">
-                <span className="text-[var(--color-text-secondary)]">Report title</span>
-                <input className={cn(field, "mt-1")} maxLength={60} value={cover.title} onChange={set("title")} />
-              </label>
-              <label className="block text-sm">
-                <span className="flex justify-between text-[var(--color-text-secondary)]">
-                  Subtitle <span className={cn("text-xs", subtitleOk ? "text-[var(--color-text-muted)]" : "text-red-600")}>2 lines max</span>
-                </span>
-                <textarea className="mt-1 h-16 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm" value={cover.subtitle} onChange={set("subtitle")} />
-              </label>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block text-sm">
-                  <span className="text-[var(--color-text-secondary)]">Prepared for</span>
-                  <input className={cn(field, "mt-1")} maxLength={80} value={cover.prepared_for} onChange={set("prepared_for")} />
-                </label>
-                <label className="block text-sm">
-                  <span className="text-[var(--color-text-secondary)]">Advisor (optional)</span>
-                  <input className={cn(field, "mt-1")} maxLength={80} value={cover.advisor_name} onChange={set("advisor_name")} />
-                </label>
-              </div>
-              <label className="block text-sm">
-                <span className="text-[var(--color-text-secondary)]">Firm name</span>
-                <input className={cn(field, "mt-1")} maxLength={80} value={cover.firm_name} onChange={set("firm_name")} />
-              </label>
-              <p className="text-xs text-[var(--color-text-muted)]">
-                {defaults?.has_logo ? "Your firm logo from Settings prints on the cover." : "Add a firm logo and disclosures in "}
-                {!defaults?.has_logo && (
-                  <Link href="/settings/branding" className="underline">
-                    Settings
-                  </Link>
-                )}
-              </p>
-            </div>
-            <div aria-label="Cover preview">
-              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Cover preview</p>
-              <div className="aspect-[8.5/11] overflow-hidden rounded-md border border-[var(--color-border)] bg-white p-3 text-[#0F1E33] shadow-sm">
-                <div className="h-1 bg-[#2B5C9E]" />
-                <p className="mt-3 truncate text-[9px] font-bold">{cover.firm_name || "Your firm"}</p>
-                <p className="mt-6 text-[13px] font-extrabold uppercase leading-tight text-[#1F4E8C]">{cover.title || "Your Policy Story"}</p>
-                {subtitleLines.slice(0, 2).map((l, i) => (
-                  <p key={i} className="truncate text-[8px] text-[#3B4A5E]">
-                    {l}
-                  </p>
-                ))}
-                <div className="mt-3 border-t border-[#D8DFEA] pt-2">
-                  <p className="text-[6px] font-bold uppercase tracking-widest text-[#2F6DB5]">Prepared for</p>
-                  <p className="truncate text-[9px] font-bold">{cover.prepared_for || "—"}</p>
-                </div>
-                <p className="mt-2 text-[6px] text-[#6B7A8F]">Product · Carrier · Illustration date</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
-      </section>
-
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <p className="text-sm text-[var(--color-text-muted)]">{!ready ? "Reading the illustration. You can fill in the form meanwhile." : writing ? "Writing the story. You can leave this page." : "Takes about a minute · you can leave this page"}</p>
-          <button type="button" onClick={generate} disabled={!ready || busy || writing || !subtitleOk} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-accent)] px-5 text-sm font-semibold text-white disabled:opacity-50">
-            {busy || writing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {hasDraft ? "Create report again" : "Create report"}
-          </button>
-        </div>
+    <section className={cn(!embedded && card, "space-y-6")}>
+      {!embedded && <h2 className="text-base font-semibold">Goals and branding</h2>}
+      <StoryFields goals={goals} setGoals={setGoals} beneficiary={beneficiary} setBeneficiary={setBeneficiary} cover={cover} setCover={setCover} hasLogo={!!defaults?.has_logo} riders={{ list: riderList, shown, setShown }} />
+      {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
+      <div className="flex items-center justify-end gap-3">
+        <p className="text-sm text-[var(--color-text-muted)]">{embedded ? "Writes a new draft. You review and approve it again." : "About a minute."}</p>
+        <button type="button" onClick={generate} disabled={busy || writing || !subtitleOk(cover.subtitle)} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-accent)] px-5 text-sm font-semibold text-white disabled:opacity-50">
+          {busy || writing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {embedded ? "Create report again" : "Create report"}
+        </button>
       </div>
-    </>
+    </section>
   );
 }
 
