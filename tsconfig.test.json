@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "outDir": ".test-build",
+    "rootDir": ".",
+    "noEmit": false,
+    "incremental": false,
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "lib/companion/**/*.ts",
+    "tests/companion/**/*.ts"
+  ],
+  "exclude": [
+    "lib/companion/supabase-store.ts",
+    "lib/companion/http.ts"
+  ]
+}

@@ -9,9 +9,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "PolicyPlan — Every client deserves a best-interest letter",
+  title: "PolicyPlan · Illustration Companion",
   description:
-    "Upload the carrier illustration, answer a three-minute client profile, and sign a client-ready best-interest letter built to New York's Reg 187 standard. For every case, in every state.",
+    "Upload the carrier's sales illustration, capture the client's main objective, and prepare a concise, evidence-backed companion that the producer reviews before sharing.",
 };
 
 export const viewport: Viewport = {

@@ -11,19 +11,19 @@ interface AppNavProps {
   centerSlot?: React.ReactNode;
   /** Slot rendered on the right, before sign-out. */
   rightSlot?: React.ReactNode;
-  /** Suppress the "New letter" button (e.g. when already in the profiler). */
+  /** Suppress the "New companion" button (e.g. when already creating one). */
   hideNewIntake?: boolean;
 }
 
 const LINKS = [
-  { href: "/dashboard", label: "Letters", match: (p: string) => p === "/dashboard" || p.startsWith("/cases") },
+  { href: "/dashboard", label: "Companions", match: (p: string) => p === "/dashboard" || p.startsWith("/cases") || p.startsWith("/companion") },
   { href: "/settings/branding", label: "Letterhead", match: (p: string) => p.startsWith("/settings") },
 ];
 
 export function AppNav({ centerSlot, rightSlot, hideNewIntake }: AppNavProps) {
   const pathname = usePathname() ?? "";
   const router = useRouter();
-  const inProfiler = pathname.startsWith("/app");
+  const inProfiler = pathname.startsWith("/app") || pathname.startsWith("/companion/new");
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -66,11 +66,11 @@ export function AppNav({ centerSlot, rightSlot, hideNewIntake }: AppNavProps) {
           {rightSlot}
           {!hideNewIntake && !inProfiler && (
             <Link
-              href="/app"
+              href="/companion/new"
               className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white text-sm font-semibold shadow-sm transition-colors"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">New letter</span>
+              <span className="hidden sm:inline">New companion</span>
               <span className="sm:hidden">New</span>
             </Link>
           )}
@@ -79,7 +79,7 @@ export function AppNav({ centerSlot, rightSlot, hideNewIntake }: AppNavProps) {
               href="/dashboard"
               className="hidden sm:inline-flex text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] px-3 py-1.5 rounded-md"
             >
-              Letters
+              Companions
             </Link>
           )}
           <button

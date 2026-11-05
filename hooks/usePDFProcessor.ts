@@ -39,6 +39,8 @@ export interface ProcessingResult {
   redactionLog: RedactionResult[]
   metadata: PDFMetadata
   processingTimeMs: number
+  /** Worker warnings (e.g. name_leak_detected). Callers must surface or act on them. */
+  warnings: Array<{ type?: string; [k: string]: unknown }>
 }
 
 export interface UsePDFProcessorReturn {
@@ -230,6 +232,7 @@ export function usePDFProcessor(): UsePDFProcessorReturn {
                   redactionLog: payload.redactionLog || [],
                   metadata: payload.metadata || { pageCount: 0 },
                   processingTimeMs: payload.processingTimeMs || 0,
+                  warnings: (payload.warnings as ProcessingResult["warnings"]) || [],
                 })
                 break
 

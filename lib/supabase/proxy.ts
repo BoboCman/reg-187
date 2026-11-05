@@ -43,11 +43,22 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/app") ||
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/cases") ||
+    pathname.startsWith("/companion") ||
     pathname.startsWith("/settings");
   if (isGated && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
+  }
+
+  // The Reg 187 letter wizard is retired from new work unless the legacy flag is on.
+  // Existing letters stay readable at /cases/[id].
+  if (pathname === "/app" || pathname.startsWith("/app/")) {
+    if (process.env.NEXT_PUBLIC_LEGACY_REG187_ENABLED !== "true") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/companion/new";
+      return NextResponse.redirect(url);
+    }
   }
 
   // Redirect already-authenticated visitors away from /login → dashboard.

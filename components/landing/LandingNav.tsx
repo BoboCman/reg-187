@@ -23,16 +23,14 @@ export function LandingNav() {
         {/* Center links */}
         <div className="hidden lg:flex items-center gap-7 text-sm text-slate-500">
           <a href="#how-it-works" className="hover:text-slate-900 transition-colors">How It Works</a>
-          <a href="/sample-letter" target="_blank" rel="noopener" className="hover:text-slate-900 transition-colors">Sample Letter</a>
-          <a href="#why-187" className="hover:text-slate-900 transition-colors">Why the 187 Standard</a>
-          <a href="#who-its-for" className="hover:text-slate-900 transition-colors">For BGAs</a>
+          <Link href="/sample-companion" className="hover:text-slate-900 transition-colors">Sample Companion</Link>
           <a href="#faq" className="hover:text-slate-900 transition-colors">FAQ</a>
         </div>
 
         {/* Right CTA */}
         <div className="flex items-center gap-3 flex-shrink-0">
           <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex text-slate-600 hover:text-slate-900">
-            <Link href="/app">Sign In</Link>
+            <Link href="/login">Sign In</Link>
           </Button>
         </div>
 
