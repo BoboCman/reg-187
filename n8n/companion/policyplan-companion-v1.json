@@ -17,21 +17,21 @@
           "name": "PolicyPlan webhook auth"
         }
       },
-      "id": "a461e46d-dacf-4c6d-9ad0-bd2042e4de0a",
+      "id": "d1184e5c-168a-4b1a-959b-b6793c6cde72",
       "name": "Companion Intake",
       "position": [
         0,
         400
       ],
-      "webhookId": "087bdfea-4c2b-4272-aad9-b681dfc4c8cf"
+      "webhookId": "5d66c121-3414-45fa-9beb-c04b08f4555a"
     },
     {
       "parameters": {
-        "jsCode": "// PolicyPlan Companion \u00b7 Input Gate \u00b7 companion-gate v1\n// Validates the job from the app before any model runs. The webhook itself is\n// protected by the \"PolicyPlan webhook auth\" header credential; this gate adds\n// shape checks, a freshness window and a callback allowlist so results can\n// only ever be posted back to an approved PolicyPlan host.\nconst VERSION = 'policyplan-companion-v1/1.1.0';\nconst b = ($input.first().json.body) || {};\nconst UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nconst fail = (m) => { throw new Error('COMPANION_GATE/' + m); };\n\nif (!['extract', 'write', 'story'].includes(b.stage)) fail('stage');\nif (!UUID.test(b.job_id || '') || !UUID.test(b.case_id || '')) fail('ids');\nif (!Number.isInteger(b.revision) || b.revision < 1) fail('revision');\n\n// n8n's Code sandbox has no global URL, so parse the callback with a strict pattern.\nconst cb = /^https:\\/\\/([a-z0-9](?:[a-z0-9.-]*[a-z0-9])?)(\\/[^?#\\s@]*)$/i.exec(String(b.callback_url || '').trim());\nif (!cb) fail(/^https:\\/\\//i.test(String(b.callback_url || '')) ? 'callback_url' : 'callback_not_https');\nconst host = cb[1].toLowerCase();\nif (cb[2] !== '/api/companion/callback') fail('callback_path');\nconst allowed = String($vars.COMPANION_CALLBACK_HOSTS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);\nif (!allowed.length) fail('COMPANION_CALLBACK_HOSTS_not_set');\nif (!allowed.includes(host)) fail('callback_host_not_allowed:' + host);\n\nconst issued = Date.parse(b.issued_at || '');\nconst age = Date.now() - issued;\nif (!Number.isFinite(issued) || age < -5 * 60 * 1000 || age > 30 * 60 * 1000) fail('stale_request');\n\nif (b.stage === 'extract') {\n  if (typeof b.illustration_text !== 'string' || b.illustration_text.length < 200 || b.illustration_text.length > 900000) fail('illustration_text');\n  if (!/--- PAGE 1 ---/.test(b.illustration_text)) fail('page_markers');\n}\nif (b.stage === 'story') {\n  // PolicyPlan Stories: one short writer call over the app's computed playback.\n  if (!b.story_input || b.story_input.schema !== 'policyplan_story_input.v1') fail('story_input');\n  if (!['apartment'].includes(b.story_input.story_key)) fail('story_key');\n}\nif (b.stage === 'write') {\n  if (!b.writer_input || b.writer_input.schema !== 'companion_writer_input.v1') fail('writer_input');\n  if (!b.analyst_input || b.analyst_input.schema !== 'companion_analyst_input.v1') fail('analyst_input');\n}\n\nreturn [{\n  json: {\n    stage: b.stage,\n    job_id: b.job_id,\n    case_id: b.case_id,\n    revision: b.revision,\n    callback_url: 'https://' + host + '/api/companion/callback',\n    workflow_version: VERSION,\n    prompt_versions: b.prompt_versions || null,\n    illustration_text: b.stage === 'extract' ? b.illustration_text : null,\n    writer_input: b.stage === 'write' ? b.writer_input : null,\n    analyst_input: b.stage === 'write' ? b.analyst_input : null,\n    story_input: b.stage === 'story' ? b.story_input : null,\n  },\n}];\n"
+        "jsCode": "// PolicyPlan Companion \u00b7 Input Gate \u00b7 companion-gate v1\n// Validates the job from the app before any model runs. The webhook itself is\n// protected by the \"PolicyPlan webhook auth\" header credential; this gate adds\n// shape checks, a freshness window and a callback allowlist so results can\n// only ever be posted back to an approved PolicyPlan host.\nconst VERSION = 'policyplan-companion-v1/1.2.0';\nconst b = ($input.first().json.body) || {};\nconst UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nconst fail = (m) => { throw new Error('COMPANION_GATE/' + m); };\n\nif (!['extract', 'write', 'story'].includes(b.stage)) fail('stage');\nif (!UUID.test(b.job_id || '') || !UUID.test(b.case_id || '')) fail('ids');\nif (!Number.isInteger(b.revision) || b.revision < 1) fail('revision');\n\n// n8n's Code sandbox has no global URL, so parse the callback with a strict pattern.\nconst cb = /^https:\\/\\/([a-z0-9](?:[a-z0-9.-]*[a-z0-9])?)(\\/[^?#\\s@]*)$/i.exec(String(b.callback_url || '').trim());\nif (!cb) fail(/^https:\\/\\//i.test(String(b.callback_url || '')) ? 'callback_url' : 'callback_not_https');\nconst host = cb[1].toLowerCase();\nif (cb[2] !== '/api/companion/callback') fail('callback_path');\nconst allowed = String($vars.COMPANION_CALLBACK_HOSTS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);\nif (!allowed.length) fail('COMPANION_CALLBACK_HOSTS_not_set');\nif (!allowed.includes(host)) fail('callback_host_not_allowed:' + host);\n\nconst issued = Date.parse(b.issued_at || '');\nconst age = Date.now() - issued;\nif (!Number.isFinite(issued) || age < -5 * 60 * 1000 || age > 30 * 60 * 1000) fail('stale_request');\n\nif (b.stage === 'extract') {\n  if (typeof b.illustration_text !== 'string' || b.illustration_text.length < 200 || b.illustration_text.length > 900000) fail('illustration_text');\n  if (!/--- PAGE 1 ---/.test(b.illustration_text)) fail('page_markers');\n}\nif (b.stage === 'story') {\n  // PolicyPlan Stories: one short writer call over the app's computed playback.\n  if (!b.story_input || b.story_input.schema !== 'policyplan_story_input.v1') fail('story_input');\n  if (!['apartment'].includes(b.story_input.story_key)) fail('story_key');\n}\nif (b.stage === 'write') {\n  if (!b.writer_input || b.writer_input.schema !== 'companion_writer_input.v1') fail('writer_input');\n  if (!b.analyst_input || b.analyst_input.schema !== 'companion_analyst_input.v1') fail('analyst_input');\n}\n\nreturn [{\n  json: {\n    stage: b.stage,\n    job_id: b.job_id,\n    case_id: b.case_id,\n    revision: b.revision,\n    callback_url: 'https://' + host + '/api/companion/callback',\n    workflow_version: VERSION,\n    prompt_versions: b.prompt_versions || null,\n    illustration_text: b.stage === 'extract' ? b.illustration_text : null,\n    writer_input: b.stage === 'write' ? b.writer_input : null,\n    analyst_input: b.stage === 'write' ? b.analyst_input : null,\n    story_input: b.stage === 'story' ? b.story_input : null,\n  },\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "f302ecfc-81cf-4ee4-8804-97b1dd42ab5a",
+      "id": "091d8c21-e1c7-436a-917a-cba372c57b10",
       "name": "Companion Gate",
       "position": [
         220,
@@ -48,7 +48,7 @@
           },
           "conditions": [
             {
-              "id": "d3defd32-f288-407c-b77c-517ee8f0056f",
+              "id": "59c48239-cf57-45bc-a3fa-9ff3131ee837",
               "leftValue": "={{ $json.stage }}",
               "rightValue": "extract",
               "operator": {
@@ -63,7 +63,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "id": "7677af10-ff1b-4129-9924-f7216d84db01",
+      "id": "c38019e2-3f1c-46e4-8c2f-f12294e4b8db",
       "name": "Stage",
       "position": [
         440,
@@ -75,7 +75,7 @@
         "assignments": {
           "assignments": [
             {
-              "id": "9c6ceb88-a47a-4a18-810e-1ca1ddf1dcde",
+              "id": "115db3d5-7b8a-49e3-acde-576df83bbf01",
               "name": "sanitizedText",
               "value": "={{ $('Companion Gate').first().json.illustration_text }}",
               "type": "string"
@@ -86,7 +86,7 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "id": "e6bd4e8c-a326-411b-9807-e2e92d4adf94",
+      "id": "4ce18106-1844-42a9-a8e3-b4a9656b0478",
       "name": "Sanitized Text1",
       "position": [
         680,
@@ -107,7 +107,7 @@
       "maxTries": 5,
       "waitBetweenTries": 5000,
       "onError": "continueErrorOutput",
-      "id": "31c18549-f209-4404-a0ff-d2927a678dcb",
+      "id": "900250a1-b7c3-411e-9f25-7bf11ef91c41",
       "name": "Technical Extraction1",
       "position": [
         920,
@@ -126,7 +126,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
-      "id": "d5a0c70d-37e8-4935-8da5-27c7132a0423",
+      "id": "331cf248-a689-44c7-a7d7-fd47f589c491",
       "name": "OpenAI Chat Model1",
       "position": [
         860,
@@ -137,7 +137,7 @@
       "parameters": {},
       "type": "@n8n/n8n-nodes-langchain.toolCalculator",
       "typeVersion": 1,
-      "id": "3ba5cdbb-1fd7-4cf3-bdfe-8e8a53b2ea59",
+      "id": "7ea19a39-ee98-4100-99af-48fb8fc54af7",
       "name": "Calculator46",
       "position": [
         1020,
@@ -151,7 +151,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "onError": "continueErrorOutput",
-      "id": "d2d0bf43-dfb2-4b62-be8b-6b811e3606cd",
+      "id": "eb791089-92d2-4eb5-8e7e-9e88cf980aa5",
       "name": "Atlas Parser1",
       "position": [
         1220,
@@ -165,7 +165,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "onError": "continueErrorOutput",
-      "id": "f551ba79-b1db-4d28-9c1a-7b73c390fcea",
+      "id": "2b91cac1-8a2f-4a98-ad71-7da8171af705",
       "name": "Light Middleware Atlas Parsed",
       "position": [
         1440,
@@ -186,7 +186,7 @@
       "maxTries": 5,
       "waitBetweenTries": 5000,
       "onError": "continueErrorOutput",
-      "id": "bee1308f-d19d-4af4-a133-ffef06387f46",
+      "id": "169dc261-77d7-4b7a-bcfd-baf6acf40886",
       "name": "Contextual Quotes1",
       "position": [
         920,
@@ -205,7 +205,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
-      "id": "94d63eb0-1943-4408-be7e-29dcd2fca42c",
+      "id": "e801e44b-006a-4590-af78-47127dd4ca31",
       "name": "OpenAI 4o5",
       "position": [
         920,
@@ -219,7 +219,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "onError": "continueErrorOutput",
-      "id": "a7dcd1dc-6404-4717-8faa-39b402e9269c",
+      "id": "3588dd07-07fb-48e8-9141-2c3881052af3",
       "name": "01 ATLAS-2 Parse + Validate",
       "position": [
         1440,
@@ -230,7 +230,7 @@
       "parameters": {},
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "id": "e360715a-187c-4f1c-b81e-f642b4451130",
+      "id": "d881452f-db92-419e-9093-35257a782109",
       "name": "Merge2",
       "position": [
         1660,
@@ -244,7 +244,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "onError": "continueErrorOutput",
-      "id": "21c567a2-a93c-47b9-b185-0084f0e09d83",
+      "id": "2fc350ce-9af7-4e7f-badf-7aeaaf750d70",
       "name": "Atlas Evidence Envelope",
       "position": [
         1880,
@@ -257,7 +257,7 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "5acf1409-b60e-4876-a992-721eefeb9a18",
+      "id": "0569893b-9afb-401f-9517-6da36d0766c9",
       "name": "Extract Result",
       "position": [
         2100,
@@ -278,7 +278,7 @@
       "maxTries": 2,
       "waitBetweenTries": 5000,
       "onError": "continueRegularOutput",
-      "id": "52daf9d6-54dd-485f-aff5-7a8d545f1a3b",
+      "id": "ef5b756f-e0ff-4454-a419-27d58f4c66d7",
       "name": "Companion Analyst",
       "position": [
         680,
@@ -297,7 +297,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
-      "id": "afa679d1-3b70-46f2-a86f-6c867dffddc0",
+      "id": "471e0687-269f-4908-a581-835410b56453",
       "name": "OpenAI Analyst",
       "position": [
         680,
@@ -318,7 +318,7 @@
       "maxTries": 2,
       "waitBetweenTries": 5000,
       "onError": "continueErrorOutput",
-      "id": "512a2fe8-3ec3-4599-82e6-6f4b6122d07c",
+      "id": "2f71d277-46e2-4703-baec-f93ef8ab391e",
       "name": "Companion Writer",
       "position": [
         960,
@@ -337,7 +337,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
-      "id": "1252c292-852a-43a9-b4e8-c322fd1f9be1",
+      "id": "9ea68aec-afda-4bc6-a99e-9b07804589b0",
       "name": "OpenAI Writer",
       "position": [
         960,
@@ -350,7 +350,7 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "200ce473-88cb-49b2-87f8-b1c4c6332213",
+      "id": "94b35108-3b44-46b2-b7f3-05e66ffdd62c",
       "name": "Writer Check",
       "position": [
         1220,
@@ -367,7 +367,7 @@
           },
           "conditions": [
             {
-              "id": "f5ab2307-3fb8-43c3-a8e6-aba7e0cb8142",
+              "id": "f132e112-1149-44a2-ad27-d1d99cc92520",
               "leftValue": "={{ $json.valid }}",
               "rightValue": true,
               "operator": {
@@ -383,7 +383,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "id": "67abe229-467c-48b2-8d4a-6cf2f21d95da",
+      "id": "4f4a9784-d0fd-465e-9e22-289a8373c169",
       "name": "Writer OK?",
       "position": [
         1440,
@@ -404,7 +404,7 @@
       "maxTries": 2,
       "waitBetweenTries": 5000,
       "onError": "continueErrorOutput",
-      "id": "7123e9a1-fa3e-4e94-80ba-48be2dfecd31",
+      "id": "3f9172a6-7d2a-4538-bcc7-957e6b87e013",
       "name": "Companion Writer Retry",
       "position": [
         1660,
@@ -423,7 +423,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
-      "id": "71b4f2e2-a64d-4f93-b612-ba9e8dd10768",
+      "id": "04174802-38dc-4d85-be48-b7f6f9c8e161",
       "name": "OpenAI Writer Retry",
       "position": [
         1660,
@@ -436,7 +436,7 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "11e1f8c3-e120-4e91-a299-1f15afd87324",
+      "id": "4752be9b-9f6a-477c-abbb-2e349889e978",
       "name": "Write Result",
       "position": [
         1900,
@@ -453,7 +453,7 @@
           },
           "conditions": [
             {
-              "id": "43f59788-251b-4411-8463-d0021cfd43bc",
+              "id": "34d3b618-2ae5-4385-8cb7-44edc612ed7b",
               "leftValue": "={{ $json.stage }}",
               "rightValue": "story",
               "operator": {
@@ -468,7 +468,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "id": "4f867bec-c375-49e9-a994-00326854af8e",
+      "id": "b4f1c01d-a2f6-4525-9d3a-674132939765",
       "name": "Story?",
       "position": [
         560,
@@ -477,8 +477,55 @@
     },
     {
       "parameters": {
+        "jsCode": "// PolicyPlan Story \u00b7 Story Context \u00b7 v1\n// One place the story nodes read their job from. Two ways in:\n//  \u00b7 stage 'story' (generate again): the job came in on the webhook (checked by the gate);\n//  \u00b7 stage 'extract' with the form answers: the app answered the extract callback with\n//    story_job, so the same run goes on to write the story. Nothing else triggers it.\nconst g = $('Companion Gate').first().json;\nconst r = $input.first().json || {};\nconst job = g.stage === 'story' ? { job_id: g.job_id, revision: g.revision, story_input: g.story_input } : r.story_job;\nconst ok = job && typeof job === 'object'\n  && /^[0-9a-f-]{36}$/i.test(String(job.job_id))\n  && Number.isInteger(job.revision) && job.revision > 0\n  && job.story_input && job.story_input.schema === 'policyplan_story_input.v1'\n  && ['apartment'].includes(job.story_input.story_key);\nif (!ok) throw new Error('STORY_CONTEXT/invalid_story_job');\nreturn [{\n  json: {\n    stage: 'story',\n    job_id: String(job.job_id),\n    case_id: g.case_id,\n    revision: job.revision,\n    callback_url: g.callback_url,\n    workflow_version: g.workflow_version,\n    story_input: job.story_input,\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "onError": "continueErrorOutput",
+      "id": "305a8cc1-240e-430b-b64d-c7a21d810806",
+      "name": "Story Context",
+      "position": [
+        680,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "4fdf2bff-8ad4-4b67-84bf-47cc6004889d",
+              "leftValue": "={{ !!($json.story_job && $json.story_job.job_id) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "id": "ad68148f-77d3-436e-a88f-b305e91fd00b",
+      "name": "Continue Story?",
+      "position": [
+        3000,
+        400
+      ]
+    },
+    {
+      "parameters": {
         "promptType": "define",
-        "text": "={{ JSON.stringify($('Companion Gate').first().json.story_input) }}",
+        "text": "={{ JSON.stringify($('Story Context').first().json.story_input) }}",
         "options": {
           "systemMessage": "# POLICYPLAN STORY: THE APARTMENT COMPLEX (policyplan_story_apartment.v1, 2026-11-05)\n\nYou write the short captions for a client-facing, pre-sale \"Policy Story\": a visual report that explains a PROPOSED indexed universal life policy, before it is bought, as if it were an apartment complex being built. The report has a cover, a Story page (picture, timeline and benefit tiles), a Design page (key numbers and a guaranteed vs illustrated table) and a disclosure page. Code draws the picture, the timeline, every number and every disclosure. Your words are captions, so they must be few, plain and calm.\n\nAn advisor shares this report with a prospective client after reviewing it. Your text must never read as a recommendation, a promise or a sales pitch. It explains how this design is built to work; the advisor and client decide.\n\n## What you receive\nA JSON packet (`policyplan_story_input.v1`), already computed by code from the carrier's sales illustration:\n- `story.phases`: Construction (the surrender charge years, highest costs), Lease-up (costs ease, value can build) and Fully leased (the stage for income and legacy), with policy years and ages.\n- `story.milestones`: surrender charge ends, planned premiums complete, planned income begins (only when the illustration shows them), with year and age.\n- `story.goals`: the goals the advisor selected for the client (may be empty): retirement_income, legacy, long_term_care, accumulation, business, protection.\n- `story.benefit_facts`: `death_benefit_initial`, `planned_income` (annual, start_age, end_age, or null), `living_benefit_riders`, `has_ltc_rider`.\n- `design`: issue age, premium per year and how many years, last premium age, the age coverage is shown to on the guaranteed basis and on the illustrated basis, the illustrated rate and the guaranteed rate.\n- `riders`: the rider names that print on the report.\n\n## Voice\n- Plain English for someone with no insurance background. \"Cash value\", not \"accumulation value\". No jargon, no filler, no exclamation marks.\n- Describe what the design does and when, in the client's terms (ages, not policy years where you can).\n- Say \"illustrated\" or \"at the illustrated rate\" for anything that is not guaranteed. Never call an illustrated value guaranteed.\n- Calm and neutral. Lead with how the design is built to work, then what it depends on.\n\n## Hard rules\n1. Use only numbers that appear in the packet: ages, years, the death benefit, the planned income, the premium and the two rates. Round dollars to the nearest thousand written like $750K or $1.5M. Never calculate, add up or project a new number.\n2. Never recommend, advise or say what the client should do. Never say \"best\", \"right for you\", \"ideal\", \"safe\", \"guaranteed income\", \"tax-free\", \"for life\", \"will earn\", \"will grow\", \"you will receive\", \"never lapse\" or \"paid-up\".\n3. Never compare with another product, the stock market, a 401(k), an IRA, an annuity or a CD.\n4. Never name the client, the advisor, the beneficiary or a policy number. You are not given them; do not invent them.\n5. Call a rider long-term care ONLY when `has_ltc_rider` is true. Mention living benefits only when `living_benefit_riders` is not empty.\n6. If the guaranteed basis shows coverage ending earlier than the illustrated basis, the takeaway must say so plainly, without alarm.\n\n## Output\nReturn ONLY a JSON object, no Markdown fences, with exactly these keys:\n\n{\n  \"schema\": \"policyplan_story.v1\",\n  \"story\": {\n    \"where_you_start\": \"One or two sentences, at most 40 words.\",\n    \"benefits\": [\n      { \"key\": \"growth | access | legacy | living_benefits\", \"note\": \"At most 14 words.\" }\n    ]\n  },\n  \"design\": {\n    \"headline\": \"One sentence, at most 22 words.\",\n    \"takeaway\": \"One or two sentences, at most 40 words.\"\n  },\n  \"riders\": [\n    { \"name\": \"exactly as given in riders\", \"note\": \"At most 18 words.\" }\n  ]\n}\n\n- `where_you_start`: the policy starts in construction at year 1. Say how long construction lasts, what that means (highest costs, the surrender charge) and what the premiums are building toward. If `story.goals` is not empty, connect to the first goal once. No dollar amounts here.\n- `benefits`: one note each for `growth`, `access` and `legacy`, plus `living_benefits` ONLY when `living_benefit_riders` is not empty. Each note says what that benefit means for THIS design:\n  - growth: how value can build (interest linked to an index, with the floor in the guaranteed rate, e.g. \"Interest linked to an index, with a 0% floor\").\n  - access: if `planned_income` exists, \"Planned income from age N, through policy loans\" (or withdrawals if that is what the packet says); otherwise \"Cash value can be accessed later through loans or withdrawals\".\n  - legacy: the death benefit for the beneficiaries, written like \"$750K\".\n  - living_benefits: what the rider lets the client do, in general terms.\n- `design.headline`: how the design is built: how long premiums are paid and what the design is aiming at (income, legacy or accumulation), in the client's terms.\n- `design.takeaway`: what the illustrated values depend on (the illustrated rate and current charges continuing) and how the guaranteed basis differs, so the client knows what to review each year.\n- `riders`: one note for each name in `riders`, in the same order, saying in general terms what the rider is for. If you are not sure what a rider does, write \"See the illustration for how this rider works and what it costs.\"\n"
         }
@@ -489,7 +536,7 @@
       "maxTries": 2,
       "waitBetweenTries": 5000,
       "onError": "continueErrorOutput",
-      "id": "43400f62-4f85-41cf-8870-588502b948e8",
+      "id": "d1a614a6-9853-47de-9f9d-91689b18345f",
       "name": "Story Writer",
       "position": [
         800,
@@ -508,7 +555,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
-      "id": "91ac6bfe-608d-4076-b74e-faeb52f80950",
+      "id": "f50a9e9e-4a4d-479d-8ddf-295f5bccaeb5",
       "name": "OpenAI Story",
       "position": [
         800,
@@ -517,11 +564,11 @@
     },
     {
       "parameters": {
-        "jsCode": "// PolicyPlan Story \u00b7 Story Check \u00b7 v1\n// A light pre-check so a malformed answer gets one retry. The app re-parses\n// strictly and runs the full wording and number guard; this node never repairs output.\nconst raw = String(($input.first().json || {}).output ?? '').trim();\nconst input = $('Companion Gate').first().json.story_input || {};\nlet reason = '';\nlet j = null;\nif (!raw.startsWith('{') || !raw.endsWith('}')) reason = 'not_a_single_json_object';\nelse {\n  try { j = JSON.parse(raw); } catch (e) { reason = 'invalid_json'; }\n}\nif (!reason) {\n  if (j.schema !== 'policyplan_story.v1') reason = 'wrong_schema';\n  else if (!j.story || typeof j.story.where_you_start !== 'string') reason = 'missing_story.where_you_start';\n  else if (!Array.isArray(j.story.benefits) || !j.story.benefits.length) reason = 'missing_story.benefits';\n  else if (!j.design || typeof j.design.headline !== 'string' || typeof j.design.takeaway !== 'string') reason = 'missing_design';\n  else if (!Array.isArray(j.riders)) reason = 'missing_riders';\n  else {\n    const keys = j.story.benefits.map((b) => b && b.key);\n    const need = ['growth', 'access', 'legacy'].filter((k) => !keys.includes(k));\n    if (need.length) reason = 'missing_benefits:' + need.join(',');\n    const known = (input.riders || []);\n    const unknown = j.riders.filter((r) => !r || !known.includes(r.name));\n    if (!reason && unknown.length) reason = 'unknown_riders';\n  }\n}\nreturn [{ json: { valid: !reason, reason, raw, attempt: 1 } }];\n"
+        "jsCode": "// PolicyPlan Story \u00b7 Story Check \u00b7 v1\n// A light pre-check so a malformed answer gets one retry. The app re-parses\n// strictly and runs the full wording and number guard; this node never repairs output.\nconst raw = String(($input.first().json || {}).output ?? '').trim();\nconst input = $('Story Context').first().json.story_input || {};\nlet reason = '';\nlet j = null;\nif (!raw.startsWith('{') || !raw.endsWith('}')) reason = 'not_a_single_json_object';\nelse {\n  try { j = JSON.parse(raw); } catch (e) { reason = 'invalid_json'; }\n}\nif (!reason) {\n  if (j.schema !== 'policyplan_story.v1') reason = 'wrong_schema';\n  else if (!j.story || typeof j.story.where_you_start !== 'string') reason = 'missing_story.where_you_start';\n  else if (!Array.isArray(j.story.benefits) || !j.story.benefits.length) reason = 'missing_story.benefits';\n  else if (!j.design || typeof j.design.headline !== 'string' || typeof j.design.takeaway !== 'string') reason = 'missing_design';\n  else if (!Array.isArray(j.riders)) reason = 'missing_riders';\n  else {\n    const keys = j.story.benefits.map((b) => b && b.key);\n    const need = ['growth', 'access', 'legacy'].filter((k) => !keys.includes(k));\n    if (need.length) reason = 'missing_benefits:' + need.join(',');\n    const known = (input.riders || []);\n    const unknown = j.riders.filter((r) => !r || !known.includes(r.name));\n    if (!reason && unknown.length) reason = 'unknown_riders';\n  }\n}\nreturn [{ json: { valid: !reason, reason, raw, attempt: 1 } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "7a29d438-e097-412b-bd54-484a937a3ea9",
+      "id": "986fc5a8-e52e-412d-9215-81fca90245f9",
       "name": "Story Check",
       "position": [
         1040,
@@ -538,7 +585,7 @@
           },
           "conditions": [
             {
-              "id": "cee3e44f-c864-4bba-93bf-a01c30784206",
+              "id": "e3fd5e46-adab-4b65-9f87-db9ce108cd8a",
               "leftValue": "={{ $json.valid }}",
               "rightValue": true,
               "operator": {
@@ -554,7 +601,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "id": "481ca947-1506-451f-b33e-d6885d470003",
+      "id": "c58742d8-e8e2-4469-bcb3-c656050b80e4",
       "name": "Story OK?",
       "position": [
         1260,
@@ -564,7 +611,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "={{ 'Your previous answer was rejected (' + $json.reason + '). Follow the output rules exactly and return only the JSON object for this input:\\n' + JSON.stringify($('Companion Gate').first().json.story_input) }}",
+        "text": "={{ 'Your previous answer was rejected (' + $json.reason + '). Follow the output rules exactly and return only the JSON object for this input:\\n' + JSON.stringify($('Story Context').first().json.story_input) }}",
         "options": {
           "systemMessage": "# POLICYPLAN STORY: THE APARTMENT COMPLEX (policyplan_story_apartment.v1, 2026-11-05)\n\nYou write the short captions for a client-facing, pre-sale \"Policy Story\": a visual report that explains a PROPOSED indexed universal life policy, before it is bought, as if it were an apartment complex being built. The report has a cover, a Story page (picture, timeline and benefit tiles), a Design page (key numbers and a guaranteed vs illustrated table) and a disclosure page. Code draws the picture, the timeline, every number and every disclosure. Your words are captions, so they must be few, plain and calm.\n\nAn advisor shares this report with a prospective client after reviewing it. Your text must never read as a recommendation, a promise or a sales pitch. It explains how this design is built to work; the advisor and client decide.\n\n## What you receive\nA JSON packet (`policyplan_story_input.v1`), already computed by code from the carrier's sales illustration:\n- `story.phases`: Construction (the surrender charge years, highest costs), Lease-up (costs ease, value can build) and Fully leased (the stage for income and legacy), with policy years and ages.\n- `story.milestones`: surrender charge ends, planned premiums complete, planned income begins (only when the illustration shows them), with year and age.\n- `story.goals`: the goals the advisor selected for the client (may be empty): retirement_income, legacy, long_term_care, accumulation, business, protection.\n- `story.benefit_facts`: `death_benefit_initial`, `planned_income` (annual, start_age, end_age, or null), `living_benefit_riders`, `has_ltc_rider`.\n- `design`: issue age, premium per year and how many years, last premium age, the age coverage is shown to on the guaranteed basis and on the illustrated basis, the illustrated rate and the guaranteed rate.\n- `riders`: the rider names that print on the report.\n\n## Voice\n- Plain English for someone with no insurance background. \"Cash value\", not \"accumulation value\". No jargon, no filler, no exclamation marks.\n- Describe what the design does and when, in the client's terms (ages, not policy years where you can).\n- Say \"illustrated\" or \"at the illustrated rate\" for anything that is not guaranteed. Never call an illustrated value guaranteed.\n- Calm and neutral. Lead with how the design is built to work, then what it depends on.\n\n## Hard rules\n1. Use only numbers that appear in the packet: ages, years, the death benefit, the planned income, the premium and the two rates. Round dollars to the nearest thousand written like $750K or $1.5M. Never calculate, add up or project a new number.\n2. Never recommend, advise or say what the client should do. Never say \"best\", \"right for you\", \"ideal\", \"safe\", \"guaranteed income\", \"tax-free\", \"for life\", \"will earn\", \"will grow\", \"you will receive\", \"never lapse\" or \"paid-up\".\n3. Never compare with another product, the stock market, a 401(k), an IRA, an annuity or a CD.\n4. Never name the client, the advisor, the beneficiary or a policy number. You are not given them; do not invent them.\n5. Call a rider long-term care ONLY when `has_ltc_rider` is true. Mention living benefits only when `living_benefit_riders` is not empty.\n6. If the guaranteed basis shows coverage ending earlier than the illustrated basis, the takeaway must say so plainly, without alarm.\n\n## Output\nReturn ONLY a JSON object, no Markdown fences, with exactly these keys:\n\n{\n  \"schema\": \"policyplan_story.v1\",\n  \"story\": {\n    \"where_you_start\": \"One or two sentences, at most 40 words.\",\n    \"benefits\": [\n      { \"key\": \"growth | access | legacy | living_benefits\", \"note\": \"At most 14 words.\" }\n    ]\n  },\n  \"design\": {\n    \"headline\": \"One sentence, at most 22 words.\",\n    \"takeaway\": \"One or two sentences, at most 40 words.\"\n  },\n  \"riders\": [\n    { \"name\": \"exactly as given in riders\", \"note\": \"At most 18 words.\" }\n  ]\n}\n\n- `where_you_start`: the policy starts in construction at year 1. Say how long construction lasts, what that means (highest costs, the surrender charge) and what the premiums are building toward. If `story.goals` is not empty, connect to the first goal once. No dollar amounts here.\n- `benefits`: one note each for `growth`, `access` and `legacy`, plus `living_benefits` ONLY when `living_benefit_riders` is not empty. Each note says what that benefit means for THIS design:\n  - growth: how value can build (interest linked to an index, with the floor in the guaranteed rate, e.g. \"Interest linked to an index, with a 0% floor\").\n  - access: if `planned_income` exists, \"Planned income from age N, through policy loans\" (or withdrawals if that is what the packet says); otherwise \"Cash value can be accessed later through loans or withdrawals\".\n  - legacy: the death benefit for the beneficiaries, written like \"$750K\".\n  - living_benefits: what the rider lets the client do, in general terms.\n- `design.headline`: how the design is built: how long premiums are paid and what the design is aiming at (income, legacy or accumulation), in the client's terms.\n- `design.takeaway`: what the illustrated values depend on (the illustrated rate and current charges continuing) and how the guaranteed basis differs, so the client knows what to review each year.\n- `riders`: one note for each name in `riders`, in the same order, saying in general terms what the rider is for. If you are not sure what a rider does, write \"See the illustration for how this rider works and what it costs.\"\n"
         }
@@ -575,7 +622,7 @@
       "maxTries": 2,
       "waitBetweenTries": 5000,
       "onError": "continueErrorOutput",
-      "id": "13521ca2-7c32-44eb-ae39-33ec679fa0b7",
+      "id": "4eb0c886-bef8-4da0-b633-ab0b6748f3f9",
       "name": "Story Writer Retry",
       "position": [
         1480,
@@ -594,7 +641,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
-      "id": "a277ae48-93d8-44ce-b2e2-20ec11796dfe",
+      "id": "33fff97a-1728-44db-b0ba-6323f805a519",
       "name": "OpenAI Story Retry",
       "position": [
         1480,
@@ -603,11 +650,11 @@
     },
     {
       "parameters": {
-        "jsCode": "// PolicyPlan Story \u00b7 Story Result \u00b7 v1\n// Sends the raw writer text to the app. The app is the authority: strict\n// parse, the wording guard and the number check against its own playback.\nconst g = $('Companion Gate').first().json;\nconst it = $input.first().json || {};\nconst fromCheck = typeof it.valid === 'boolean';\nconst raw = fromCheck ? it.raw : String(it.output ?? '');\nreturn [{\n  json: {\n    callback_url: g.callback_url,\n    callback: {\n      stage: 'story',\n      job_id: g.job_id,\n      case_id: g.case_id,\n      revision: g.revision,\n      status: 'ok',\n      workflow_version: g.workflow_version,\n      story: { raw: String(raw).slice(0, 30000), model: 'gpt-6.1-sol', attempts: fromCheck ? 1 : 2 },\n    },\n  },\n}];\n"
+        "jsCode": "// PolicyPlan Story \u00b7 Story Result \u00b7 v1\n// Sends the raw writer text to the app. The app is the authority: strict\n// parse, the wording guard and the number check against its own playback.\nconst g = $('Story Context').first().json;\nconst it = $input.first().json || {};\nconst fromCheck = typeof it.valid === 'boolean';\nconst raw = fromCheck ? it.raw : String(it.output ?? '');\nreturn [{\n  json: {\n    callback_url: g.callback_url,\n    callback: {\n      stage: 'story',\n      job_id: g.job_id,\n      case_id: g.case_id,\n      revision: g.revision,\n      status: 'ok',\n      workflow_version: g.workflow_version,\n      story: { raw: String(raw).slice(0, 30000), model: 'gpt-6.1-sol', attempts: fromCheck ? 1 : 2 },\n    },\n  },\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "c680a1a8-5ee1-410b-b356-bb9f52ed5df6",
+      "id": "d6fbf95b-a643-4092-a557-d3d7567466a0",
       "name": "Story Result",
       "position": [
         1720,
@@ -616,11 +663,11 @@
     },
     {
       "parameters": {
-        "jsCode": "// PolicyPlan Companion \u00b7 Stage Failed \u00b7 v1\n// Any node error on either stage lands here, so the app never waits forever.\nconst g = $('Companion Gate').first().json;\nconst e = $input.first().json || {};\nconst raw = e.error && (e.error.message || e.error.description || e.error) || e.message || 'workflow_error';\nconst error = String(raw).replace(/\\s+/g, ' ').slice(0, 200);\nreturn [{\n  json: {\n    callback_url: g.callback_url,\n    callback: { stage: g.stage, job_id: g.job_id, case_id: g.case_id, revision: g.revision, status: 'error', workflow_version: g.workflow_version, error },\n  },\n}];\n"
+        "jsCode": "// PolicyPlan Companion \u00b7 Stage Failed \u00b7 v1\n// Any node error on either stage lands here, so the app never waits forever.\n// Once the run has moved on to the story, a failure closes the story job, not the extract job.\nconst gate = $('Companion Gate').first().json;\nlet sc = null;\ntry {\n  const n = $('Story Context');\n  const j = n.isExecuted === false ? null : n.first().json;\n  if (j && j.job_id && j.stage === 'story') sc = j;\n} catch (e) {\n  sc = null;\n}\nconst g = sc || gate;\nconst e = $input.first().json || {};\nconst raw = e.error && (e.error.message || e.error.description || e.error) || e.message || 'workflow_error';\nconst error = String(raw).replace(/\\s+/g, ' ').slice(0, 200);\nreturn [{\n  json: {\n    callback_url: g.callback_url,\n    callback: { stage: g.stage, job_id: g.job_id, case_id: g.case_id, revision: g.revision, status: 'error', workflow_version: g.workflow_version, error },\n  },\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "37f77dc0-0120-4c59-95ab-27a44cfa2aa1",
+      "id": "10592970-347c-41fe-aa9d-53a3367c4716",
       "name": "Stage Failed",
       "position": [
         2100,
@@ -633,7 +680,7 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "5472e324-7071-4d86-8705-123c516896df",
+      "id": "ea8f6e62-b6f8-4e35-a854-159cc18cd094",
       "name": "Prepare Callback",
       "position": [
         2340,
@@ -651,7 +698,7 @@
       },
       "type": "n8n-nodes-base.crypto",
       "typeVersion": 1,
-      "id": "84227d54-6ffa-49f6-9728-df9064d02bd9",
+      "id": "ea5bc2a3-38a6-47e4-be01-5c6477872cce",
       "name": "Sign Callback",
       "position": [
         2560,
@@ -689,7 +736,7 @@
       "maxTries": 3,
       "waitBetweenTries": 3000,
       "onError": "continueRegularOutput",
-      "id": "5b8d782c-ca0e-4b52-80b5-3f2b9a142d85",
+      "id": "d9733b12-ff39-4bcd-b13c-2c2f1774b7a8",
       "name": "Post to PolicyPlan",
       "position": [
         2780,
@@ -742,7 +789,7 @@
       "main": [
         [
           {
-            "node": "Story Writer",
+            "node": "Story Context",
             "type": "main",
             "index": 0
           }
@@ -750,6 +797,24 @@
         [
           {
             "node": "Companion Analyst",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Story Context": {
+      "main": [
+        [
+          {
+            "node": "Story Writer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stage Failed",
             "type": "main",
             "index": 0
           }
@@ -1184,6 +1249,29 @@
             "index": 0
           }
         ]
+      ]
+    },
+    "Post to PolicyPlan": {
+      "main": [
+        [
+          {
+            "node": "Continue Story?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Continue Story?": {
+      "main": [
+        [
+          {
+            "node": "Story Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     }
   },

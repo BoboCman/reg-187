@@ -1,7 +1,7 @@
 // PolicyPlan Story · Story Result · v1
 // Sends the raw writer text to the app. The app is the authority: strict
 // parse, the wording guard and the number check against its own playback.
-const g = $('Companion Gate').first().json;
+const g = $('Story Context').first().json;
 const it = $input.first().json || {};
 const fromCheck = typeof it.valid === 'boolean';
 const raw = fromCheck ? it.raw : String(it.output ?? '');

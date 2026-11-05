@@ -139,18 +139,53 @@ test("story stage: gate, story check, retry routing and signed delivery", async 
   assert.equal(gate.stage, "story");
   assert.ok(gate.story_input);
 
-  const fenced = runNode("story-check.js", { output: "```json\n{}\n```" }, { "Companion Gate": gate })[0].json;
+  const ctx = runNode("story-context.js", gate, { "Companion Gate": gate })[0].json;
+  assert.equal(ctx.job_id, gate.job_id);
+  const SC = { "Story Context": ctx };
+  const fenced = runNode("story-check.js", { output: "```json\n{}\n```" }, SC)[0].json;
   assert.equal(fenced.valid, false);
   const noLegacy = JSON.parse(JSON.stringify(s.story));
   noLegacy.story.benefits = noLegacy.story.benefits.filter((b: { key: string }) => b.key !== "legacy");
-  assert.match(String(runNode("story-check.js", { output: JSON.stringify(noLegacy) }, { "Companion Gate": gate })[0].json.reason), /missing_benefits:legacy/);
+  assert.match(String(runNode("story-check.js", { output: JSON.stringify(noLegacy) }, SC)[0].json.reason), /missing_benefits:legacy/);
 
-  const good = runNode("story-check.js", { output: JSON.stringify(s.story) }, { "Companion Gate": gate })[0].json;
+  const good = runNode("story-check.js", { output: JSON.stringify(s.story) }, SC)[0].json;
   assert.equal(good.valid, true, String(good.reason));
-  const result = runNode("story-result.js", good, { "Companion Gate": gate })[0].json;
+  const result = runNode("story-result.js", good, SC)[0].json;
   const d2 = deliver(runNode("prepare-callback.js", result, {})[0].json);
   const r = await svc.handleCallback(store, env, d2.raw, d2.headers);
   assert.equal(r.phase, "draft_ready", JSON.stringify(r));
   const v = await svc.caseView(store, user, c.id);
   assert.equal(v.output?.story?.validation.client_release_eligible, true, JSON.stringify(v.output?.story?.issues));
+});
+
+test("one run: extract, then the callback reply carries the story job into the same run", async () => {
+  const s = apartmentSample();
+  const store = new MemoryStore();
+  const gw = new FakeGateway();
+  const user = "33333333-3333-4333-8333-333333333333";
+  const c = await svc.createCase(store, user, { sales_jurisdiction: "OH", story_key: "apartment" });
+  await svc.submitIllustration(store, gw, env, user, c.id, { text: s.pagesText, page_count: s.pageCount, document_fingerprint: s.fingerprint, file_size: 1000, kind_confirmed: "proposed_sales", privacy: { removed: {}, worker_warnings: [], names_screened: 1 }, story_inputs: { story_key: "apartment", goals: s.goals, riders: [], cover: {} } });
+  const gate = runNode("companion-gate.js", { body: gw.last() }, {}, VARS)[0].json;
+  const ex = runNode("extract-result.js", { factSpine: s.atlas1, atlas2EvidenceRegistry: s.atlas2Registry }, { "Companion Gate": gate })[0].json;
+  const d1 = deliver(runNode("prepare-callback.js", ex, {})[0].json);
+  const reply = (await svc.handleCallback(store, env, d1.raw, d1.headers)) as Record<string, unknown>;
+  assert.ok(reply.story_job, JSON.stringify(reply));
+  // "Post to PolicyPlan" outputs the parsed reply; "Story Context" picks up the job.
+  const ctx = runNode("story-context.js", reply, { "Companion Gate": gate })[0].json;
+  assert.equal(ctx.stage, "story");
+  assert.equal(ctx.callback_url, gate.callback_url, "callback URL stays the one the gate checked");
+  assert.throws(() => runNode("story-context.js", { ok: true }, { "Companion Gate": gate }), /invalid_story_job/);
+  assert.throws(() => runNode("story-context.js", { story_job: { ...(reply.story_job as object), story_input: { schema: "x" } } }, { "Companion Gate": gate }), /invalid_story_job/);
+
+  // A failure while writing closes the story job, not the finished extract job.
+  const failed = runNode("stage-failed.js", { error: { message: "model timeout" } }, { "Companion Gate": gate, "Story Context": ctx })[0].json as { callback: Record<string, unknown> };
+  assert.equal(failed.callback.stage, "story");
+  assert.equal(failed.callback.job_id, ctx.job_id);
+
+  const good = runNode("story-check.js", { output: JSON.stringify(s.story) }, { "Story Context": ctx })[0].json;
+  const result = runNode("story-result.js", good, { "Story Context": ctx })[0].json;
+  const d2 = deliver(runNode("prepare-callback.js", result, {})[0].json);
+  const r = await svc.handleCallback(store, env, d2.raw, d2.headers);
+  assert.equal(r.phase, "draft_ready", JSON.stringify(r));
+  assert.equal(gw.sent.length, 1, "one trigger for the whole report");
 });

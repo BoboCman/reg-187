@@ -3,7 +3,7 @@
 // protected by the "PolicyPlan webhook auth" header credential; this gate adds
 // shape checks, a freshness window and a callback allowlist so results can
 // only ever be posted back to an approved PolicyPlan host.
-const VERSION = 'policyplan-companion-v1/1.1.0';
+const VERSION = 'policyplan-companion-v1/1.2.0';
 const b = ($input.first().json.body) || {};
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const fail = (m) => { throw new Error('COMPANION_GATE/' + m); };

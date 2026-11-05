@@ -67,6 +67,8 @@ POSITIONS = {
     "Write Result": [1900, 760],
     "Stage Failed": [2100, 520],
     "Story?": [560, 1300],
+    "Story Context": [680, 1120],
+    "Continue Story?": [3000, 400],
     "Story Writer": [800, 1300],
     "OpenAI Story": [800, 1500],
     "Story Check": [1040, 1300],
@@ -226,7 +228,20 @@ def build(atlas_from):
         "type": "n8n-nodes-base.if",
         "typeVersion": 2,
     })
-    add("Story Writer", agent("={{ JSON.stringify($('Companion Gate').first().json.story_input) }}", "policyplan_story_apartment.v1.md", "continueErrorOutput"))
+    add("Story Context", {**code("story-context.js"), "onError": "continueErrorOutput"})
+    add("Continue Story?", {
+        "parameters": {
+            "conditions": {
+                "options": {"caseSensitive": True, "leftValue": "", "typeValidation": "loose"},
+                "conditions": [{"id": nid(), "leftValue": "={{ !!($json.story_job && $json.story_job.job_id) }}", "rightValue": True, "operator": {"type": "boolean", "operation": "true", "singleValue": True}}],
+                "combinator": "and",
+            },
+            "options": {},
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+    })
+    add("Story Writer", agent("={{ JSON.stringify($('Story Context').first().json.story_input) }}", "policyplan_story_apartment.v1.md", "continueErrorOutput"))
     add("OpenAI Story", model(cred))
     add("Story Check", code("story-check.js"))
     add("Story OK?", {
@@ -242,7 +257,7 @@ def build(atlas_from):
         "typeVersion": 2,
     })
     add("Story Writer Retry", agent(
-        "={{ 'Your previous answer was rejected (' + $json.reason + '). Follow the output rules exactly and return only the JSON object for this input:\\n' + JSON.stringify($('Companion Gate').first().json.story_input) }}",
+        "={{ 'Your previous answer was rejected (' + $json.reason + '). Follow the output rules exactly and return only the JSON object for this input:\\n' + JSON.stringify($('Story Context').first().json.story_input) }}",
         "policyplan_story_apartment.v1.md",
         "continueErrorOutput",
     ))
@@ -296,7 +311,8 @@ def build(atlas_from):
         "Companion Intake": {"main": [to(("Companion Gate", 0))]},
         "Companion Gate": {"main": [to(("Stage", 0))]},
         "Stage": {"main": [to(("Sanitized Text1", 0)), to(("Story?", 0))]},
-        "Story?": {"main": [to(("Story Writer", 0)), to(("Companion Analyst", 0))]},
+        "Story?": {"main": [to(("Story Context", 0)), to(("Companion Analyst", 0))]},
+        "Story Context": {"main": [to(("Story Writer", 0)), to(FAILED)]},
         # story
         "OpenAI Story": ai("ai_languageModel", "Story Writer"),
         "Story Writer": {"main": [to(("Story Check", 0)), to(FAILED)]},
@@ -331,6 +347,10 @@ def build(atlas_from):
         "Stage Failed": {"main": [to(("Prepare Callback", 0))]},
         "Prepare Callback": {"main": [to(("Sign Callback", 0))]},
         "Sign Callback": {"main": [to(("Post to PolicyPlan", 0))]},
+        # The app answers the extract callback with story_job when the advisor sent the form
+        # answers with the PDF: the same run then writes the story (one trigger per report).
+        "Post to PolicyPlan": {"main": [to(("Continue Story?", 0))]},
+        "Continue Story?": {"main": [to(("Story Context", 0)), []]},
     }
 
     return {
