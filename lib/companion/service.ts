@@ -375,7 +375,7 @@ const callbackSchema = z
   })
   .strict();
 
-export async function handleCallback(store: CompanionStore, env: Env, raw: string, headers: { timestamp: string | null; signature: string | null }, gw?: WorkflowGateway) {
+export async function handleCallback(store: CompanionStore, env: Env, raw: string, headers: { timestamp: string | null; signature: string | null }) {
   if (!env.callbackSecret) throw new ServiceError("not_configured", 503);
   if (!verifySignature(env.callbackSecret, headers.timestamp, headers.signature, raw)) throw new ServiceError("unauthorized", 401);
   let json: unknown;
@@ -389,7 +389,7 @@ export async function handleCallback(store: CompanionStore, env: Env, raw: strin
   if (!c || c.case_type !== "illustration_companion") throw new ServiceError("not_found", 404);
   if (body.stage === "extract") {
     const r = await onExtraction(store, c, body);
-    return r.phase === "extracted_needs_review" && gw ? autoStory(store, gw, env, c.id) : r;
+    return r.phase === "extracted_needs_review" ? storyAfterExtraction(store, c.id, r) : r;
   }
   if (body.stage === "story") return onStory(store, c, body);
   return onWriter(store, c, body);
@@ -799,18 +799,21 @@ export async function sourcePage(store: CompanionStore, userId: string, caseId: 
 /* ── 11 · PolicyPlan Stories (pre-sale) ───────────────────────────────── */
 
 /**
- * One submit runs the whole job: when the illustration was sent with the form
- * answers, the story is generated as soon as the reading is done. If something
- * stops it (a core fact not found, a blocker), the reason is kept so the
- * advisor sees it next to the facts and can generate by hand.
+ * One submit, one workflow run. When the illustration came with the form
+ * answers, the reply to the signed extract callback carries the story job, and
+ * the same n8n run goes on to write the story; the app never triggers n8n a
+ * second time. If the story cannot start (a core fact not found, a blocker),
+ * the reason is kept so the advisor sees it next to the facts.
  */
-async function autoStory(store: CompanionStore, gw: WorkflowGateway, env: Env, caseId: string) {
+async function storyAfterExtraction(store: CompanionStore, caseId: string, r: { ok: boolean; phase: string }) {
   const c = await store.getCase(caseId);
   const ill = (c?.illustration ?? {}) as { story_request?: unknown; story_auto?: unknown };
-  if (!c || !ill.story_request || ill.story_auto) return { ok: true, phase: c ? phaseOf(c) : "extracted_needs_review" };
+  if (!c || !ill.story_request || ill.story_auto) return r;
   let auto: { status: "sent" | "stopped"; at: string; error?: string; message?: string };
+  let story_job: Record<string, unknown> | null = null;
   try {
-    await requestStory(store, gw, env, c.advisor_id, c.id, { revision: c.companion_revision, inputs: ill.story_request });
+    const planned = await planStory(store, c.advisor_id, c.id, { revision: c.companion_revision, inputs: ill.story_request });
+    if (planned.job) story_job = planned.job;
     auto = { status: "sent", at: new Date().toISOString() };
   } catch (e) {
     const err = e instanceof ServiceError ? e : null;
@@ -819,7 +822,7 @@ async function autoStory(store: CompanionStore, gw: WorkflowGateway, env: Env, c
   }
   const now = await store.getCase(caseId);
   if (now) await store.updateCase(now.id, { illustration: { ...((now.illustration ?? {}) as object), story_auto: auto } });
-  return { ok: true, phase: now ? phaseOf(now) : "extracted_needs_review", story: auto.status };
+  return { ok: true, phase: now ? phaseOf(now) : r.phase, story: auto.status, ...(story_job ? { story_job } : {}) };
 }
 
 /** What the one-screen form needs: the riders read from the illustration, cover defaults and the last inputs used. */
@@ -847,8 +850,26 @@ function storyFormState(c: CaseRow, packet: EvidencePacket | null, outputs: Outp
 
 const storyRequestSchema = z.object({ revision: z.number().int().positive(), inputs: z.unknown() }).strict();
 
-/** Generate: confirms the facts the advisor saw, computes the playback and sends the writer job. */
+/** A pending story job left behind by a run that never called back is closed after this long. */
+const STORY_STALE_MS = 15 * 60 * 1000;
+
+/** Generate again: plans the job and triggers the workflow's story stage. */
 export async function requestStory(store: CompanionStore, gw: WorkflowGateway, env: Env, userId: string, caseId: string, input: unknown) {
+  const planned = await planStory(store, userId, caseId, input);
+  if (!planned.job) return { output_id: planned.output_id, status: "pending" as const };
+  const { job } = planned;
+  const r = await gw.send({ stage: "story", case_id: caseId, callback_url: env.callbackUrl, issued_at: new Date().toISOString(), ...job }).catch(() => ({ ok: false, status: 0 }));
+  if (!r.ok) {
+    await store.updateOutput(planned.output_id, { status: "error", meta: { reason: `trigger_failed:${r.status}` } }, "pending");
+    const c = await store.getCase(caseId);
+    if (c) await setPhase(store, c, "failed_retryable", {}, userId);
+    throw new ServiceError("workflow_unavailable", 502);
+  }
+  return { output_id: planned.output_id, status: "pending" as const };
+}
+
+/** Confirms the facts the advisor saw, computes the playback and records the pending story job (no network). */
+async function planStory(store: CompanionStore, userId: string, caseId: string, input: unknown): Promise<{ output_id: string; job: { job_id: string; revision: number; prompt_versions: { story: string }; story_input: ReturnType<typeof storyWriterInput> } | null }> {
   const body = storyRequestSchema.parse(input);
   const inputs = storyInputsSchema.parse(body.inputs);
   let c = await ownCase(store, userId, caseId);
@@ -857,7 +878,7 @@ export async function requestStory(store: CompanionStore, gw: WorkflowGateway, e
   if (meta.story_key !== inputs.story_key) throw new ServiceError("wrong_story", 409);
   const packet = readPacket(c);
   if (!packet) throw new ServiceError("no_evidence", 409);
-  if (!["extracted_needs_review", "intake_ready", "draft_ready", "producer_review", "approved", "exported", "failed_retryable"].includes(phaseOf(c))) throw new ServiceError("not_allowed", 409);
+  if (!["extracted_needs_review", "intake_ready", "draft_ready", "producer_review", "approved", "exported", "failed_retryable", "analysis_pending"].includes(phaseOf(c))) throw new ServiceError("not_allowed", 409);
   const core = packet.facts.filter((f) => ["f.insurer", "f.product_name", "f.initial_death_benefit"].includes(f.fact_id) && (f.status === "not_found" || f.status === "contradictory"));
   if (core.length) throw new ServiceError("core_facts_unresolved", 409, { facts: core.map((f) => f.fact_id) });
 
@@ -868,7 +889,12 @@ export async function requestStory(store: CompanionStore, gw: WorkflowGateway, e
 
   const outputs = await store.listOutputs(c.id);
   const inflight = outputs.find((o) => o.revision === c.companion_revision && o.status === "pending");
-  if (inflight) return { output_id: inflight.id, status: "pending" as const };
+  if (inflight) {
+    const at = (inflight.meta as { requested_at?: string } | null)?.requested_at;
+    if (!at || Date.now() - new Date(at).getTime() < STORY_STALE_MS) return { output_id: inflight.id, job: null };
+    await store.updateOutput(inflight.id, { status: "error", meta: { ...(inflight.meta as object), reason: "no_callback" } }, "pending");
+    outputs.splice(outputs.indexOf(inflight), 1, { ...inflight, status: "error" });
+  }
   // An approved story is never edited in place: new inputs start a new revision.
   if (outputs.some((o) => o.revision === c.companion_revision && o.status === "final")) {
     const carried = factsConfirmedFor(c) ? { ...(c.facts_confirmed as object) } : null;
@@ -896,23 +922,8 @@ export async function requestStory(store: CompanionStore, gw: WorkflowGateway, e
   });
   if (phaseOf(c) === "extracted_needs_review" || phaseOf(c) === "approved" || phaseOf(c) === "exported") c = await setPhase(store, c, "intake_ready", {}, userId);
   c = await setPhase(store, c, "analysis_pending", {}, userId);
-  const r = await gw.send({
-    stage: "story",
-    job_id,
-    case_id: c.id,
-    revision: c.companion_revision,
-    callback_url: env.callbackUrl,
-    issued_at: new Date().toISOString(),
-    prompt_versions: { story: STORY_VERSIONS.prompt },
-    story_input: storyWriterInput(playback),
-  }).catch(() => ({ ok: false, status: 0 }));
-  if (!r.ok) {
-    await store.updateOutput(out.id, { status: "error", meta: { reason: `trigger_failed:${r.status}` } }, "pending");
-    await setPhase(store, c, "failed_retryable", {}, userId);
-    throw new ServiceError("workflow_unavailable", 502);
-  }
   await store.audit({ case_id: c.id, output_id: out.id, advisor_id: userId, actor_id: userId, event: "story_requested", detail: { job_id, revision: c.companion_revision, story_key: inputs.story_key, goals: inputs.goals, notes: playback.notes } });
-  return { output_id: out.id, status: "pending" as const };
+  return { output_id: out.id, job: { job_id, revision: c.companion_revision, prompt_versions: { story: STORY_VERSIONS.prompt }, story_input: storyWriterInput(playback) } };
 }
 
 async function onStory(store: CompanionStore, c: CaseRow, body: z.infer<typeof callbackSchema>) {

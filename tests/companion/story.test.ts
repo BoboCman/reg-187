@@ -149,7 +149,7 @@ test("sample render has every page", () => {
   for (const re of [/Your Policy Story/, /The Story: An Apartment Complex/, /The Design/, /IMPORTANT INFORMATION/, /Guaranteed and illustrated/, /FICTIONAL DEMONSTRATION/]) assert.match(html, re);
 });
 
-test("one submit: PDF text plus form answers, then the story is written as soon as the reading is done", async () => {
+test("one submit, one workflow run: the extract callback answers with the story job", async () => {
   const store = new MemoryStore();
   const gw = new FakeGateway();
   const c = await svc.createCase(store, USER, { sales_jurisdiction: "OH", story_key: "apartment" });
@@ -164,37 +164,42 @@ test("one submit: PDF text plus form answers, then the story is written as soon 
   });
   const v0 = await svc.caseView(store, USER, c.id);
   assert.equal(v0.story?.auto?.status, "waiting");
+  assert.equal(gw.sent.length, 1);
   const ex = gw.last();
   assert.equal(ex.stage, "extract");
   const cb = signed({ stage: "extract", job_id: ex.job_id, case_id: c.id, revision: 1, status: "ok", extraction: { atlas1: s.atlas1, atlas2_registry: s.atlas2Registry } });
-  const r = await svc.handleCallback(store, env, cb.raw, cb.headers, gw);
+  const r = (await svc.handleCallback(store, env, cb.raw, cb.headers)) as { phase: string; story_job?: { job_id: string; revision: number; story_input: { schema: string } } };
   assert.equal(r.phase, "analysis_pending");
-  const job = gw.last();
-  assert.equal(job.stage, "story");
-  assert.doesNotMatch(JSON.stringify(job), /Jordan|Spouse/);
+  assert.equal(gw.sent.length, 1, "the app never triggers n8n a second time");
+  assert.ok(r.story_job, "story job in the callback reply");
+  assert.equal(r.story_job!.story_input.schema, "policyplan_story_input.v1");
+  assert.doesNotMatch(JSON.stringify(r), /Jordan|Spouse/);
   const v1 = await svc.caseView(store, USER, c.id);
   assert.equal(v1.story?.auto?.status, "sent");
   assert.equal(v1.story?.last_inputs?.beneficiary, "Spouse");
 
-  const done = signed({ stage: "story", job_id: job.job_id, case_id: c.id, revision: 1, status: "ok", story: { raw: JSON.stringify(s.story), model: "fixture", attempts: 1 } });
-  assert.equal((await svc.handleCallback(store, env, done.raw, done.headers, gw)).phase, "draft_ready");
+  const done = signed({ stage: "story", job_id: r.story_job!.job_id, case_id: c.id, revision: 1, status: "ok", story: { raw: JSON.stringify(s.story), model: "fixture", attempts: 1 } });
+  assert.equal((await svc.handleCallback(store, env, done.raw, done.headers)).phase, "draft_ready");
   const v2 = await svc.caseView(store, USER, c.id);
   assert.deepEqual(v2.output?.story?.playback.riders_shown, ["Accelerated Death Benefit Rider for Chronic Illness", "Overloan Protection Rider"], "every rider shown when none were picked");
+  // A replayed extract callback is refused and does not plan a second job.
+  await assert.rejects(svc.handleCallback(store, env, cb.raw, cb.headers), /stale_or_duplicate/);
 });
 
-test("one submit: a gateway failure on the story step is kept and shown, not lost", async () => {
+test("a story job whose run never called back can be created again after a while", async () => {
   const store = new MemoryStore();
   const gw = new FakeGateway();
   const c = await svc.createCase(store, USER, { sales_jurisdiction: "OH", story_key: "apartment" });
   await svc.submitIllustration(store, gw, env, USER, c.id, { text: s.pagesText, page_count: s.pageCount, document_fingerprint: s.fingerprint, file_size: 1000, kind_confirmed: "proposed_sales", privacy: { removed: {}, worker_warnings: [], names_screened: 1 }, story_inputs: { story_key: "apartment", goals: [], riders: [], cover: {} } });
   const ex = gw.last();
   const cb = signed({ stage: "extract", job_id: ex.job_id, case_id: c.id, revision: 1, status: "ok", extraction: { atlas1: s.atlas1, atlas2_registry: s.atlas2Registry } });
-  const down = { send: async () => ({ ok: false, status: 503 }) };
-  await svc.handleCallback(store, env, cb.raw, cb.headers, down);
-  const v = await svc.caseView(store, USER, c.id);
-  assert.equal(v.story?.auto?.status, "stopped");
-  assert.equal(v.story?.auto && "error" in v.story.auto ? v.story.auto.error : null, "workflow_unavailable");
-  // The advisor can still create it by hand.
-  const again = await svc.requestStory(store, gw, env, USER, c.id, { revision: v.revision, inputs: { story_key: "apartment", goals: [], riders: [], cover: {} } });
-  assert.equal(again.status, "pending");
+  await svc.handleCallback(store, env, cb.raw, cb.headers);
+  const pending = [...store.outputs.values()].find((o) => o.status === "pending")!;
+  const inputs2 = { story_key: "apartment", goals: [], riders: [], cover: {} };
+  const same = await svc.requestStory(store, gw, env, USER, c.id, { revision: 1, inputs: inputs2 });
+  assert.equal(same.output_id, pending.id, "still running: no second job");
+  store.outputs.set(pending.id, { ...pending, meta: { ...(pending.meta as object), requested_at: new Date(Date.now() - 20 * 60_000).toISOString() } });
+  const again = await svc.requestStory(store, gw, env, USER, c.id, { revision: 1, inputs: inputs2 });
+  assert.notEqual(again.output_id, pending.id);
+  assert.equal(gw.last().stage, "story");
 });

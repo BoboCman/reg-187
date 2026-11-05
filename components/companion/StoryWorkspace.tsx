@@ -23,6 +23,7 @@ const STORY_ACK =
   "I reviewed this story against the carrier illustration. It correctly reflects the illustrated design and the client's goals as I understand them, it is not a recommendation on its own, and sharing it is permitted by my firm's and the carrier's procedures.";
 const field = "h-10 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm focus:border-[var(--color-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-ring)]";
 const card = "rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 sm:p-6";
+const primaryBtn = "inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-[var(--color-accent)] px-5 text-sm font-semibold text-white disabled:opacity-50";
 const usd = (v: unknown) => (typeof v === "number" ? "$" + Math.round(v).toLocaleString("en-US") : null);
 
 function coverPayload(cover: Cover) {
@@ -126,8 +127,6 @@ export function StoryWorkspace({ initial, storyKey, branding }: { initial: CaseV
   const working = !intake && !draft && (pending || waitingForAuto);
   const stopped = !intake && !draft && !working;
   const meta = (view?.case_meta ?? {}) as { case_label?: string; sales_jurisdiction?: string };
-  const step = intake ? 2 : draft ? 3 : working ? 3 : 2;
-  const STEPS = ["Story", "Policy and goals", "Report"];
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] pb-24">
@@ -143,20 +142,7 @@ export function StoryWorkspace({ initial, storyKey, branding }: { initial: CaseV
           </div>
         </div>
 
-        <ol className="grid grid-cols-3 gap-1 sm:gap-2" aria-label="Steps">
-          {STEPS.map((label, idx) => {
-            const i = idx + 1;
-            const ok = i < step || (i === 3 && view?.output?.status === "final");
-            return (
-              <li key={label} className={cn("flex items-center gap-2 rounded-lg border px-2 py-2 sm:px-3", i === step ? "border-[var(--color-accent)] bg-[var(--color-surface)] shadow-sm" : "border-transparent")}>
-                <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold", ok ? "bg-emerald-600 text-white" : i === step ? "bg-[var(--color-accent)] text-white" : "bg-[var(--color-readonly-bg)] text-[var(--color-text-muted)]")}>
-                  {ok ? <Check className="h-3.5 w-3.5" /> : i}
-                </span>
-                <span className={cn("text-xs sm:text-sm", i === step ? "font-semibold" : "text-[var(--color-text-secondary)]")}>{label}</span>
-              </li>
-            );
-          })}
-        </ol>
+        {!intake && <StepBar current={5} done={view?.output?.status === "final"} />}
 
         {loadErr && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{loadErr}</p>}
         {view && phase.startsWith("blocked_") && !replacing && (
@@ -182,7 +168,7 @@ export function StoryWorkspace({ initial, storyKey, branding }: { initial: CaseV
             }}
           />
         ) : working ? (
-          view && <Progress view={view} />
+          view && <Progress view={view} onChange={() => refresh()} />
         ) : (
           view && (
             <>
@@ -266,7 +252,8 @@ function StoryIntake({
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [prepError, setPrepError] = useState<string | null>(null);
   const prepKey = file ? `${file.name}:${file.size}:${file.lastModified}#${nameKey}` : "";
-  const redacting = !!prepKey && cleanNames.length > 0 && prepared?.key !== prepKey && !prepError;
+  const [redacting, setRedacting] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   async function prepare(f: File, namesNow: string[], key: string): Promise<Prepared> {
     if (f.type && f.type !== "application/pdf") throw new Error("Attach the carrier illustration as a PDF.");
@@ -282,26 +269,7 @@ function StoryIntake({
     return { key, text: screened.text, pageCount: Number(result.metadata?.pageCount ?? 0), fingerprint, size: f.size, removed, warnings, leaks: leaks.length, pagesRemoved: Object.values(removed).reduce((a, b) => a + b, 0) };
   }
 
-  useEffect(() => {
-    setPrepError(null);
-    if (!file || !cleanNames.length) return;
-    let live = true;
-    const key = prepKey;
-    const t = setTimeout(() => {
-      prepare(file, cleanNames, key)
-        .then((p) => live && setPrepared(p))
-        .catch((e) => live && setPrepError(errorMessage(e)));
-    }, 700);
-    return () => {
-      live = false;
-      clearTimeout(t);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prepKey]);
-
   const ready_prepared = prepared?.key === prepKey ? prepared : null;
-  const missing = [!file && "attach the illustration", !cleanNames.length && "enter the name on the illustration", !caseId && !jurisdiction && "choose the state of sale"].filter(Boolean) as string[];
-  const ready = !missing.length && subtitleOk(cover.subtitle) && !stage && !!ready_prepared && !ready_prepared.leaks;
 
   async function submit() {
     if (!file || !ready_prepared) return;
@@ -338,131 +306,290 @@ function StoryIntake({
     }
   }
 
+  const canAttach = !!file && (!!caseId || !!jurisdiction);
+  const canProtect = !!ready_prepared && !ready_prepared.leaks;
+  const canAsk = subtitleOk(cover.subtitle);
+  const go = (n: 1 | 2 | 3 | 4) => setStep(n);
+
+  async function redact() {
+    if (!file || !cleanNames.length) return;
+    setPrepError(null);
+    setRedacting(true);
+    try {
+      const p = await prepare(file, cleanNames, prepKey);
+      setPrepared(p);
+      if (!p.leaks) setTimeout(() => setStep(3), 900);
+    } catch (e) {
+      setPrepError(errorMessage(e));
+    } finally {
+      setRedacting(false);
+    }
+  }
+
+  const goalText = goals.length ? goals.map((g) => GOAL_LABELS[g]).join(", ") : "None picked";
+
   return (
     <>
-      <section className={cn(card, "space-y-4")}>
-        <div>
-          <h2 className="text-base font-semibold">1 · Attach the policy</h2>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">The carrier&apos;s proposed sales illustration, as the original PDF.</p>
-        </div>
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDrag(true);
-          }}
-          onDragLeave={() => setDrag(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDrag(false);
-            const f = e.dataTransfer.files?.[0];
-            if (f) setFile(f);
-          }}
-          onClick={() => input.current?.click()}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && input.current?.click()}
-          className={cn(
-            "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-7 text-center transition-colors",
-            drag ? "border-[var(--color-accent)] bg-[var(--color-accent-light)]" : file ? "border-emerald-300 bg-emerald-50/40" : "border-[var(--color-border-strong)] hover:bg-[var(--color-readonly-bg)]",
-          )}
-        >
-          {file ? <FileText className="h-7 w-7 text-emerald-700" /> : <UploadCloud className="h-7 w-7 text-[var(--color-text-muted)]" />}
-          <p className="mt-2 text-sm font-medium">{file ? file.name : "Drop the PDF here or choose a file"}</p>
-          <p className="text-xs text-[var(--color-text-muted)]">{file ? `${(file.size / 1024).toFixed(0)} KB · click to change` : "PDF, up to 10 MB"}</p>
-          <input ref={input} type="file" accept="application/pdf" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {[0, 1].map((i) => (
-            <label key={i} className="block text-sm">
-              <span className="text-[var(--color-text-secondary)]">{i === 0 ? "Name on the illustration" : "Second insured (if any)"}</span>
-              <input className={cn(field, "mt-1")} autoComplete="off" value={names[i]} onChange={(e) => setNames((n) => n.map((x, j) => (j === i ? e.target.value : x)))} placeholder={i === 0 ? "As printed on the PDF" : "Optional"} />
-            </label>
-          ))}
-        </div>
-        <p className="flex items-start gap-2 text-xs text-[var(--color-text-muted)]">
-          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Names are used only in this browser to remove the client&apos;s identity before anything is sent. The PDF never leaves this device.
-        </p>
-        {file && cleanNames.length > 0 && (
-          <p
-            aria-live="polite"
+      <StepBar current={step} onPick={(n) => n < step && n <= 4 && go(n as 1 | 2 | 3 | 4)} />
+
+      {step === 1 && (
+        <section className={cn(card, "space-y-4")}>
+          <div>
+            <h2 className="text-base font-semibold">Attach the policy</h2>
+            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">The carrier&apos;s proposed sales illustration, as the original PDF. It stays on this device.</p>
+          </div>
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDrag(true);
+            }}
+            onDragLeave={() => setDrag(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDrag(false);
+              const f = e.dataTransfer.files?.[0];
+              if (f) setFile(f);
+            }}
+            onClick={() => input.current?.click()}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && input.current?.click()}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-2 text-sm",
-              prepError || ready_prepared?.leaks ? "bg-red-50 text-red-700" : ready_prepared ? "bg-emerald-50 text-emerald-800" : "bg-[var(--color-readonly-bg)] text-[var(--color-text-secondary)]",
+              "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors",
+              drag ? "border-[var(--color-accent)] bg-[var(--color-accent-light)]" : file ? "border-emerald-300 bg-emerald-50/40" : "border-[var(--color-border-strong)] hover:bg-[var(--color-readonly-bg)]",
             )}
           >
-            {prepError ? (
-              <>
-                <AlertTriangle className="h-4 w-4 shrink-0" /> {prepError}
-              </>
-            ) : ready_prepared?.leaks ? (
-              <>
-                <AlertTriangle className="h-4 w-4 shrink-0" /> A name was still found after redaction. Check the spelling as printed on the PDF.
-              </>
-            ) : ready_prepared ? (
-              <>
-                <CheckCircle2 className="h-4 w-4 shrink-0" /> Redacted on this device: {ready_prepared.pageCount} pages read, {ready_prepared.pagesRemoved} identifying item{ready_prepared.pagesRemoved === 1 ? "" : "s"} removed. Nothing has been sent.
-              </>
-            ) : (
-              <>
-                <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> Redacting on this device{isProcessing && progress.totalPages ? ` · page ${progress.currentPage || 1} of ${progress.totalPages}` : "…"}
-              </>
-            )}
-          </p>
-        )}
-        {!caseId && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm">
-              <span className="text-[var(--color-text-secondary)]">State of sale</span>
-              <select className={cn(field, "mt-1")} value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)}>
-                <option value="">Choose…</option>
-                {US_STATES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="text-[var(--color-text-secondary)]">Your label (optional)</span>
-              <input className={cn(field, "mt-1")} maxLength={60} placeholder="e.g. Case 14, not the client's name" value={label} onChange={(e) => setLabel(e.target.value)} />
-            </label>
+            {file ? <FileText className="h-8 w-8 text-emerald-700" /> : <UploadCloud className="h-8 w-8 text-[var(--color-text-muted)]" />}
+            <p className="mt-2 text-sm font-medium">{file ? file.name : "Drop the PDF here or choose a file"}</p>
+            <p className="text-xs text-[var(--color-text-muted)]">{file ? `${(file.size / 1024).toFixed(0)} KB · click to change` : "PDF, up to 10 MB"}</p>
+            <input ref={input} type="file" accept="application/pdf" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           </div>
-        )}
-      </section>
+          {!caseId && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm">
+                <span className="text-[var(--color-text-secondary)]">State of sale</span>
+                <select className={cn(field, "mt-1")} value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)}>
+                  <option value="">Choose…</option>
+                  {US_STATES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm">
+                <span className="text-[var(--color-text-secondary)]">Case label (optional)</span>
+                <input className={cn(field, "mt-1")} maxLength={60} placeholder="e.g. Case 14, not the client's name" value={label} onChange={(e) => setLabel(e.target.value)} />
+              </label>
+            </div>
+          )}
+        </section>
+      )}
 
-      <section className={cn(card, "space-y-6")}>
-        <h2 className="text-base font-semibold">2 · Goals and branding</h2>
-        <StoryFields goals={goals} setGoals={setGoals} beneficiary={beneficiary} setBeneficiary={setBeneficiary} cover={cover} setCover={setCover} hasLogo={!!branding?.has_logo} riders={null} />
-        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      </section>
+      {step === 2 && (
+        <section className={cn(card, "space-y-4")}>
+          <div>
+            <h2 className="text-base font-semibold">Protect the client&apos;s identity</h2>
+            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Enter the names as printed on the illustration. They are removed in this browser; nothing is uploaded yet.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[0, 1].map((i) => (
+              <label key={i} className="block text-sm">
+                <span className="text-[var(--color-text-secondary)]">{i === 0 ? "Insured name" : "Second insured, owner or agent (optional)"}</span>
+                <input className={cn(field, "mt-1")} autoComplete="off" value={names[i]} onChange={(e) => setNames((n) => n.map((x, j) => (j === i ? e.target.value : x)))} placeholder={i === 0 ? "As printed on the PDF" : "Optional"} />
+              </label>
+            ))}
+          </div>
+          {(redacting || prepError || ready_prepared) && (
+            <div
+              aria-live="polite"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-4 py-3 text-sm",
+                prepError || ready_prepared?.leaks ? "bg-red-50 text-red-700" : ready_prepared ? "border-l-2 border-emerald-400 bg-emerald-50/60 text-emerald-800" : "bg-[var(--color-readonly-bg)] text-[var(--color-text-secondary)]",
+              )}
+            >
+              {prepError ? (
+                <>
+                  <AlertTriangle className="h-5 w-5 shrink-0" /> {prepError}
+                </>
+              ) : redacting ? (
+                <>
+                  <Loader2 className="h-5 w-5 shrink-0 animate-spin" /> Redacting in your browser{isProcessing && progress.totalPages ? ` · page ${progress.currentPage || 1} of ${progress.totalPages}` : "…"}
+                </>
+              ) : ready_prepared?.leaks ? (
+                <>
+                  <AlertTriangle className="h-5 w-5 shrink-0" /> A name was still found after redaction. Check the spelling as printed on the PDF and redact again.
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="h-5 w-5 shrink-0" />
+                  <span>
+                    <span className="font-semibold">Personal information removed.</span> {ready_prepared!.pagesRemoved} item{ready_prepared!.pagesRemoved === 1 ? "" : "s"} redacted across {ready_prepared!.pageCount} pages. Nothing has been sent.
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+          <p className="flex items-start gap-2 text-xs text-[var(--color-text-muted)]">
+            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Names are used only on this device and are never stored.
+          </p>
+        </section>
+      )}
+
+      {step === 3 && (
+        <section className={cn(card, "space-y-6")}>
+          <div>
+            <h2 className="text-base font-semibold">Questions and branding</h2>
+            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">What the policy is for, who it protects, and how the cover reads.</p>
+          </div>
+          <StoryFields goals={goals} setGoals={setGoals} beneficiary={beneficiary} setBeneficiary={setBeneficiary} cover={cover} setCover={setCover} hasLogo={!!branding?.has_logo} riders={null} />
+        </section>
+      )}
+
+      {step === 4 && (
+        <section className={cn(card, "space-y-5")}>
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100">
+              <Check className="h-3.5 w-3.5 text-emerald-700" />
+            </span>
+            <h2 className="text-base font-semibold">Ready to submit</h2>
+          </div>
+          <div className="divide-y divide-[var(--color-border)] overflow-hidden rounded-lg border border-[var(--color-border)]">
+            <ReviewRow label="Policy" value={file?.name ?? ""} sub={ready_prepared ? `${ready_prepared.pageCount} pages` : undefined} onEdit={() => go(1)} />
+            <ReviewRow label="Case" value={[label.trim() || null, jurisdiction || defaultJurisdiction || null].filter(Boolean).join(" · ") || "—"} onEdit={() => go(1)} />
+            <div className="flex items-center justify-between gap-3 border-l-2 border-emerald-400 bg-emerald-50/50 p-4">
+              <div className="flex items-center gap-3">
+                <ShieldCheck className="h-5 w-5 shrink-0 text-emerald-700" />
+                <div>
+                  <p className="text-sm font-semibold text-emerald-900">Personal information removed</p>
+                  <p className="text-xs text-emerald-800/80">{ready_prepared?.pagesRemoved ?? 0} items redacted in your browser before upload</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => go(2)} className="text-xs font-medium text-[var(--color-accent)]">
+                Redo
+              </button>
+            </div>
+            <ReviewRow label="Goals" value={goalText} onEdit={() => go(3)} />
+            <ReviewRow label="Cover" value={[cover.title || "Your Policy Story", cover.prepared_for ? `for ${cover.prepared_for}` : null].filter(Boolean).join(" · ")} sub={[cover.advisor_name, cover.firm_name].filter(Boolean).join(" · ") || undefined} onEdit={() => go(3)} />
+          </div>
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-readonly-bg)] px-5 py-4 text-center">
+            <p className="flex items-center justify-center gap-2 text-sm font-semibold">
+              <Lock className="h-4 w-4 text-emerald-700" /> Privacy protection
+            </p>
+            <p className="mt-1 text-sm text-[var(--color-text-muted)]">Only the redacted policy text and your answers are sent, together, to write the story. Names, beneficiary and cover details stay out of the AI.</p>
+          </div>
+          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        </section>
+      )}
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <p className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
-            <ShieldCheck className="hidden h-4 w-4 shrink-0 sm:block" />
-            {stage === "sending"
-              ? "Uploading the redacted text…"
-              : missing.length
-                ? `To submit, ${missing.join(", ")}.`
-                : redacting
-                  ? "Redacting the PDF on this device…"
-                  : ready_prepared && !ready_prepared.leaks
-                    ? "Ready. Create report uploads the redacted text and writes the story, about two minutes."
-                    : "Fix the redaction issue above to continue."}
-          </p>
-          <button type="button" onClick={submit} disabled={!ready} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-[var(--color-accent)] px-5 text-sm font-semibold text-white disabled:opacity-50">
-            {stage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            Create report
-          </button>
+          <div>
+            {step > 1 && (
+              <button type="button" onClick={() => go((step - 1) as 1 | 2 | 3)} disabled={!!stage || redacting} className="inline-flex h-10 items-center gap-1 rounded-lg px-3 text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-readonly-bg)] disabled:opacity-50">
+                <ArrowLeft className="h-4 w-4" /> Back
+              </button>
+            )}
+          </div>
+          {step === 1 && (
+            <button type="button" disabled={!canAttach} onClick={() => go(2)} className={primaryBtn}>
+              Continue
+            </button>
+          )}
+          {step === 2 &&
+            (canProtect ? (
+              <button type="button" onClick={() => go(3)} className={primaryBtn}>
+                Continue
+              </button>
+            ) : (
+              <button type="button" disabled={!cleanNames.length || redacting} onClick={redact} className={primaryBtn}>
+                {redacting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                {ready_prepared?.leaks || prepError ? "Redact again" : "Remove names"}
+              </button>
+            ))}
+          {step === 3 && (
+            <button type="button" disabled={!canAsk} onClick={() => go(4)} className={primaryBtn}>
+              Continue
+            </button>
+          )}
+          {step === 4 && (
+            <button type="button" disabled={!canAttach || !canProtect || !canAsk || !!stage} onClick={submit} className={primaryBtn}>
+              {stage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {stage ? "Submitting…" : "Submit"}
+            </button>
+          )}
         </div>
       </div>
     </>
   );
 }
 
+function ReviewRow({ label, value, sub, onEdit }: { label: string; value: string; sub?: string; onEdit: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3 bg-[var(--color-surface)] p-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+        <div className="min-w-0">
+          <p className="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">{label}</p>
+          <p className="truncate text-sm font-medium">{value}</p>
+          {sub && <p className="truncate text-xs text-[var(--color-text-muted)]">{sub}</p>}
+        </div>
+      </div>
+      <button type="button" onClick={onEdit} className="shrink-0 text-xs font-medium text-[var(--color-accent)]">
+        Edit
+      </button>
+    </div>
+  );
+}
+
+const STEP_LABELS = ["Attach", "Protect", "Questions", "Submit", "Report"];
+function StepBar({ current, done, onPick }: { current: number; done?: boolean; onPick?: (n: number) => void }) {
+  return (
+    <ol className="grid grid-cols-5 gap-1 sm:gap-2" aria-label="Steps">
+      {STEP_LABELS.map((label, idx) => {
+        const i = idx + 1;
+        const ok = i < current || (i === current && done);
+        const clickable = !!onPick && i < current;
+        return (
+          <li key={label}>
+            <button
+              type="button"
+              disabled={!clickable}
+              onClick={() => onPick?.(i)}
+              aria-current={i === current ? "step" : undefined}
+              className={cn("flex w-full items-center gap-2 rounded-lg border px-2 py-2 text-left sm:px-3", i === current ? "border-[var(--color-accent)] bg-[var(--color-surface)] shadow-sm" : "border-transparent", clickable && "hover:bg-[var(--color-surface)]")}
+            >
+              <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold", ok ? "bg-emerald-600 text-white" : i === current ? "bg-[var(--color-accent)] text-white" : "bg-[var(--color-readonly-bg)] text-[var(--color-text-muted)]")}>
+                {ok ? <Check className="h-3.5 w-3.5" /> : i}
+              </span>
+              <span className={cn("hidden text-sm sm:inline", i === current ? "font-semibold" : "text-[var(--color-text-secondary)]")}>{label}</span>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 /* ── Progress after submit ────────────────────────────────────────────── */
 
-function Progress({ view }: { view: CaseView }) {
+function Progress({ view, onChange }: { view: CaseView; onChange: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const out = view.output;
+  const stale = out?.status === "pending" && Date.now() - new Date(out.created_at).getTime() > 15 * 60 * 1000;
+  async function again() {
+    setBusy(true);
+    setErr(null);
+    try {
+      await api(`/api/companion/cases/${view.id}/story`, "POST", { revision: view.revision, inputs: view.story?.last_inputs ?? { story_key: "apartment", goals: [], riders: [], cover: {} } });
+      onChange();
+    } catch (e) {
+      setErr(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
   const reading = view.phase === "document_received" || view.phase === "extraction_pending";
   const rows: [string, "done" | "now" | "next"][] = [
     ["Names removed in your browser", "done"],
@@ -484,6 +611,15 @@ function Progress({ view }: { view: CaseView }) {
           </li>
         ))}
       </ol>
+      {stale && (
+        <div className="flex flex-col gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+          <span>This is taking longer than it should. You can start the story again; nothing you entered is lost.</span>
+          <button type="button" onClick={again} disabled={busy} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[var(--color-accent)] px-4 text-sm font-semibold text-white disabled:opacity-50">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Write it again
+          </button>
+        </div>
+      )}
+      {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
     </section>
   );
 }

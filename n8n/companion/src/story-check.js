@@ -2,7 +2,7 @@
 // A light pre-check so a malformed answer gets one retry. The app re-parses
 // strictly and runs the full wording and number guard; this node never repairs output.
 const raw = String(($input.first().json || {}).output ?? '').trim();
-const input = $('Companion Gate').first().json.story_input || {};
+const input = $('Story Context').first().json.story_input || {};
 let reason = '';
 let j = null;
 if (!raw.startsWith('{') || !raw.endsWith('}')) reason = 'not_a_single_json_object';

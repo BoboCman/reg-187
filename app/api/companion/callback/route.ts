@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const r = await svc.handleCallback(deps.store, deps.env, raw, {
       timestamp: request.headers.get("x-companion-timestamp"),
       signature: request.headers.get("x-companion-signature"),
-    }, deps.gateway);
+    });
     return NextResponse.json(r);
   } catch (err) {
     return errorResponse(err);
