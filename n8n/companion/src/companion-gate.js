@@ -12,11 +12,11 @@ if (!['extract', 'write'].includes(b.stage)) fail('stage');
 if (!UUID.test(b.job_id || '') || !UUID.test(b.case_id || '')) fail('ids');
 if (!Number.isInteger(b.revision) || b.revision < 1) fail('revision');
 
-let url;
-try { url = new URL(String(b.callback_url)); } catch (e) { fail('callback_url'); }
-if (url.protocol !== 'https:') fail('callback_not_https');
-if (url.pathname !== '/api/companion/callback' || url.search || url.username || url.password) fail('callback_path');
-const host = url.hostname.toLowerCase();
+// n8n's Code sandbox has no global URL, so parse the callback with a strict pattern.
+const cb = /^https:\/\/([a-z0-9](?:[a-z0-9.-]*[a-z0-9])?)(\/[^?#\s@]*)$/i.exec(String(b.callback_url || '').trim());
+if (!cb) fail(/^https:\/\//i.test(String(b.callback_url || '')) ? 'callback_url' : 'callback_not_https');
+const host = cb[1].toLowerCase();
+if (cb[2] !== '/api/companion/callback') fail('callback_path');
 const allowed = String($vars.COMPANION_CALLBACK_HOSTS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
 if (!allowed.length) fail('COMPANION_CALLBACK_HOSTS_not_set');
 if (!allowed.includes(host)) fail('callback_host_not_allowed:' + host);
@@ -40,7 +40,7 @@ return [{
     job_id: b.job_id,
     case_id: b.case_id,
     revision: b.revision,
-    callback_url: url.toString(),
+    callback_url: 'https://' + host + '/api/companion/callback',
     workflow_version: VERSION,
     prompt_versions: b.prompt_versions || null,
     illustration_text: b.stage === 'extract' ? b.illustration_text : null,

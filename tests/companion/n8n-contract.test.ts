@@ -25,7 +25,9 @@ function runNode(file: string, input: Record<string, unknown>, named: Record<str
     if (!(name in named)) throw new Error(`no node ${name}`);
     return { first: () => ({ json: named[name] }) };
   };
-  return new Function("$input", "$", "$vars", src(file))($input, $, vars) as Item[];
+  // n8n's Code sandbox lacks Node globals such as URL, Buffer and require; shadow them so the
+  // workflow source cannot quietly depend on them.
+  return new Function("$input", "$", "$vars", "URL", "URLSearchParams", "Buffer", "require", "process", src(file))($input, $, vars, undefined, undefined, undefined, undefined, undefined) as Item[];
 }
 
 function deliver(prepared: Record<string, unknown>) {
@@ -58,6 +60,9 @@ test("gate rejects foreign callback hosts, stale jobs and bad shapes", async () 
   assert.throws(() => runNode("companion-gate.js", { body: { ...body, callback_url: "https://evil.example/api/companion/callback" } }, {}, VARS), /callback_host_not_allowed/);
   assert.throws(() => runNode("companion-gate.js", { body: { ...body, callback_url: "http://preview.policyplan.example/api/companion/callback" } }, {}, VARS), /not_https/);
   assert.throws(() => runNode("companion-gate.js", { body: { ...body, issued_at: new Date(Date.now() - 3600_000).toISOString() } }, {}, VARS), /stale_request/);
+  assert.throws(() => runNode("companion-gate.js", { body: { ...body, callback_url: "https://user@preview.policyplan.example/api/companion/callback" } }, {}, VARS), /COMPANION_GATE/);
+  assert.throws(() => runNode("companion-gate.js", { body: { ...body, callback_url: "https://preview.policyplan.example/api/companion/callback?x=1" } }, {}, VARS), /COMPANION_GATE/);
+  assert.equal(runNode("companion-gate.js", { body }, {}, VARS)[0].json.callback_url, "https://preview.policyplan.example/api/companion/callback");
   assert.throws(() => runNode("companion-gate.js", { body: { ...body, job_id: "x" } }, {}, VARS), /ids/);
   assert.throws(() => runNode("companion-gate.js", { body }, {}, {}), /COMPANION_CALLBACK_HOSTS_not_set/);
 });
