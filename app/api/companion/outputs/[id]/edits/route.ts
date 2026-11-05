@@ -8,5 +8,5 @@ type P = { params: Promise<{ id: string }> };
 
 export async function POST(request: NextRequest, { params }: P) {
   const { id } = await params;
-  return withProducer(request, async ({ store, userId }) => svc.saveEdits(store, userId, id, await readJson(request)));
+  return withProducer(request, async ({ store, userId }) => svc.saveOutputEdits(store, userId, id, await readJson(request)));
 }

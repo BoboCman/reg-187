@@ -9,7 +9,8 @@ import { createHash } from "node:crypto";
 import type { CompanionDraft, ReleasePolicy } from "./contracts";
 
 export type GateInput = {
-  draft: CompanionDraft;
+  /** A Companion draft, or any draft that carries a mode and a release-eligibility flag (stories). */
+  draft: Pick<CompanionDraft, "mode"> & { validation: Pick<CompanionDraft["validation"], "client_release_eligible"> };
   policy: ReleasePolicy | null;
   jurisdiction: string | null;
   productClass: string;

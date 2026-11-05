@@ -30,7 +30,9 @@ export function UploadStep({
   defaultJurisdiction,
   onCreated,
   onSubmitted,
+  storyKey,
 }: {
+  storyKey?: "apartment";
   caseId: string | null;
   defaultJurisdiction?: string | null;
   onCreated: (id: string) => void;
@@ -75,6 +77,7 @@ export function UploadStep({
           sales_jurisdiction: jurisdiction,
           other_jurisdictions_involved: otherStates,
           ...(label.trim() ? { case_label: label.trim() } : {}),
+          ...(storyKey ? { story_key: storyKey } : {}),
         });
         id = c.id;
         onCreated(id);

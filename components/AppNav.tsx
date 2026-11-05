@@ -16,7 +16,7 @@ interface AppNavProps {
 }
 
 const LINKS = [
-  { href: "/dashboard", label: "Companions", match: (p: string) => p === "/dashboard" || p.startsWith("/cases") || p.startsWith("/companion") },
+  { href: "/dashboard", label: "Stories", match: (p: string) => p === "/dashboard" || p.startsWith("/cases") || p.startsWith("/companion") },
   { href: "/settings/branding", label: "Letterhead", match: (p: string) => p.startsWith("/settings") },
 ];
 
@@ -79,7 +79,7 @@ export function AppNav({ centerSlot, rightSlot, hideNewIntake }: AppNavProps) {
               href="/dashboard"
               className="hidden sm:inline-flex text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] px-3 py-1.5 rounded-md"
             >
-              Companions
+              Stories
             </Link>
           )}
           <button

@@ -32,7 +32,7 @@ const STAGE: Record<Stage, { label: string; cls: string; icon: typeof CheckCircl
   attention: { label: "Needs attention", cls: "bg-red-50 text-red-700 ring-red-200", icon: AlertCircle },
   review: { label: "Ready for review", cls: "bg-amber-50 text-amber-800 ring-amber-200", icon: PenLine },
   working: { label: "Working", cls: "bg-blue-50 text-blue-700 ring-blue-200", icon: Loader2 },
-  intake: { label: "Facts and objective", cls: "bg-slate-100 text-slate-600 ring-slate-200", icon: FileText },
+  intake: { label: "Goals and branding", cls: "bg-slate-100 text-slate-600 ring-slate-200", icon: FileText },
   approved: { label: "Approved", cls: "bg-emerald-50 text-emerald-700 ring-emerald-200", icon: CheckCircle2 },
 };
 const ORDER: Record<Stage, number> = { attention: 0, review: 1, working: 2, intake: 3, approved: 4 };
@@ -75,18 +75,18 @@ export function CompanionDashboard({ companions, letters, firstName, hasLetterhe
               {firstName ? `, ${firstName}` : ""}
             </h1>
             <p className="mt-1.5 max-w-xl text-sm text-[var(--color-text-secondary)] sm:text-base">
-              Turn a carrier illustration and a short client objective into a one-page, plain-language companion that you review before sharing.
+              Pick a story, upload the carrier's sales illustration and get a short visual report that explains the proposed design. You review and approve it before sharing.
             </p>
           </div>
           <Link href="/companion/new" className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] px-5 text-sm font-semibold text-white shadow-sm hover:bg-[var(--color-accent-hover)]">
-            <Upload className="h-4 w-4" /> New companion
+            <Upload className="h-4 w-4" /> New story
           </Link>
         </div>
 
         {!hasLetterhead && (
           <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-amber-900">
-              <span className="font-semibold">Add your letterhead.</span> Your name, firm and disclosures appear on every companion.
+              <span className="font-semibold">Add your letterhead.</span> Your name, firm, logo and disclosures appear on every report.
             </p>
             <Link href="/settings/branding" className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-white px-4 text-sm font-semibold text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100">
               Set up letterhead
@@ -97,11 +97,11 @@ export function CompanionDashboard({ companions, letters, firstName, hasLetterhe
         {companions.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface)] px-6 py-14 text-center">
             <FileText className="mx-auto h-8 w-8 text-[var(--color-accent)]" />
-            <h2 className="mt-4 text-base font-semibold">Your companions will appear here</h2>
+            <h2 className="mt-4 text-base font-semibold">Your stories will appear here</h2>
             <p className="mx-auto mt-1 max-w-md text-sm text-[var(--color-text-muted)]">
-              Upload a carrier&apos;s proposed illustration to start. To see the finished format first, look at the{" "}
-              <Link href="/sample-companion" className="text-[var(--color-accent)] underline">
-                sample companions
+              Choose a story and upload a carrier&apos;s proposed illustration to start. To see the finished format first, open the{" "}
+              <Link href="/sample-story" className="text-[var(--color-accent)] underline">
+                sample Apartment story
               </Link>
               .
             </p>
@@ -137,7 +137,7 @@ export function CompanionDashboard({ companions, letters, firstName, hasLetterhe
                   </li>
                 );
               })}
-              {list.length === 0 && <li className="px-5 py-10 text-center text-sm text-[var(--color-text-muted)]">No companions match your search.</li>}
+              {list.length === 0 && <li className="px-5 py-10 text-center text-sm text-[var(--color-text-muted)]">Nothing matches your search.</li>}
             </ul>
           </section>
         )}
