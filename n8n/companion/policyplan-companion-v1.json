@@ -17,21 +17,21 @@
           "name": "PolicyPlan webhook auth"
         }
       },
-      "id": "067a68bf-709e-4bf1-a463-cdeb0be7a189",
+      "id": "59a6fa8e-09eb-4b47-868e-e7a86f168b27",
       "name": "Companion Intake",
       "position": [
         0,
         400
       ],
-      "webhookId": "4c018078-a0a3-4a4f-b2fa-5cb53dbebc85"
+      "webhookId": "3f23b933-790a-4cc0-945b-88a5bcf5b23f"
     },
     {
       "parameters": {
-        "jsCode": "// PolicyPlan Companion \u00b7 Input Gate \u00b7 companion-gate v1\n// Validates the job from the app before any model runs. The webhook itself is\n// protected by the \"PolicyPlan webhook auth\" header credential; this gate adds\n// shape checks, a freshness window and a callback allowlist so results can\n// only ever be posted back to an approved PolicyPlan host.\nconst VERSION = 'policyplan-companion-v1/1.0.0';\nconst b = ($input.first().json.body) || {};\nconst UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nconst fail = (m) => { throw new Error('COMPANION_GATE/' + m); };\n\nif (!['extract', 'write'].includes(b.stage)) fail('stage');\nif (!UUID.test(b.job_id || '') || !UUID.test(b.case_id || '')) fail('ids');\nif (!Number.isInteger(b.revision) || b.revision < 1) fail('revision');\n\nlet url;\ntry { url = new URL(String(b.callback_url)); } catch (e) { fail('callback_url'); }\nif (url.protocol !== 'https:') fail('callback_not_https');\nif (url.pathname !== '/api/companion/callback' || url.search || url.username || url.password) fail('callback_path');\nconst host = url.hostname.toLowerCase();\nconst allowed = String($vars.COMPANION_CALLBACK_HOSTS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);\nif (!allowed.length) fail('COMPANION_CALLBACK_HOSTS_not_set');\nif (!allowed.includes(host)) fail('callback_host_not_allowed:' + host);\n\nconst issued = Date.parse(b.issued_at || '');\nconst age = Date.now() - issued;\nif (!Number.isFinite(issued) || age < -5 * 60 * 1000 || age > 30 * 60 * 1000) fail('stale_request');\n\nif (b.stage === 'extract') {\n  if (typeof b.illustration_text !== 'string' || b.illustration_text.length < 200 || b.illustration_text.length > 900000) fail('illustration_text');\n  if (!/--- PAGE 1 ---/.test(b.illustration_text)) fail('page_markers');\n}\nif (b.stage === 'write') {\n  if (!b.writer_input || b.writer_input.schema !== 'companion_writer_input.v1') fail('writer_input');\n  if (!b.analyst_input || b.analyst_input.schema !== 'companion_analyst_input.v1') fail('analyst_input');\n}\n\nreturn [{\n  json: {\n    stage: b.stage,\n    job_id: b.job_id,\n    case_id: b.case_id,\n    revision: b.revision,\n    callback_url: url.toString(),\n    workflow_version: VERSION,\n    prompt_versions: b.prompt_versions || null,\n    illustration_text: b.stage === 'extract' ? b.illustration_text : null,\n    writer_input: b.stage === 'write' ? b.writer_input : null,\n    analyst_input: b.stage === 'write' ? b.analyst_input : null,\n  },\n}];\n"
+        "jsCode": "// PolicyPlan Companion \u00b7 Input Gate \u00b7 companion-gate v1\n// Validates the job from the app before any model runs. The webhook itself is\n// protected by the \"PolicyPlan webhook auth\" header credential; this gate adds\n// shape checks, a freshness window and a callback allowlist so results can\n// only ever be posted back to an approved PolicyPlan host.\nconst VERSION = 'policyplan-companion-v1/1.0.0';\nconst b = ($input.first().json.body) || {};\nconst UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nconst fail = (m) => { throw new Error('COMPANION_GATE/' + m); };\n\nif (!['extract', 'write'].includes(b.stage)) fail('stage');\nif (!UUID.test(b.job_id || '') || !UUID.test(b.case_id || '')) fail('ids');\nif (!Number.isInteger(b.revision) || b.revision < 1) fail('revision');\n\n// n8n's Code sandbox has no global URL, so parse the callback with a strict pattern.\nconst cb = /^https:\\/\\/([a-z0-9](?:[a-z0-9.-]*[a-z0-9])?)(\\/[^?#\\s@]*)$/i.exec(String(b.callback_url || '').trim());\nif (!cb) fail(/^https:\\/\\//i.test(String(b.callback_url || '')) ? 'callback_url' : 'callback_not_https');\nconst host = cb[1].toLowerCase();\nif (cb[2] !== '/api/companion/callback') fail('callback_path');\nconst allowed = String($vars.COMPANION_CALLBACK_HOSTS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);\nif (!allowed.length) fail('COMPANION_CALLBACK_HOSTS_not_set');\nif (!allowed.includes(host)) fail('callback_host_not_allowed:' + host);\n\nconst issued = Date.parse(b.issued_at || '');\nconst age = Date.now() - issued;\nif (!Number.isFinite(issued) || age < -5 * 60 * 1000 || age > 30 * 60 * 1000) fail('stale_request');\n\nif (b.stage === 'extract') {\n  if (typeof b.illustration_text !== 'string' || b.illustration_text.length < 200 || b.illustration_text.length > 900000) fail('illustration_text');\n  if (!/--- PAGE 1 ---/.test(b.illustration_text)) fail('page_markers');\n}\nif (b.stage === 'write') {\n  if (!b.writer_input || b.writer_input.schema !== 'companion_writer_input.v1') fail('writer_input');\n  if (!b.analyst_input || b.analyst_input.schema !== 'companion_analyst_input.v1') fail('analyst_input');\n}\n\nreturn [{\n  json: {\n    stage: b.stage,\n    job_id: b.job_id,\n    case_id: b.case_id,\n    revision: b.revision,\n    callback_url: 'https://' + host + '/api/companion/callback',\n    workflow_version: VERSION,\n    prompt_versions: b.prompt_versions || null,\n    illustration_text: b.stage === 'extract' ? b.illustration_text : null,\n    writer_input: b.stage === 'write' ? b.writer_input : null,\n    analyst_input: b.stage === 'write' ? b.analyst_input : null,\n  },\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "2b19ad3d-b96e-4ad4-acc2-8bb7ba3eaa94",
+      "id": "abfac9e2-9e91-440c-93d8-e4ba664ad4bc",
       "name": "Companion Gate",
       "position": [
         220,
@@ -48,7 +48,7 @@
           },
           "conditions": [
             {
-              "id": "a5de4def-a893-4400-b09a-3b8be47ba682",
+              "id": "29cf0936-15be-4a31-9851-03d643e3917f",
               "leftValue": "={{ $json.stage }}",
               "rightValue": "extract",
               "operator": {
@@ -63,7 +63,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "id": "731845c8-1777-461f-8563-667bdf2ecc61",
+      "id": "68b734ab-4fb5-4829-80ae-3e4c6f1593f5",
       "name": "Stage",
       "position": [
         440,
@@ -75,7 +75,7 @@
         "assignments": {
           "assignments": [
             {
-              "id": "cafb2dcc-74f8-4f28-af4c-2563a45852e5",
+              "id": "54751bcf-19de-489f-ad36-ffedd0e8315c",
               "name": "sanitizedText",
               "value": "={{ $('Companion Gate').first().json.illustration_text }}",
               "type": "string"
@@ -86,7 +86,7 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "id": "4ebee36d-01b8-4be4-aa77-015926f696c9",
+      "id": "f9c903ae-7de4-4b94-9192-f7cfc0fed587",
       "name": "Sanitized Text1",
       "position": [
         680,
@@ -107,7 +107,7 @@
       "maxTries": 5,
       "waitBetweenTries": 5000,
       "onError": "continueErrorOutput",
-      "id": "82e2b0c8-9497-4b33-94f9-5b3a54ae3eff",
+      "id": "5cc057dd-2dee-4210-affd-0aaf7a4eff1f",
       "name": "Technical Extraction1",
       "position": [
         920,
@@ -126,7 +126,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
-      "id": "6da0790f-d6cb-4a13-9db3-5a28464555f4",
+      "id": "dbffa29e-aee7-47c8-91cf-cc5a1b274378",
       "name": "OpenAI Chat Model1",
       "position": [
         860,
@@ -137,7 +137,7 @@
       "parameters": {},
       "type": "@n8n/n8n-nodes-langchain.toolCalculator",
       "typeVersion": 1,
-      "id": "29f6221c-f75a-428b-887c-86681b2a7323",
+      "id": "0d2dc0f7-0260-4aeb-8188-f964aeffe519",
       "name": "Calculator46",
       "position": [
         1020,
@@ -151,7 +151,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "onError": "continueErrorOutput",
-      "id": "73346bca-6b2e-4d0c-a8d1-3a903b0a68ff",
+      "id": "ffeae592-69ff-47a1-81be-9251ecbba404",
       "name": "Atlas Parser1",
       "position": [
         1220,
@@ -165,7 +165,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "onError": "continueErrorOutput",
-      "id": "9bccfd68-a1c5-4ce5-a37b-e5871a0c3519",
+      "id": "b5803080-8c13-4e9a-ae76-291f60907b24",
       "name": "Light Middleware Atlas Parsed",
       "position": [
         1440,
@@ -186,7 +186,7 @@
       "maxTries": 5,
       "waitBetweenTries": 5000,
       "onError": "continueErrorOutput",
-      "id": "3b132590-7674-45d3-933b-be79e8893292",
+      "id": "5c0a4a67-ed40-4617-86cc-0d31caeb8bfd",
       "name": "Contextual Quotes1",
       "position": [
         920,
@@ -205,7 +205,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
-      "id": "0daf292c-3070-4a34-ae7b-bad39d9873e8",
+      "id": "edef602e-34c4-41fb-a21b-f6650321e641",
       "name": "OpenAI 4o5",
       "position": [
         920,
@@ -219,7 +219,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "onError": "continueErrorOutput",
-      "id": "bd9e2fc8-64de-44c7-9242-8ba50dc8de22",
+      "id": "d8dd5149-b12f-48d6-bd6f-be6a8fb9952c",
       "name": "01 ATLAS-2 Parse + Validate",
       "position": [
         1440,
@@ -230,7 +230,7 @@
       "parameters": {},
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "id": "0dad1865-541f-4d6e-ae8e-2b959ec7cda9",
+      "id": "15d90c81-94d7-489d-a31f-c74da6f45f7b",
       "name": "Merge2",
       "position": [
         1660,
@@ -244,7 +244,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "onError": "continueErrorOutput",
-      "id": "4b98b89f-4b1f-430a-9664-619d2bc73865",
+      "id": "cad0d6ca-463b-4fcb-8e98-75f7056dad5a",
       "name": "Atlas Evidence Envelope",
       "position": [
         1880,
@@ -257,7 +257,7 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "8ac11c1b-22ba-464d-9fc9-087d321bda73",
+      "id": "74d63d34-10c1-44b0-93a5-106c3e7ec787",
       "name": "Extract Result",
       "position": [
         2100,
@@ -278,7 +278,7 @@
       "maxTries": 2,
       "waitBetweenTries": 5000,
       "onError": "continueRegularOutput",
-      "id": "e21181ee-29ae-4659-9df1-d8216517260b",
+      "id": "45c17ddc-5588-44b1-aa82-c161295d62bd",
       "name": "Companion Analyst",
       "position": [
         680,
@@ -297,7 +297,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
-      "id": "e02a2be7-9beb-406e-917c-f332bac264b1",
+      "id": "acd95a95-9d04-483c-a723-90cdaed2d05f",
       "name": "OpenAI Analyst",
       "position": [
         680,
@@ -318,7 +318,7 @@
       "maxTries": 2,
       "waitBetweenTries": 5000,
       "onError": "continueErrorOutput",
-      "id": "95651cd4-7290-474e-baeb-efdd9261bf07",
+      "id": "6d24d37a-dd06-42dd-8fef-d938c41ab44c",
       "name": "Companion Writer",
       "position": [
         960,
@@ -337,7 +337,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
-      "id": "6724ccef-76b6-474b-93a0-bfb7acd87bb3",
+      "id": "aff0285b-e7a2-44b9-b025-cc3ba66784eb",
       "name": "OpenAI Writer",
       "position": [
         960,
@@ -350,7 +350,7 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "a21d7c8c-d412-4e38-9af3-03a4441542e0",
+      "id": "1a4076e5-8f59-481a-a857-9d1c5c4e861a",
       "name": "Writer Check",
       "position": [
         1220,
@@ -367,7 +367,7 @@
           },
           "conditions": [
             {
-              "id": "e21aec2e-9341-4d53-85d6-eafb7591e011",
+              "id": "666c4a50-1fc8-4899-8317-ead143d49588",
               "leftValue": "={{ $json.valid }}",
               "rightValue": true,
               "operator": {
@@ -383,7 +383,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "id": "21af063b-a3ed-4303-b770-878c863d5c4b",
+      "id": "660940b2-edf3-4623-bd37-f55ede47a3ae",
       "name": "Writer OK?",
       "position": [
         1440,
@@ -404,7 +404,7 @@
       "maxTries": 2,
       "waitBetweenTries": 5000,
       "onError": "continueErrorOutput",
-      "id": "63412c47-57cd-459f-88b6-000a79cf6e6a",
+      "id": "6e45fe3f-3f4c-4bdc-8b1e-25c3abfc23eb",
       "name": "Companion Writer Retry",
       "position": [
         1660,
@@ -423,7 +423,7 @@
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
-      "id": "5879f6e2-eb29-4ba5-b331-022d46a788c9",
+      "id": "962cec96-98c8-4f21-badb-224c73c95a61",
       "name": "OpenAI Writer Retry",
       "position": [
         1660,
@@ -436,7 +436,7 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "85b70fdf-bcfd-40c2-a311-a664432a0c06",
+      "id": "dff0a733-896d-4902-ad2c-f9b26bd10937",
       "name": "Write Result",
       "position": [
         1900,
@@ -449,7 +449,7 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "a501ebda-6e4c-4efd-be8e-b5e074485d47",
+      "id": "ea72aca4-b550-46ba-8a82-a0c4ae0f05e7",
       "name": "Stage Failed",
       "position": [
         2100,
@@ -462,7 +462,7 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "3e66afda-63a3-4c2a-9e35-4494eaa56402",
+      "id": "5a8a41dd-d7bf-4e2c-ab66-8b7e35a0249c",
       "name": "Prepare Callback",
       "position": [
         2340,
@@ -480,7 +480,7 @@
       },
       "type": "n8n-nodes-base.crypto",
       "typeVersion": 1,
-      "id": "8e46ba01-1538-40ed-a972-ac8b5866e8dd",
+      "id": "8cbce66d-b197-49a1-97f1-7e091f65d81d",
       "name": "Sign Callback",
       "position": [
         2560,
@@ -518,7 +518,7 @@
       "maxTries": 3,
       "waitBetweenTries": 3000,
       "onError": "continueRegularOutput",
-      "id": "d0aad2b4-6322-4ed3-9f31-639ff6f17e6b",
+      "id": "2c782c2b-ad07-4e20-97cc-bf0491f44537",
       "name": "Post to PolicyPlan",
       "position": [
         2780,
