@@ -37,8 +37,8 @@ export function stepOf(phase: CasePhase): 1 | 2 | 3 | 4 {
     case "blocked_privacy":
     case "blocked_unsupported":
     case "blocked_evidence":
+    case "extracted_needs_review": // facts are confirmed on the Illustration step
       return 1;
-    case "extracted_needs_review":
     case "intake_ready":
       return 2;
     case "analysis_pending":

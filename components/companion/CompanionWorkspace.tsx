@@ -14,6 +14,9 @@ import { CompanionStep, ReviewStep } from "./ReviewStep";
 const STEPS = ["Illustration", "Client objective", "Review", "Companion"] as const;
 const POLL = new Set(["extraction_pending", "analysis_pending", "document_received"]);
 
+/** A failed extraction belongs to the Illustration step; a failed draft to Review. */
+const stepFor = (v: CaseView) => (v.phase === "failed_retryable" && !v.evidence ? 1 : stepOf(v.phase));
+
 const BLOCKED: Record<string, string> = {
   blocked_privacy: "Nothing was sent: personal details were still present after redaction. Check the names and upload again.",
   blocked_unsupported: "This document is not supported (in-force, term, scanned or unreadable). Upload the carrier's proposed sales illustration.",
@@ -23,7 +26,7 @@ const BLOCKED: Record<string, string> = {
 export function CompanionWorkspace({ initial }: { initial: CaseView | null }) {
   const [view, setView] = useState<CaseView | null>(initial);
   const [caseId, setCaseId] = useState<string | null>(initial?.id ?? null);
-  const [step, setStep] = useState<number>(initial ? stepOf(initial.phase) : 1);
+  const [step, setStep] = useState<number>(initial ? stepFor(initial) : 1);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [replacing, setReplacing] = useState(false);
 
@@ -33,7 +36,7 @@ export function CompanionWorkspace({ initial }: { initial: CaseView | null }) {
       try {
         const v = await api<CaseView>(`/api/companion/cases/${id}`);
         setView((prev) => {
-          if (follow && (!prev || prev.phase !== v.phase)) setStep(stepOf(v.phase));
+          if (follow && (!prev || prev.phase !== v.phase)) setStep(stepFor(v));
           return v;
         });
         setLoadErr(null);
@@ -53,7 +56,7 @@ export function CompanionWorkspace({ initial }: { initial: CaseView | null }) {
     return () => clearInterval(t);
   }, [pending, refresh]);
 
-  const current = view ? stepOf(view.phase) : 1;
+  const current = view ? stepFor(view) : 1;
   const done = (i: number) => {
     if (!view) return false;
     if (i === 1) return !!view.facts_confirmed;
