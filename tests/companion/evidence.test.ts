@@ -96,6 +96,15 @@ test("in-force illustrations and term products are blocked as unsupported", () =
   inforce.provenance.illustration_type = "In Force";
   inforce.provenance.policy_years_in_force = 6;
   assert.ok(buildEvidencePacket({ atlas1: inforce }, pages, { fingerprint: s.fingerprint, page_count: s.pageCount }).blockers.includes("unsupported_in_force"));
+  // An "In-Force" label alone, on a ledger that starts at year 1 with no years in force, is a new-business illustration.
+  const labelOnly = JSON.parse(JSON.stringify(s.atlas1));
+  labelOnly.provenance.illustration_type = "In-Force";
+  labelOnly.provenance.policy_years_in_force = null;
+  labelOnly.provenance.ledger_start_year = 1;
+  const proposalPages = pages.map((pg, i) => (i === 0 ? { ...pg, text: "Prepared For: Client " + pg.text } : pg));
+  const lp = buildEvidencePacket({ atlas1: labelOnly }, proposalPages, { fingerprint: s.fingerprint, page_count: s.pageCount });
+  assert.ok(!lp.blockers.includes("unsupported_in_force"), JSON.stringify(lp.blockers));
+  assert.equal(lp.document_kind, "proposed_sales");
   const term = JSON.parse(JSON.stringify(s.atlas1));
   term.chassis.type = "Term";
   term.chassis.subtype = "level term";
