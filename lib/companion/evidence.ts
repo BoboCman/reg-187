@@ -300,7 +300,14 @@ export function classifyDocument(atlas1: unknown, pages: SourcePage[]): Document
   const t = (str(g(atlas1, "provenance.illustration_type")) ?? "").toLowerCase();
   const inForceYears = num(g(atlas1, "provenance.policy_years_in_force")) ?? 0;
   const firstPages = pages.slice(0, 6).map((p) => p.text).join(" ").toLowerCase();
-  if (/in[- ]?force/.test(t) || inForceYears > 0 || /\bin[- ]?force (?:ledger|illustration)\b/.test(firstPages)) return "in_force";
+  const completed = num(g(atlas1, "dashboard_facts.policy_position.completed_policy_years_in_force")) ?? 0;
+  const ledgerStart = num(g(atlas1, "provenance.ledger_start_year")) ?? 1;
+  const textSaysInForce = /\bin[- ]?force (?:ledger|illustration|projection)\b|\bpolicy (?:has been )?in force since\b|\bcurrent policy year\b/.test(firstPages);
+  // The extractor sometimes labels a new-business illustration "In-Force" (its prompt was
+  // written for policy reviews). Trust that label only with evidence of an existing policy:
+  // years already in force, a ledger that starts after year 1, or the pages saying so.
+  if (inForceYears > 0 || completed > 0 || ledgerStart > 1 || textSaysInForce) return "in_force";
+  if (/in[- ]?force/.test(t)) return /prepared for|proposal|new business|basic illustration|sales illustration/.test(firstPages) ? "proposed_sales" : "unknown";
   if (/revised/.test(t)) return "revised_sales";
   if (/new|sales|proposal|issue/.test(t)) return "proposed_sales";
   return "unknown";
