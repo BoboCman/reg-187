@@ -32,6 +32,25 @@ import { approvalScope, releaseGate, sha256 } from "./release";
 import { declarationRefs, runRules, verificationItems } from "./rules";
 import { canTransition } from "./state";
 import { buildCompanionHtml, type CompanionBranding } from "./render";
+import { parseModelJson } from "./guard";
+import {
+  STORY_VERSIONS,
+  applyEdits,
+  buildStoryPlayback,
+  finishDraft,
+  isStoryDraft,
+  riderNames,
+  storyBlockers,
+  storyDraftSchema,
+  storyEditsSchema,
+  storyInputsSchema,
+  storyPlaybackSchema,
+  storyWriterInput,
+  storyWriterSchema,
+  writerToText,
+  type StoryDraft,
+} from "./story";
+import { buildStoryHtml } from "./story-render";
 
 /* ── storage contracts ────────────────────────────────────────────────── */
 
@@ -333,7 +352,7 @@ export function verifySignature(secret: string, timestamp: string | null, signat
 
 const callbackSchema = z
   .object({
-    stage: z.enum(["extract", "write"]),
+    stage: z.enum(["extract", "write", "story"]),
     job_id: z.string().uuid(),
     case_id: z.string().uuid(),
     revision: z.number().int().positive(),
@@ -342,6 +361,7 @@ const callbackSchema = z
     error: z.string().max(400).nullable().optional(),
     extraction: z.object({ atlas1: z.unknown(), atlas2: z.unknown().optional(), atlas2_registry: z.unknown().optional() }).optional(),
     writer: z.object({ raw: z.unknown(), analyst_raw: z.unknown().optional(), model: z.string().max(80).nullable().optional(), attempts: z.number().int().optional() }).optional(),
+    story: z.object({ raw: z.unknown(), model: z.string().max(80).nullable().optional(), attempts: z.number().int().optional() }).optional(),
   })
   .strict();
 
@@ -358,6 +378,7 @@ export async function handleCallback(store: CompanionStore, env: Env, raw: strin
   const c = await store.getCase(body.case_id);
   if (!c || c.case_type !== "illustration_companion") throw new ServiceError("not_found", 404);
   if (body.stage === "extract") return onExtraction(store, c, body);
+  if (body.stage === "story") return onStory(store, c, body);
   return onWriter(store, c, body);
 }
 
@@ -559,6 +580,12 @@ const editsSchema = z
   })
   .strict();
 
+/** Edits route entry point: dispatches to the Companion or the Story editor. */
+export async function saveOutputEdits(store: CompanionStore, userId: string, outputId: string, input: unknown) {
+  const { o } = await ownOutput(store, userId, outputId);
+  return isStoryDraft(o.companion) ? saveStoryEdits(store, userId, outputId, input) : saveEdits(store, userId, outputId, input);
+}
+
 export async function saveEdits(store: CompanionStore, userId: string, outputId: string, input: unknown) {
   const { blocks } = editsSchema.parse(input);
   const { o, c } = await ownOutput(store, userId, outputId);
@@ -597,6 +624,10 @@ const approveSchema = z
   .strict();
 
 export async function approveDraft(store: CompanionStore, userId: string, outputId: string, input: unknown) {
+  {
+    const { o } = await ownOutput(store, userId, outputId);
+    if (isStoryDraft(o.companion)) return approveStory(store, userId, outputId, input);
+  }
   const body = approveSchema.parse(input);
   const { o, c } = await ownOutput(store, userId, outputId);
   if (o.status !== "draft") throw new ServiceError("not_draft", 409);
@@ -638,6 +669,7 @@ export async function approveDraft(store: CompanionStore, userId: string, output
 export async function renderOutput(store: CompanionStore, userId: string, outputId: string, kind: "preview" | "client") {
   const { o, c } = await ownOutput(store, userId, outputId);
   if (!["draft", "final", "superseded"].includes(o.status)) throw new ServiceError("not_ready", 409);
+  if (isStoryDraft(o.companion)) return renderStory(store, userId, o, c, kind);
   const draft = companionDraftSchema.parse(o.companion);
   // Approved and superseded snapshots render from their own frozen evidence; the case may have moved on.
   const snap = (o.approval as { snapshot?: { evidence?: unknown; brief?: unknown } } | null)?.snapshot;
@@ -689,9 +721,11 @@ export async function caseView(store: CompanionStore, userId: string, caseId: st
   const brief = readBrief(c);
   const policy = await store.getReleasePolicy(userId);
   const latest = outputs.filter((o) => o.revision === c.companion_revision).sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
-  const draft = latest && (latest.status === "draft" || latest.status === "final") ? companionDraftSchema.safeParse(latest.companion) : null;
+  const storyDraft = latest && (latest.status === "draft" || latest.status === "final") && isStoryDraft(latest.companion) ? storyDraftSchema.safeParse(latest.companion) : null;
+  const draft = latest && (latest.status === "draft" || latest.status === "final") && !isStoryDraft(latest.companion) ? companionDraftSchema.safeParse(latest.companion) : null;
   const meta = (c.case_meta ?? {}) as { sales_jurisdiction?: string };
-  const gate = draft?.success && packet ? releaseGate({ draft: draft.data, policy, jurisdiction: meta.sales_jurisdiction ?? null, productClass: packet.product_class }) : null;
+  const gateDraft = draft?.success ? draft.data : storyDraft?.success ? { mode: "explanatory" as const, validation: storyDraft.data.validation } : null;
+  const gate = gateDraft && packet ? releaseGate({ draft: gateDraft, policy, jurisdiction: meta.sales_jurisdiction ?? null, productClass: packet.product_class }) : null;
   const ex = (c.extraction ?? {}) as Record<string, unknown>;
   const pages = splitPages(c.illustration_text ?? "");
   return {
@@ -728,8 +762,10 @@ export async function caseView(store: CompanionStore, userId: string, caseId: st
           approval: publicApproval(latest.approval),
           error: latest.status === "error" ? ((latest.meta as { reason?: string })?.reason ?? "error") : null,
           draft: draft?.success ? draft.data : null,
+          story: storyDraft?.success ? storyDraft.data : null,
         }
       : null,
+    story: storyFormState(c, packet, outputs, await store.getBranding(userId)),
     history: outputs
       .filter((o) => o.status === "final" || o.status === "superseded")
       .filter((o) => !!o.artifact_id)
@@ -745,4 +781,210 @@ export async function sourcePage(store: CompanionStore, userId: string, caseId: 
   const p = splitPages(c.illustration_text ?? "").find((x) => x.page_number === page);
   if (!p) throw new ServiceError("not_found", 404);
   return p;
+}
+
+/* ── 11 · PolicyPlan Stories (pre-sale) ───────────────────────────────── */
+
+/** What the one-screen form needs: the riders read from the illustration, cover defaults and the last inputs used. */
+function storyFormState(c: CaseRow, packet: EvidencePacket | null, outputs: OutputRow[], branding: CompanionBranding | null) {
+  const meta = (c.case_meta ?? {}) as { story_key?: string };
+  if (!meta.story_key) return null;
+  const last = [...outputs].sort((a, b) => b.created_at.localeCompare(a.created_at)).map((o) => (o.companion as { inputs?: unknown } | null)?.inputs).find(Boolean);
+  const parsed = last ? storyInputsSchema.safeParse(last) : null;
+  return {
+    story_key: meta.story_key,
+    riders: packet ? riderNames(packet) : [],
+    cover_defaults: {
+      title: "Your Policy Story",
+      subtitle: packet?.product_class === "IUL" ? "Indexed Universal Life\nHow your proposed policy is designed to work" : "Life Insurance\nHow your proposed policy is designed to work",
+      advisor_name: branding?.advisor_name ?? "",
+      firm_name: branding?.firm_name ?? "",
+      has_logo: !!branding?.logo_base64,
+    },
+    last_inputs: parsed?.success ? parsed.data : null,
+  };
+}
+
+const storyRequestSchema = z.object({ revision: z.number().int().positive(), inputs: z.unknown() }).strict();
+
+/** Generate: confirms the facts the advisor saw, computes the playback and sends the writer job. */
+export async function requestStory(store: CompanionStore, gw: WorkflowGateway, env: Env, userId: string, caseId: string, input: unknown) {
+  const body = storyRequestSchema.parse(input);
+  const inputs = storyInputsSchema.parse(body.inputs);
+  let c = await ownCase(store, userId, caseId);
+  if (body.revision !== c.companion_revision) throw new ServiceError("stale_revision", 409);
+  const meta = (c.case_meta ?? {}) as { story_key?: string };
+  if (meta.story_key !== inputs.story_key) throw new ServiceError("wrong_story", 409);
+  const packet = readPacket(c);
+  if (!packet) throw new ServiceError("no_evidence", 409);
+  if (!["extracted_needs_review", "intake_ready", "draft_ready", "producer_review", "approved", "exported", "failed_retryable"].includes(phaseOf(c))) throw new ServiceError("not_allowed", 409);
+  const core = packet.facts.filter((f) => ["f.insurer", "f.product_name", "f.initial_death_benefit"].includes(f.fact_id) && (f.status === "not_found" || f.status === "contradictory"));
+  if (core.length) throw new ServiceError("core_facts_unresolved", 409, { facts: core.map((f) => f.fact_id) });
+
+  const pages = splitPages(c.illustration_text ?? "");
+  const playback = buildStoryPlayback(packet, inputs, pages);
+  const blockers = storyBlockers(packet, playback);
+  if (blockers.length) throw new ServiceError("story_blocked", 409, { message: blockers.join(" "), blockers });
+
+  const outputs = await store.listOutputs(c.id);
+  const inflight = outputs.find((o) => o.revision === c.companion_revision && o.status === "pending");
+  if (inflight) return { output_id: inflight.id, status: "pending" as const };
+  // An approved story is never edited in place: new inputs start a new revision.
+  if (outputs.some((o) => o.revision === c.companion_revision && o.status === "final")) {
+    const carried = factsConfirmedFor(c) ? { ...(c.facts_confirmed as object) } : null;
+    c = await bumpRevision(store, c, "story_regenerated", userId);
+    if (carried) c = (await store.updateCase(c.id, { facts_confirmed: { ...carried, revision: c.companion_revision } }))!;
+  }
+  for (const o of outputs) if (o.revision === c.companion_revision && (o.status === "draft" || o.status === "error")) await store.updateOutput(o.id, { status: "superseded", superseded_at: new Date().toISOString() }, o.status);
+  if (!factsConfirmedFor(c)) {
+    const confirmed = await store.updateCase(c.id, { facts_confirmed: { by: userId, at: new Date().toISOString(), revision: c.companion_revision, via: "story_generate" } }, { companion_revision: c.companion_revision });
+    if (!confirmed) throw new ServiceError("conflict", 409);
+    c = confirmed;
+    await store.audit({ case_id: c.id, advisor_id: userId, actor_id: userId, event: "facts_confirmed", detail: { revision: c.companion_revision, via: "story_generate" } });
+  }
+
+  const job_id = randomUUID();
+  const out = await store.insertOutput({
+    intake_id: c.id,
+    advisor_id: userId,
+    case_type: "illustration_companion",
+    status: "pending",
+    revision: c.companion_revision,
+    job_id,
+    companion: { stage: "story_planned", kind: "story_pending", story_key: inputs.story_key, inputs, playback },
+    meta: { requested_at: new Date().toISOString(), story_key: inputs.story_key },
+  });
+  if (phaseOf(c) === "extracted_needs_review" || phaseOf(c) === "approved" || phaseOf(c) === "exported") c = await setPhase(store, c, "intake_ready", {}, userId);
+  c = await setPhase(store, c, "analysis_pending", {}, userId);
+  const r = await gw.send({
+    stage: "story",
+    job_id,
+    case_id: c.id,
+    revision: c.companion_revision,
+    callback_url: env.callbackUrl,
+    issued_at: new Date().toISOString(),
+    prompt_versions: { story: STORY_VERSIONS.prompt },
+    story_input: storyWriterInput(playback),
+  }).catch(() => ({ ok: false, status: 0 }));
+  if (!r.ok) {
+    await store.updateOutput(out.id, { status: "error", meta: { reason: `trigger_failed:${r.status}` } }, "pending");
+    await setPhase(store, c, "failed_retryable", {}, userId);
+    throw new ServiceError("workflow_unavailable", 502);
+  }
+  await store.audit({ case_id: c.id, output_id: out.id, advisor_id: userId, actor_id: userId, event: "story_requested", detail: { job_id, revision: c.companion_revision, story_key: inputs.story_key, goals: inputs.goals, notes: playback.notes } });
+  return { output_id: out.id, status: "pending" as const };
+}
+
+async function onStory(store: CompanionStore, c: CaseRow, body: z.infer<typeof callbackSchema>) {
+  const o = await store.getOutputByJob(body.job_id);
+  if (!o || o.intake_id !== c.id || o.status !== "pending" || o.revision !== body.revision || body.revision !== c.companion_revision) throw new ServiceError("stale_or_duplicate", 409);
+  const fail = async (reason: string) => {
+    await store.updateOutput(o.id, { status: "error", completed_at: new Date().toISOString(), meta: { ...(o.meta as object), reason } }, "pending");
+    await setPhase(store, c, "failed_retryable");
+    await store.audit({ case_id: c.id, output_id: o.id, advisor_id: c.advisor_id, actor_id: null, event: "story_failed", detail: { reason } });
+    return { ok: true, phase: "failed_retryable" as const, reason };
+  };
+  const stored = o.companion as { inputs?: unknown; playback?: unknown } | null;
+  const inputs = storyInputsSchema.safeParse(stored?.inputs);
+  const playback = storyPlaybackSchema.safeParse(stored?.playback);
+  if (!inputs.success || !playback.success) return fail("missing_playback");
+  if (body.status === "error" || !body.story) return fail((body.error ?? "workflow_error").slice(0, 200));
+  const json = parseModelJson(body.story.raw);
+  if (!json.ok) return fail(`writer_${json.error}`);
+  const w = storyWriterSchema.safeParse(json.value);
+  if (!w.success) return fail("writer_schema");
+  const packet = readPacket(c);
+  const draft = storyDraftSchema.parse(
+    finishDraft({
+      schema_version: STORY_VERSIONS.draft,
+      kind: "story",
+      story_key: inputs.data.story_key,
+      case_id: c.id,
+      revision: c.companion_revision,
+      document_fingerprint: packet?.document_fingerprint ?? "unknown",
+      inputs: inputs.data,
+      playback: playback.data,
+      text: writerToText(w.data, playback.data),
+      authors: {},
+      versions: { prompt: STORY_VERSIONS.prompt, template: STORY_VERSIONS.template, playback: STORY_VERSIONS.playback },
+      writer: { model: body.story.model ?? null, workflow_version: body.workflow_version ?? null },
+    }),
+  );
+  await store.updateOutput(o.id, { status: "draft", companion: draft, completed_at: new Date().toISOString() }, "pending");
+  await setPhase(store, c, "draft_ready");
+  await store.audit({ case_id: c.id, output_id: o.id, advisor_id: c.advisor_id, actor_id: null, event: "story_draft_created", detail: { validation: draft.validation, issues: Object.keys(draft.issues), model: body.story.model ?? null } });
+  return { ok: true, phase: "draft_ready" as const };
+}
+
+export async function saveStoryEdits(store: CompanionStore, userId: string, outputId: string, input: unknown) {
+  const edits = storyEditsSchema.parse(input);
+  const { o, c } = await ownOutput(store, userId, outputId);
+  if (o.status !== "draft" || o.revision !== c.companion_revision) throw new ServiceError("not_editable", 409);
+  const draft = storyDraftSchema.parse(o.companion);
+  const { text, authors, changed } = applyEdits(draft, edits);
+  if (!changed.length) return draft;
+  const next = storyDraftSchema.parse(finishDraft({ ...draft, text, authors }));
+  await store.updateOutput(o.id, { companion: next }, "draft");
+  if (phaseOf(c) === "draft_ready") await setPhase(store, c, "producer_review", {}, userId);
+  await store.audit({ case_id: c.id, output_id: o.id, advisor_id: userId, actor_id: userId, event: "producer_edited", detail: { changed, issues: Object.keys(next.issues) } });
+  return next;
+}
+
+export const STORY_ACKNOWLEDGEMENT =
+  "I reviewed this story against the carrier illustration. It correctly reflects the illustrated design and the client's goals as I understand them, it is not a recommendation on its own, and sharing it is permitted by my firm's and the carrier's procedures.";
+
+const approveStorySchema = z.object({ acknowledged: z.literal(true), name: z.string().trim().min(2).max(120), revision: z.number().int().positive() }).strict();
+
+async function approveStory(store: CompanionStore, userId: string, outputId: string, input: unknown) {
+  const body = approveStorySchema.parse(input);
+  const { o, c } = await ownOutput(store, userId, outputId);
+  if (o.status !== "draft") throw new ServiceError("not_draft", 409);
+  if (o.revision !== c.companion_revision || body.revision !== c.companion_revision) throw new ServiceError("stale_revision", 409);
+  if (!["draft_ready", "producer_review"].includes(phaseOf(c))) throw new ServiceError("not_reviewable", 409);
+  const stored = storyDraftSchema.parse(o.companion);
+  const draft = finishDraft(stored); // server re-runs every check on the exact stored copy
+  if (!draft.validation.client_release_eligible) throw new ServiceError("validation_failed", 409, { issues: draft.issues, validation: draft.validation });
+  const packet = readPacket(c);
+  if (packet && draft.document_fingerprint !== packet.document_fingerprint) throw new ServiceError("fingerprint_mismatch", 409);
+  const hash = sha256(JSON.stringify({ case_id: c.id, revision: c.companion_revision, tenant: userId, text: draft.text, playback: draft.playback, inputs: draft.inputs, versions: draft.versions }));
+  const now = new Date().toISOString();
+  const artifact_id = `PPS-${now.slice(0, 10).replace(/-/g, "")}-${randomUUID().slice(0, 8)}`;
+  const updated = await store.updateOutput(
+    o.id,
+    { status: "final", adopted_by: userId, adopted_at: now, content_hash: hash, artifact_id, approval: { scope_hash: hash, verified_items: [], by: userId, by_name: body.name, at: now, acknowledgement: STORY_ACKNOWLEDGEMENT, revision: c.companion_revision } },
+    "draft",
+  );
+  if (!updated) throw new ServiceError("conflict", 409);
+  await setPhase(store, c, "approved", {}, userId);
+  await store.audit({ case_id: c.id, output_id: o.id, advisor_id: userId, actor_id: userId, event: "approved", detail: { artifact_id, scope_hash: hash, kind: "story" } });
+  return { artifact_id, content_hash: hash };
+}
+
+async function renderStory(store: CompanionStore, userId: string, o: OutputRow, c: CaseRow, kind: "preview" | "client") {
+  const draft: StoryDraft = storyDraftSchema.parse(o.companion);
+  const branding = await store.getBranding(userId);
+  const policy = await store.getReleasePolicy(userId);
+  const meta = (c.case_meta ?? {}) as { sales_jurisdiction?: string };
+  const gate = releaseGate({ draft: { mode: "explanatory", validation: draft.validation }, policy, jurisdiction: meta.sales_jurisdiction ?? null, productClass: draft.playback.product.product_class });
+  const current = o.status === "final" && o.revision === c.companion_revision;
+  if (kind === "client") {
+    if (!current) throw new ServiceError("not_approved", 409, { message: o.status === "superseded" ? "This story was superseded by a newer revision." : "Approve the story first." });
+    if (!gate.client_export_allowed) throw new ServiceError("release_gate_closed", 403, { reasons: gate.reasons });
+  }
+  const approval = o.approval as { by_name?: string; at?: string } | null;
+  const html = buildStoryHtml(draft, branding, {
+    state: kind === "client" ? "approved" : "internal_draft",
+    preparedAt: o.adopted_at ?? o.completed_at ?? new Date().toISOString(),
+    approvedBy: approval?.by_name ?? null,
+    approvedAt: approval?.at ?? null,
+    artifactId: o.artifact_id,
+    showFirmDisclosures: kind === "client",
+  });
+  if (kind === "client") {
+    await store.audit({ case_id: c.id, output_id: o.id, advisor_id: userId, actor_id: userId, event: "client_export", detail: { artifact_id: o.artifact_id, html_sha256: sha256(html), kind: "story" } });
+    if (phaseOf(c) === "approved") await setPhase(store, c, "exported", {}, userId);
+  } else {
+    await store.audit({ case_id: c.id, output_id: o.id, advisor_id: userId, actor_id: userId, event: "preview_rendered", detail: { kind: "story" } });
+  }
+  return { html, gate, artifact_id: o.artifact_id, status: o.status, current };
 }

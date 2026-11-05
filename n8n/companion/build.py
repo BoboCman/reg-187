@@ -66,6 +66,14 @@ POSITIONS = {
     "OpenAI Writer Retry": [1660, 1100],
     "Write Result": [1900, 760],
     "Stage Failed": [2100, 520],
+    "Story?": [560, 1300],
+    "Story Writer": [800, 1300],
+    "OpenAI Story": [800, 1500],
+    "Story Check": [1040, 1300],
+    "Story OK?": [1260, 1300],
+    "Story Writer Retry": [1480, 1440],
+    "OpenAI Story Retry": [1480, 1640],
+    "Story Result": [1720, 1300],
     "Prepare Callback": [2340, 400],
     "Sign Callback": [2560, 400],
     "Post to PolicyPlan": [2780, 400],
@@ -206,6 +214,40 @@ def build(atlas_from):
     ))
     add("OpenAI Writer Retry", model(cred))
     add("Write Result", code("write-result.js"))
+    add("Story?", {
+        "parameters": {
+            "conditions": {
+                "options": {"caseSensitive": True, "leftValue": "", "typeValidation": "strict"},
+                "conditions": [{"id": nid(), "leftValue": "={{ $json.stage }}", "rightValue": "story", "operator": {"type": "string", "operation": "equals"}}],
+                "combinator": "and",
+            },
+            "options": {},
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+    })
+    add("Story Writer", agent("={{ JSON.stringify($('Companion Gate').first().json.story_input) }}", "policyplan_story_apartment.v1.md", "continueErrorOutput"))
+    add("OpenAI Story", model(cred))
+    add("Story Check", code("story-check.js"))
+    add("Story OK?", {
+        "parameters": {
+            "conditions": {
+                "options": {"caseSensitive": True, "leftValue": "", "typeValidation": "strict"},
+                "conditions": [{"id": nid(), "leftValue": "={{ $json.valid }}", "rightValue": True, "operator": {"type": "boolean", "operation": "true", "singleValue": True}}],
+                "combinator": "and",
+            },
+            "options": {},
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+    })
+    add("Story Writer Retry", agent(
+        "={{ 'Your previous answer was rejected (' + $json.reason + '). Follow the output rules exactly and return only the JSON object for this input:\\n' + JSON.stringify($('Companion Gate').first().json.story_input) }}",
+        "policyplan_story_apartment.v1.md",
+        "continueErrorOutput",
+    ))
+    add("OpenAI Story Retry", model(cred))
+    add("Story Result", code("story-result.js"))
     add("Stage Failed", code("stage-failed.js"))
     add("Prepare Callback", code("prepare-callback.js"))
     add("Sign Callback", {
@@ -253,7 +295,16 @@ def build(atlas_from):
     c = {
         "Companion Intake": {"main": [to(("Companion Gate", 0))]},
         "Companion Gate": {"main": [to(("Stage", 0))]},
-        "Stage": {"main": [to(("Sanitized Text1", 0)), to(("Companion Analyst", 0))]},
+        "Stage": {"main": [to(("Sanitized Text1", 0)), to(("Story?", 0))]},
+        "Story?": {"main": [to(("Story Writer", 0)), to(("Companion Analyst", 0))]},
+        # story
+        "OpenAI Story": ai("ai_languageModel", "Story Writer"),
+        "Story Writer": {"main": [to(("Story Check", 0)), to(FAILED)]},
+        "Story Check": {"main": [to(("Story OK?", 0))]},
+        "Story OK?": {"main": [to(("Story Result", 0)), to(("Story Writer Retry", 0))]},
+        "OpenAI Story Retry": ai("ai_languageModel", "Story Writer Retry"),
+        "Story Writer Retry": {"main": [to(("Story Result", 0)), to(FAILED)]},
+        "Story Result": {"main": [to(("Prepare Callback", 0))]},
         # extract
         "Sanitized Text1": {"main": [to(("Technical Extraction1", 0), ("Contextual Quotes1", 0))]},
         "OpenAI Chat Model1": ai("ai_languageModel", "Technical Extraction1"),

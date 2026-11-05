@@ -10,7 +10,7 @@ import { createHmac, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as svc from "../../lib/companion/service";
-import { sampleByKey } from "../../lib/companion/samples";
+import { apartmentSample, sampleByKey } from "../../lib/companion/samples";
 import { MemoryStore, FakeGateway } from "./memory-store";
 
 const ROOT = join(__dirname, "..", "..", "..");
@@ -118,4 +118,39 @@ test("write stage: writer check, retry routing, error path and signed delivery",
   const d3 = deliver(runNode("prepare-callback.js", failed, {})[0].json);
   assert.equal((await svc.handleCallback(store, env, d3.raw, d3.headers)).phase, "failed_retryable");
   assert.ok(randomUUID());
+});
+
+test("story stage: gate, story check, retry routing and signed delivery", async () => {
+  const s = apartmentSample();
+  const store = new MemoryStore();
+  const gw = new FakeGateway();
+  const user = "22222222-2222-4222-8222-222222222222";
+  const c = await svc.createCase(store, user, { sales_jurisdiction: "OH", story_key: "apartment" });
+  await svc.submitIllustration(store, gw, env, user, c.id, { text: s.pagesText, page_count: s.pageCount, document_fingerprint: s.fingerprint, file_size: 1000, kind_confirmed: "proposed_sales", privacy: { removed: {}, worker_warnings: [], names_screened: 1 } });
+  const g1 = runNode("companion-gate.js", { body: gw.last() }, {}, VARS)[0].json;
+  const ex = runNode("extract-result.js", { factSpine: s.atlas1, atlas2EvidenceRegistry: s.atlas2Registry }, { "Companion Gate": g1 })[0].json;
+  const d1 = deliver(runNode("prepare-callback.js", ex, {})[0].json);
+  await svc.handleCallback(store, env, d1.raw, d1.headers);
+  const inputs = { story_key: "apartment", goals: s.goals, riders: [], cover: {} };
+  await svc.requestStory(store, gw, env, user, c.id, { revision: 1, inputs });
+  const body = gw.last();
+  assert.throws(() => runNode("companion-gate.js", { body: { ...body, story_input: { ...body.story_input as object, schema: "x" } } }, {}, VARS), /story_input/);
+  const gate = runNode("companion-gate.js", { body }, {}, VARS)[0].json;
+  assert.equal(gate.stage, "story");
+  assert.ok(gate.story_input);
+
+  const fenced = runNode("story-check.js", { output: "```json\n{}\n```" }, { "Companion Gate": gate })[0].json;
+  assert.equal(fenced.valid, false);
+  const noLegacy = JSON.parse(JSON.stringify(s.story));
+  noLegacy.story.benefits = noLegacy.story.benefits.filter((b: { key: string }) => b.key !== "legacy");
+  assert.match(String(runNode("story-check.js", { output: JSON.stringify(noLegacy) }, { "Companion Gate": gate })[0].json.reason), /missing_benefits:legacy/);
+
+  const good = runNode("story-check.js", { output: JSON.stringify(s.story) }, { "Companion Gate": gate })[0].json;
+  assert.equal(good.valid, true, String(good.reason));
+  const result = runNode("story-result.js", good, { "Companion Gate": gate })[0].json;
+  const d2 = deliver(runNode("prepare-callback.js", result, {})[0].json);
+  const r = await svc.handleCallback(store, env, d2.raw, d2.headers);
+  assert.equal(r.phase, "draft_ready", JSON.stringify(r));
+  const v = await svc.caseView(store, user, c.id);
+  assert.equal(v.output?.story?.validation.client_release_eligible, true, JSON.stringify(v.output?.story?.issues));
 });

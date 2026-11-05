@@ -54,7 +54,7 @@ const SECOND_DEATH = /\bsecond (?:death|of (?:you|the two|the insureds|both))\b|
 /** "not a guaranteed premium" is a correct negation, not a claim. */
 const NEGATION = /\b(?:not|never|no|nothing|isn't|aren't|non|nor|without)\b[^.;:]{0,40}$/i;
 const NEGATABLE = new Set(["guaranteed income/return/premium", "paid-up claim", "lifetime coverage claim", "tax claim", "unconditional claim", "safety claim", "first-death"]);
-function hitNotNegated(prose: string, re: RegExp, why: string): boolean {
+export function hitNotNegated(prose: string, re: RegExp, why: string): boolean {
   const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
   for (const m of prose.matchAll(g)) {
     const before = prose.slice(Math.max(0, (m.index ?? 0) - 60), m.index);

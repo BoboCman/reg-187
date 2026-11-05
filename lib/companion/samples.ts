@@ -9,10 +9,11 @@
  * sample data must not reach a model or a real case.
  */
 import type { ClientBrief, WriterOutput } from "./contracts";
+import type { StoryWriterOutput } from "./story";
 
 export const SAMPLE_CARRIER = "Example Mutual Life Insurance Company";
 
-type Row = { year: number; age: number; premium: number; cvG: number | null; svG: number | null; dbG: number | null; cvC: number; svC: number; dbC: number };
+type Row = { year: number; age: number; premium: number; cvG: number | null; svG: number | null; dbG: number | null; cvC: number; svC: number; dbC: number; dist?: number };
 
 const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
 
@@ -28,6 +29,7 @@ function ledger(spec: {
   surrender: (y: number) => number;
   guaranteeEndYear: number | null; // no-lapse guarantee keeps the guaranteed DB through this year
   dividends?: boolean;
+  distribution?: (y: number) => number; // illustrated policy loans taken from the current-basis values
 }): Row[] {
   const rows: Row[] = [];
   let cvC = 0;
@@ -37,7 +39,8 @@ function ledger(spec: {
     const age = spec.issueAge + y - 1;
     const prem = spec.premium(y);
     const charge = spec.face * spec.coi * (spec.coiGrowth ? Math.pow(1 + spec.coiGrowth, y - 1) : 1 + 0.075 * (y - 1)) + 120;
-    cvC = Math.max(0, (cvC + prem * 0.9 - charge * 0.8) * (1 + spec.rateC));
+    const dist = spec.distribution ? spec.distribution(y) : 0;
+    cvC = Math.max(0, (cvC + prem * 0.9 - charge * 0.8 - dist) * (1 + spec.rateC));
     cvG = Math.max(0, (cvG + prem * 0.86 - charge * 1.25) * (1 + spec.rateG));
     const sc = spec.surrender(y);
     const inGuarantee = spec.guaranteeEndYear != null && y <= spec.guaranteeEndYear;
@@ -52,6 +55,7 @@ function ledger(spec: {
       cvC: Math.round(cvC),
       svC: Math.max(0, Math.round(cvC - sc)),
       dbC: spec.dividends ? Math.round(spec.face + cvC * 0.35) : spec.face,
+      ...(spec.distribution ? { dist } : {}),
     });
   }
   return rows;
@@ -63,10 +67,10 @@ function ledgerPages(rows: Row[], header: string, footer: string, startPage: num
     const chunk = rows.slice(i, i + perPage);
     const body = chunk
       .map((r) =>
-        [r.year, r.age, fmt(r.premium), r.cvG == null ? "Lapse" : fmt(r.cvG), r.svG == null ? "Lapse" : fmt(r.svG), r.dbG == null ? "Lapse" : fmt(r.dbG), fmt(r.cvC), fmt(r.svC), fmt(r.dbC)].join(" "),
+        [r.year, r.age, fmt(r.premium), ...(r.dist != null ? [fmt(r.dist)] : []), r.cvG == null ? "Lapse" : fmt(r.cvG), r.svG == null ? "Lapse" : fmt(r.svG), r.dbG == null ? "Lapse" : fmt(r.dbG), fmt(r.cvC), fmt(r.svC), fmt(r.dbC)].join(" "),
       )
       .join(" ");
-    pages.push(`${header} Tabular Detail GUARANTEED NON-GUARANTEED Annual Premium Outlay Policy Value Net Surrender Value Net Death Benefit Yr Age ${body} ${footer} Page ${startPage + pages.length}`);
+    pages.push(`${header} Tabular Detail GUARANTEED NON-GUARANTEED Annual Premium Outlay${chunk.some((r) => r.dist != null) ? " Policy Loan" : ""} Policy Value Net Surrender Value Net Death Benefit Yr Age ${body} ${footer} Page ${startPage + pages.length}`);
   }
   return pages;
 }
@@ -76,6 +80,7 @@ function atlasRows(rows: Row[]) {
     year: r.year,
     age: r.age,
     premium: r.premium,
+    ...(r.dist != null ? { loan: r.dist } : {}),
     cv_guaranteed: r.cvG,
     sv_guaranteed: r.svG,
     db_guaranteed: r.dbG,
@@ -383,7 +388,7 @@ function atlasCommon(a: {
     premiums: { scheduled: a.premium, annualized: a.premium, mode: "Annual", stop_year: positive[positive.length - 1]?.year ?? null },
     ledger: { context: { age_basis: a.survivorship ? a.survivorship.basis : "Single Insured" } },
     ledger_table: {
-      columns: ["year", "age", "premium", "cv_guaranteed", "sv_guaranteed", "db_guaranteed", "cv_current", "sv_current", "db_current"],
+      columns: ["year", "age", "premium", ...(a.rows.some((r) => r.dist != null) ? ["loan"] : []), "cv_guaranteed", "sv_guaranteed", "db_guaranteed", "cv_current", "sv_current", "db_current"],
       rows: atlasRows(a.rows),
       complete: "Yes",
       truncated: false,
@@ -393,12 +398,92 @@ function atlasCommon(a: {
     scenarios: { primary_rate: a.rateC, guaranteed_rate: a.rateG, alternate_rate: null },
     surrender: { charge_end_year: a.scEnd, schedule: `Charges by year: 1 ${a.sc1}` },
     riders: { included_array: a.riders },
-    distributions: { illustrated: "No", notes: "No loans or withdrawals illustrated." },
+    distributions: a.rows.some((r) => (r.dist ?? 0) > 0) ? { illustrated: "Yes", notes: "Policy loans are illustrated as planned income." } : { illustrated: "No", notes: "No loans or withdrawals illustrated." },
     compliance: { MEC_status: "Not a MEC" },
   };
 }
 
 export const SAMPLE_CASES: SampleCase[] = [gul(), iul(), sgul()];
+
+/* ── 4 · Story sample: IUL funded to 64, planned income from 66 ───────── */
+
+export type StorySample = Omit<SampleCase, "brief" | "writer"> & { story: StoryWriterOutput; goals: ("retirement_income" | "legacy" | "accumulation")[] };
+
+export function apartmentSample(): StorySample {
+  const face = 750_000;
+  const premium = 24_000;
+  const rows = ledger({
+    issueAge: 45,
+    lastAge: 120,
+    face,
+    premium: (y) => (y <= 20 ? premium : 0),
+    rateC: 0.062,
+    rateG: 0.0,
+    coi: 0.0016,
+    coiGrowth: 0.085,
+    surrender: (y) => (y <= 10 ? Math.round(42_000 * (1 - (y - 1) / 10)) : 0),
+    guaranteeEndYear: 10,
+    distribution: (y) => (y >= 22 && y <= 41 ? 38_000 : 0),
+  });
+  const hdr = "Example Indexed UL Insured: [REDACTED NAME] Male, Age 45, Preferred Non-Tobacco Initial Annual Premium: $24,000 Initial Death Benefit: $750,000";
+  const ftr = "Basic Illustration Prepared 10/8/2026 Form EX-IUL-26 FICTIONAL SAMPLE";
+  const pages = [
+    `${hdr} Policy Summary Example Mutual Life Insurance Company Example Indexed UL is a flexible premium adjustable life insurance policy with index-linked interest options. Specified Amount $750,000.00 Death Benefit Option Level Planned Premium $24,000.00 Annual Frequency for 20 years Riders: Accelerated Death Benefit Rider for Chronic Illness, Overloan Protection Rider ${ftr} Page 1`,
+    `${hdr} No-Lapse Guarantee The No-Lapse Guarantee keeps the policy in force through the insured's age 54 if the cumulative premiums paid, less any loans and withdrawals, are at least the cumulative no-lapse premium. Planned income is illustrated as policy loans of $38,000 a year from age 66 through age 85. ${ftr} Page 2`,
+    `${hdr} Index Crediting The illustrated rate of 6.20% (6.20%) is not guaranteed. The guaranteed columns assume a 0.00% (0.00%) index credit and maximum charges. Surrender charges apply in policy years 1 through 10; the year 1 surrender charge is $42,000. ${ftr} Page 3`,
+    ...ledgerPages(rows, hdr, ftr, 4),
+  ];
+  const atlas1 = atlasCommon({
+    carrier: SAMPLE_CARRIER,
+    product: "Example Indexed UL",
+    type: "IUL",
+    subtype: "flexible premium adjustable life insurance policy with index-linked interest options",
+    issueAge: 45,
+    issueClass: "Preferred Non-Tobacco",
+    date: "2026-10-08",
+    face,
+    premium,
+    rows,
+    ledgerPages: "4-5",
+    guarantee: { label: "No-Lapse Guarantee", end_age: 54, end_year: 10, pages: "2", conditions: ["Cumulative premiums paid, less loans and withdrawals, must be at least the cumulative no-lapse premium.", "After the guarantee period the policy stays in force only while net surrender value covers monthly deductions."] },
+    rateC: 6.2,
+    rateG: 0,
+    scEnd: 10,
+    sc1: 42_000,
+    riders: ["Accelerated Death Benefit Rider for Chronic Illness", "Overloan Protection Rider"],
+  });
+  return {
+    key: "apartment-iul",
+    title: "Apartment story: IUL with planned income",
+    summary: "Single life, premiums for 20 years, planned income from 66.",
+    pagesText: assemble(pages),
+    pageCount: pages.length,
+    fingerprint: "d4".repeat(32),
+    atlas1,
+    atlas2Registry: [{ id: "E1", kind: "quote", family: "guaranteeMechanics", sourcePageLabel: "2", text: "The No-Lapse Guarantee keeps the policy in force through the insured's age 54 if the cumulative premiums paid, less any loans and withdrawals, are at least the cumulative no-lapse premium." }],
+    goals: ["retirement_income", "legacy"],
+    story: {
+      schema: "policyplan_story.v1",
+      story: {
+        where_you_start: "Construction starts in year 1. The first ten years carry the surrender charge and the highest costs, while premiums build the foundation for income from age 66.",
+        benefits: [
+          { key: "growth", note: "Interest linked to an index, with a 0% floor" },
+          { key: "access", note: "Planned income from age 66, through policy loans" },
+          { key: "legacy", note: "A $750K death benefit for your beneficiaries" },
+          { key: "living_benefits", note: "Access part of the death benefit if chronically ill" },
+        ],
+      },
+      design: {
+        headline: "Premiums for 20 years build the policy, then planned income from age 66 is illustrated.",
+        takeaway: "The illustrated values depend on the illustrated rate and current charges continuing. On the guaranteed basis the values are much lower, so review funding and the income plan together each year.",
+      },
+      riders: [
+        { name: "Accelerated Death Benefit Rider for Chronic Illness", note: "Lets you access part of the death benefit if chronically ill." },
+        { name: "Overloan Protection Rider", note: "Can help keep coverage in force when loans are large, if its conditions are met." },
+      ],
+    },
+  };
+}
 
 export function sampleByKey(key: string | null | undefined): SampleCase {
   return SAMPLE_CASES.find((s) => s.key === key) ?? SAMPLE_CASES[0];

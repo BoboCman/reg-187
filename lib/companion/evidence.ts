@@ -191,6 +191,14 @@ type LedgerRow = EvidencePacket["ledger"][number];
 
 type Ledger = { rows: LedgerRow[]; pages: number[]; complete: boolean; columns: string[] };
 
+function firstNum(r: Record<string, unknown>, keys: string[]): number | null {
+  for (const k of keys) {
+    const v = num(r[k]);
+    if (v != null) return v;
+  }
+  return null;
+}
+
 function readLedger(atlas1: unknown, ctx: Ctx): Ledger {
   const lt = g(atlas1, "ledger_table");
   const pages = parsePageList(g(lt, "pages"));
@@ -211,6 +219,8 @@ function readLedger(atlas1: unknown, ctx: Ctx): Ledger {
       sv_current: num(r.sv_current),
       db_current: num(r.db_current),
       lapsed_guaranteed: lapsedCells.includes("db_guaranteed") || dbG == null || dbG <= 0,
+      cv_current: num(r.cv_current),
+      distribution: firstNum(r, ["net_distribution", "distribution", "income", "annual_income", "withdrawal", "loan", "policy_loan"]),
     });
   }
   rows.sort((a, b) => a.policy_year - b.policy_year);

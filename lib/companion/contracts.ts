@@ -121,6 +121,9 @@ export const evidencePacketSchema = z
           sv_current: z.number().nullable(),
           db_current: z.number().nullable(),
           lapsed_guaranteed: z.boolean(),
+          // Optional columns used by the story playback (older packets do not carry them).
+          cv_current: z.number().nullable().optional(),
+          distribution: z.number().nullable().optional(),
         }),
       )
       .max(130),
@@ -152,6 +155,7 @@ export const caseMetaSchema = z
     other_jurisdictions_involved: z.enum(["no", "yes", "unsure"]).default("no"),
     producer_display_name: shortText(120).optional(),
     case_label: shortText(60).optional(), // advisor's own non-identifying label, e.g. "Case 14"
+    story_key: z.enum(["apartment"]).optional(), // a PolicyPlan Story case; absent for the original Companion flow
   })
   .strict();
 export type CaseMeta = z.infer<typeof caseMetaSchema>;
