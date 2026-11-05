@@ -253,31 +253,62 @@ function StoryIntake({
     advisor_name: initial?.cover.advisor_name ?? branding?.advisor_name ?? "",
     firm_name: initial?.cover.firm_name ?? branding?.firm_name ?? "",
   });
-  const [stage, setStage] = useState<null | "redacting" | "sending">(null);
+  const [stage, setStage] = useState<null | "sending">(null);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
   const cleanNames = names.map((n) => n.trim()).filter(Boolean);
+  const nameKey = cleanNames.join("|").toLowerCase();
+
+  // Step 1 happens on this device only: as soon as the PDF and the name are in,
+  // read and redact it. Nothing is sent until Create report.
+  type Prepared = { key: string; text: string; pageCount: number; fingerprint: string; size: number; removed: Record<string, number>; warnings: string[]; leaks: number; pagesRemoved: number };
+  const [prepared, setPrepared] = useState<Prepared | null>(null);
+  const [prepError, setPrepError] = useState<string | null>(null);
+  const prepKey = file ? `${file.name}:${file.size}:${file.lastModified}#${nameKey}` : "";
+  const redacting = !!prepKey && cleanNames.length > 0 && prepared?.key !== prepKey && !prepError;
+
+  async function prepare(f: File, namesNow: string[], key: string): Promise<Prepared> {
+    if (f.type && f.type !== "application/pdf") throw new Error("Attach the carrier illustration as a PDF.");
+    if (f.size > 10 * 1024 * 1024) throw new Error("The PDF is larger than 10 MB.");
+    const fingerprint = await sha256Hex(await f.arrayBuffer());
+    const result = await processFile(f, { enableRedaction: true, namesToRedact: namesNow });
+    const screened = screenText(result.cleanText, namesNow);
+    const leaks = leakedNames(screened.text, namesNow);
+    const warnings = result.warnings.map((w) => String(w.type ?? "warning")).filter((t) => t !== "name_leak_detected");
+    if (leaks.length) warnings.push(`name_leak:${leaks.length}`);
+    const removed: Record<string, number> = { ...getRedactionCounts(result.redactionLog) };
+    for (const r of screened.removed) removed[r.kind] = (removed[r.kind] ?? 0) + r.count;
+    return { key, text: screened.text, pageCount: Number(result.metadata?.pageCount ?? 0), fingerprint, size: f.size, removed, warnings, leaks: leaks.length, pagesRemoved: Object.values(removed).reduce((a, b) => a + b, 0) };
+  }
+
+  useEffect(() => {
+    setPrepError(null);
+    if (!file || !cleanNames.length) return;
+    let live = true;
+    const key = prepKey;
+    const t = setTimeout(() => {
+      prepare(file, cleanNames, key)
+        .then((p) => live && setPrepared(p))
+        .catch((e) => live && setPrepError(errorMessage(e)));
+    }, 700);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prepKey]);
+
+  const ready_prepared = prepared?.key === prepKey ? prepared : null;
   const missing = [!file && "attach the illustration", !cleanNames.length && "enter the name on the illustration", !caseId && !jurisdiction && "choose the state of sale"].filter(Boolean) as string[];
-  const ready = !missing.length && subtitleOk(cover.subtitle) && !stage;
+  const ready = !missing.length && subtitleOk(cover.subtitle) && !stage && !!ready_prepared && !ready_prepared.leaks;
 
   async function submit() {
-    if (!file) return;
+    if (!file || !ready_prepared) return;
     setError(null);
-    setStage("redacting");
     let id = caseId;
+    const pre = ready_prepared;
     try {
-      if (file.type && file.type !== "application/pdf") throw new Error("Attach the carrier illustration as a PDF.");
-      if (file.size > 10 * 1024 * 1024) throw new Error("The PDF is larger than 10 MB.");
-      const fingerprint = await sha256Hex(await file.arrayBuffer());
-      const result = await processFile(file, { enableRedaction: true, namesToRedact: cleanNames });
-      const screened = screenText(result.cleanText, cleanNames);
-      const leaks = leakedNames(screened.text, cleanNames);
-      const warnings = result.warnings.map((w) => String(w.type ?? "warning")).filter((t) => t !== "name_leak_detected");
-      if (leaks.length) warnings.push(`name_leak:${leaks.length}`);
-      const removed: Record<string, number> = { ...getRedactionCounts(result.redactionLog) };
-      for (const r of screened.removed) removed[r.kind] = (removed[r.kind] ?? 0) + r.count;
-
       setStage("sending");
       if (!id) {
         const c = await api<{ id: string }>("/api/companion/cases", "POST", {
@@ -289,12 +320,12 @@ function StoryIntake({
         onCreated(id);
       }
       await api(`/api/companion/cases/${id}/illustration`, "POST", {
-        text: screened.text,
-        page_count: Number(result.metadata?.pageCount ?? 0),
-        document_fingerprint: fingerprint,
-        file_size: file.size,
+        text: pre.text,
+        page_count: pre.pageCount,
+        document_fingerprint: pre.fingerprint,
+        file_size: pre.size,
         kind_confirmed: "proposed_sales",
-        privacy: { removed, worker_warnings: warnings.slice(0, 20), names_screened: Math.min(cleanNames.length, 10) },
+        privacy: { removed: pre.removed, worker_warnings: pre.warnings.slice(0, 20), names_screened: Math.min(cleanNames.length, 10) },
         extractor: "pdfjs-worker",
         story_inputs: { story_key: storyKey, goals, riders: [], beneficiary: beneficiary.trim() || undefined, cover: coverPayload(cover) },
       });
@@ -351,6 +382,33 @@ function StoryIntake({
         <p className="flex items-start gap-2 text-xs text-[var(--color-text-muted)]">
           <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Names are used only in this browser to remove the client&apos;s identity before anything is sent. The PDF never leaves this device.
         </p>
+        {file && cleanNames.length > 0 && (
+          <p
+            aria-live="polite"
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-2 text-sm",
+              prepError || ready_prepared?.leaks ? "bg-red-50 text-red-700" : ready_prepared ? "bg-emerald-50 text-emerald-800" : "bg-[var(--color-readonly-bg)] text-[var(--color-text-secondary)]",
+            )}
+          >
+            {prepError ? (
+              <>
+                <AlertTriangle className="h-4 w-4 shrink-0" /> {prepError}
+              </>
+            ) : ready_prepared?.leaks ? (
+              <>
+                <AlertTriangle className="h-4 w-4 shrink-0" /> A name was still found after redaction. Check the spelling as printed on the PDF.
+              </>
+            ) : ready_prepared ? (
+              <>
+                <CheckCircle2 className="h-4 w-4 shrink-0" /> Redacted on this device: {ready_prepared.pageCount} pages read, {ready_prepared.pagesRemoved} identifying item{ready_prepared.pagesRemoved === 1 ? "" : "s"} removed. Nothing has been sent.
+              </>
+            ) : (
+              <>
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> Redacting on this device{isProcessing && progress.totalPages ? ` · page ${progress.currentPage || 1} of ${progress.totalPages}` : "…"}
+              </>
+            )}
+          </p>
+        )}
         {!caseId && (
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-sm">
@@ -382,16 +440,18 @@ function StoryIntake({
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <p className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
             <ShieldCheck className="hidden h-4 w-4 shrink-0 sm:block" />
-            {stage === "redacting"
-              ? `Removing names · page ${progress.currentPage || 1}${progress.totalPages ? ` of ${progress.totalPages}` : ""}`
-              : stage === "sending"
-                ? "Sending the screened text…"
-                : missing.length
-                  ? `To submit, ${missing.join(", ")}.`
-                  : "Names are removed in this browser, then the report is written. About two minutes."}
+            {stage === "sending"
+              ? "Uploading the redacted text…"
+              : missing.length
+                ? `To submit, ${missing.join(", ")}.`
+                : redacting
+                  ? "Redacting the PDF on this device…"
+                  : ready_prepared && !ready_prepared.leaks
+                    ? "Ready. Create report uploads the redacted text and writes the story, about two minutes."
+                    : "Fix the redaction issue above to continue."}
           </p>
           <button type="button" onClick={submit} disabled={!ready} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-[var(--color-accent)] px-5 text-sm font-semibold text-white disabled:opacity-50">
-            {stage || isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {stage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             Create report
           </button>
         </div>
